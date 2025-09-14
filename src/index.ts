@@ -48,9 +48,10 @@ class BCKBServer {
     const __dirname = dirname(__filename);
     
     const config: BCKBConfig = {
-      knowledge_base_path: process.env['BCKB_KB_PATH'] || join(__dirname, '../knowledge-base'),
-      indexes_path: process.env['BCKB_INDEXES_PATH'] || join(__dirname, '../knowledge-base/indexes'),
-      methodologies_path: process.env['BCKB_METHODOLOGIES_PATH'] || join(__dirname, '../methodologies'),
+      // Updated to use embedded knowledge from submodule
+      knowledge_base_path: process.env['BCKB_KB_PATH'] || join(__dirname, '../embedded-knowledge'),
+      indexes_path: process.env['BCKB_INDEXES_PATH'] || join(__dirname, '../embedded-knowledge/indexes'),
+      methodologies_path: process.env['BCKB_METHODOLOGIES_PATH'] || join(__dirname, '../embedded-knowledge/methodologies'),
       cache_size: 1000,
       max_search_results: 20,
       default_bc_version: 'BC22',

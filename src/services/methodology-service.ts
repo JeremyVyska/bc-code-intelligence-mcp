@@ -73,7 +73,8 @@ export class MethodologyService {
   };
 
   constructor(methodologyPath?: string) {
-    this.methodologyPath = methodologyPath || join(process.cwd(), 'methodologies');
+    // Updated to use embedded knowledge from submodule
+    this.methodologyPath = methodologyPath || join(process.cwd(), 'embedded-knowledge', 'methodologies');
     this.indexData = this.loadIndex();
     this.currentSession = {
       intent: null,
