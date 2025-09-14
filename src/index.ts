@@ -13,6 +13,9 @@ import { dirname, join } from 'path';
 import { KnowledgeService } from './services/knowledge-service.js';
 import { CodeAnalysisService } from './services/code-analysis-service.js';
 import { MethodologyService } from './services/methodology-service.js';
+import { LayerService } from './layers/layer-service.js';
+import { ConfigurationLoader } from './config/config-loader.js';
+import { ConfigurationValidator } from './config/config-validator.js';
 import { domainWorkflows } from './workflows/domain-workflows.js';
 import {
   TopicSearchParams,
@@ -20,6 +23,10 @@ import {
   OptimizationWorkflowParams,
   BCKBConfig
 } from './types/bc-knowledge.js';
+import {
+  BCKBConfiguration,
+  ConfigurationLoadResult
+} from './types/index.js';
 
 /**
  * BCKB MCP Server
@@ -30,39 +37,26 @@ import {
  */
 class BCKBServer {
   private server: Server;
-  private knowledgeService: KnowledgeService;
-  private codeAnalysisService: CodeAnalysisService;
-  private methodologyService: MethodologyService;
+  private knowledgeService!: KnowledgeService;
+  private codeAnalysisService!: CodeAnalysisService;
+  private methodologyService!: MethodologyService;
+  private layerService!: LayerService;
+  private configuration!: BCKBConfiguration;
+  private configLoader: ConfigurationLoader;
 
   constructor() {
     // Initialize MCP server
     this.server = new Server(
       {
         name: 'bckb-server',
-        version: '1.0.0',
+        version: '2.0.0', // Updated for Phase 2B
       }
     );
 
-    // Initialize BC knowledge services with embedded knowledge base
-    const __filename = fileURLToPath(import.meta.url);
-    const __dirname = dirname(__filename);
-    
-    const config: BCKBConfig = {
-      // Updated to use embedded knowledge from submodule
-      knowledge_base_path: process.env['BCKB_KB_PATH'] || join(__dirname, '../embedded-knowledge'),
-      indexes_path: process.env['BCKB_INDEXES_PATH'] || join(__dirname, '../embedded-knowledge/indexes'),
-      methodologies_path: process.env['BCKB_METHODOLOGIES_PATH'] || join(__dirname, '../embedded-knowledge/methodologies'),
-      cache_size: 1000,
-      max_search_results: 20,
-      default_bc_version: 'BC22',
-      enable_fuzzy_search: true,
-      search_threshold: 0.6
-    };
+    // Initialize configuration loader
+    this.configLoader = new ConfigurationLoader();
 
-    this.knowledgeService = new KnowledgeService(config);
-    this.codeAnalysisService = new CodeAnalysisService(this.knowledgeService);
-    this.methodologyService = new MethodologyService(config.methodologies_path);
-
+    // Services will be initialized asynchronously in run()
     this.setupToolHandlers();
   }
 
@@ -237,6 +231,130 @@ class BCKBServer {
               },
               required: ['phase', 'completed_items']
             }
+          },
+          {
+            name: 'get_layer_info',
+            description: 'Get information about configured knowledge layers and their priorities',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                include_statistics: {
+                  type: 'boolean',
+                  description: 'Include layer statistics and performance metrics',
+                  default: true
+                }
+              }
+            }
+          },
+          {
+            name: 'resolve_topic_layers',
+            description: 'Show how a topic is resolved across different layers (embedded, git, local overrides)',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                topic_id: {
+                  type: 'string',
+                  description: 'Topic identifier to trace through layer resolution'
+                },
+                show_overrides: {
+                  type: 'boolean',
+                  description: 'Show which layers are overridden',
+                  default: true
+                }
+              },
+              required: ['topic_id']
+            }
+          },
+          {
+            name: 'search_layered_topics',
+            description: 'Search topics across all configured layers with layer-aware results',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                query: {
+                  type: 'string',
+                  description: 'Search query for topics'
+                },
+                layer_filter: {
+                  type: 'array',
+                  items: { type: 'string' },
+                  description: 'Optional filter to specific layers'
+                },
+                include_layer_info: {
+                  type: 'boolean',
+                  description: 'Include source layer information in results',
+                  default: true
+                },
+                limit: {
+                  type: 'number',
+                  description: 'Maximum number of results',
+                  default: 10
+                }
+              },
+              required: ['query']
+            }
+          },
+          {
+            name: 'get_configuration_status',
+            description: 'Get current configuration status, validation results, and system health',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                include_validation: {
+                  type: 'boolean',
+                  description: 'Include configuration validation results',
+                  default: true
+                },
+                include_performance: {
+                  type: 'boolean',
+                  description: 'Include performance metrics',
+                  default: false
+                }
+              }
+            }
+          },
+          {
+            name: 'reload_configuration',
+            description: 'Reload configuration and reinitialize layers (useful during development)',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                force: {
+                  type: 'boolean',
+                  description: 'Force reload even if configuration appears unchanged',
+                  default: false
+                },
+                validate_only: {
+                  type: 'boolean',
+                  description: 'Only validate configuration without reloading',
+                  default: false
+                }
+              }
+            }
+          },
+          {
+            name: 'get_system_analytics',
+            description: 'Get comprehensive system analytics including layer performance, topic distribution, and usage insights',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                include_topic_analytics: {
+                  type: 'boolean',
+                  description: 'Include topic distribution and coverage analytics',
+                  default: true
+                },
+                include_layer_performance: {
+                  type: 'boolean',
+                  description: 'Include layer load times and performance metrics',
+                  default: true
+                },
+                include_configuration_insights: {
+                  type: 'boolean',
+                  description: 'Include configuration optimization recommendations',
+                  default: true
+                }
+              }
+            }
           }
         ]
       };
@@ -397,6 +515,268 @@ class BCKBServer {
             };
           }
 
+          case 'get_layer_info': {
+            const { include_statistics = true } = args as { include_statistics?: boolean };
+
+            const layerInfo = {
+              layers: this.layerService.getLayers().map(layer => ({
+                name: layer.name,
+                priority: layer.priority,
+                enabled: layer.enabled,
+                type: layer.constructor.name,
+                statistics: include_statistics ? layer.getStatistics() : undefined
+              })),
+              configuration: {
+                total_layers: this.configuration.layers.length,
+                enabled_layers: this.configuration.layers.filter(l => l.enabled).length,
+                layer_types: [...new Set(this.configuration.layers.map(l => l.source.type))]
+              }
+            };
+
+            if (include_statistics) {
+              (layerInfo as any).system_statistics = this.layerService.getLayerStatistics();
+            }
+
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(layerInfo, null, 2)
+                }
+              ]
+            };
+          }
+
+          case 'resolve_topic_layers': {
+            const { topic_id, show_overrides = true } = args as { topic_id: string; show_overrides?: boolean };
+
+            const resolution = await this.layerService.resolveTopic(topic_id);
+
+            if (!resolution) {
+              throw new McpError(ErrorCode.InvalidRequest, `Topic not found in any layer: ${topic_id}`);
+            }
+
+            const result = {
+              topic_id,
+              resolved_from: resolution.sourceLayer,
+              is_override: resolution.isOverride,
+              overridden_layers: show_overrides ? resolution.overriddenLayers : [],
+              topic_metadata: {
+                title: resolution.topic.frontmatter.title,
+                domain: resolution.topic.frontmatter.domain,
+                difficulty: resolution.topic.frontmatter.difficulty,
+                last_modified: resolution.topic.lastModified
+              },
+              layer_resolution_path: this.layerService.getLayers()
+                .filter(layer => layer.hasTopic(topic_id))
+                .map(layer => ({
+                  layer_name: layer.name,
+                  priority: layer.priority,
+                  is_source: layer.name === resolution.sourceLayer
+                }))
+                .sort((a, b) => b.priority - a.priority)
+            };
+
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(result, null, 2)
+                }
+              ]
+            };
+          }
+
+          case 'search_layered_topics': {
+            const { query, layer_filter, include_layer_info = true, limit = 10 } = args as {
+              query: string;
+              layer_filter?: string[];
+              include_layer_info?: boolean;
+              limit?: number;
+            };
+
+            const searchParams: TopicSearchParams = {
+              code_context: query,
+              limit
+            };
+
+            const results = await this.layerService.searchTopics(searchParams);
+
+            const enhancedResults = await Promise.all(results.map(async (result) => {
+              const enhanced = { ...result } as any;
+
+              if (include_layer_info) {
+                const resolution = await this.layerService.resolveTopic(result.id);
+                if (resolution) {
+                  enhanced.layer_info = {
+                    source_layer: resolution.sourceLayer,
+                    is_override: resolution.isOverride,
+                    overridden_count: resolution.overriddenLayers.length
+                  };
+                }
+              }
+
+              return enhanced;
+            }));
+
+            // Apply layer filter if specified
+            const filteredResults = layer_filter
+              ? enhancedResults.filter((r: any) =>
+                  r.layer_info && layer_filter.includes(r.layer_info.source_layer))
+              : enhancedResults;
+
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify({
+                    query,
+                    total_results: filteredResults.length,
+                    layer_filter: layer_filter || 'none',
+                    results: filteredResults
+                  }, null, 2)
+                }
+              ]
+            };
+          }
+
+          case 'get_configuration_status': {
+            const { include_validation = true, include_performance = false } = args as {
+              include_validation?: boolean;
+              include_performance?: boolean;
+            };
+
+            const status = {
+              configuration_loaded: !!this.configuration,
+              layers_initialized: this.layerService ? this.layerService.getLayers().length : 0,
+              layer_summary: this.configuration ? {
+                total_layers: this.configuration.layers.length,
+                enabled_layers: this.configuration.layers.filter(l => l.enabled).length,
+                layer_types: this.configuration.layers.reduce((acc, layer) => {
+                  acc[layer.source.type] = (acc[layer.source.type] || 0) + 1;
+                  return acc;
+                }, {} as Record<string, number>)
+              } : null
+            };
+
+            if (include_validation && this.configuration) {
+              const validator = new ConfigurationValidator();
+              const validation = await validator.validate(this.configuration);
+              (status as any).validation = {
+                is_valid: validation.valid,
+                quality_score: validation.score,
+                error_count: validation.errors.length,
+                warning_count: validation.warnings.length,
+                errors: validation.errors.map(e => ({ field: e.field, message: e.message })),
+                warnings: validation.warnings.map(w => ({ type: w.type, message: w.message }))
+              };
+            }
+
+            if (include_performance && this.layerService) {
+              (status as any).performance = this.layerService.getLayerStatistics();
+            }
+
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(status, null, 2)
+                }
+              ]
+            };
+          }
+
+          case 'reload_configuration': {
+            const { force = false, validate_only = false } = args as { force?: boolean; validate_only?: boolean };
+
+            try {
+              // Load fresh configuration
+              const configResult = await this.configLoader.loadConfiguration();
+
+              if (validate_only) {
+                const validator = new ConfigurationValidator();
+                const validation = await validator.validate(configResult.config);
+
+                return {
+                  content: [
+                    {
+                      type: 'text',
+                      text: JSON.stringify({
+                        validation_only: true,
+                        is_valid: validation.valid,
+                        quality_score: validation.score,
+                        errors: validation.errors,
+                        warnings: validation.warnings
+                      }, null, 2)
+                    }
+                  ]
+                };
+              }
+
+              // Reinitialize services if configuration changed or forced
+              if (force || JSON.stringify(configResult.config) !== JSON.stringify(this.configuration)) {
+                await this.initializeServices(configResult);
+
+                return {
+                  content: [
+                    {
+                      type: 'text',
+                      text: JSON.stringify({
+                        reloaded: true,
+                        layers_reinitialized: this.layerService.getLayers().length,
+                        configuration_sources: configResult.sources,
+                        warnings: configResult.warnings
+                      }, null, 2)
+                    }
+                  ]
+                };
+              } else {
+                return {
+                  content: [
+                    {
+                      type: 'text',
+                      text: JSON.stringify({
+                        reloaded: false,
+                        message: 'Configuration unchanged, no reload needed',
+                        current_layers: this.layerService.getLayers().length
+                      }, null, 2)
+                    }
+                  ]
+                };
+              }
+            } catch (error) {
+              throw new McpError(ErrorCode.InternalError,
+                `Configuration reload failed: ${error instanceof Error ? error.message : String(error)}`);
+            }
+          }
+
+          case 'get_system_analytics': {
+            const {
+              include_topic_analytics = true,
+              include_layer_performance = true,
+              include_configuration_insights = true
+            } = args as {
+              include_topic_analytics?: boolean;
+              include_layer_performance?: boolean;
+              include_configuration_insights?: boolean;
+            };
+
+            const analytics = await this.generateSystemAnalytics(
+              include_topic_analytics,
+              include_layer_performance,
+              include_configuration_insights
+            );
+
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(analytics, null, 2)
+                }
+              ]
+            };
+          }
+
           default:
             throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
         }
@@ -407,6 +787,221 @@ class BCKBServer {
         throw new McpError(ErrorCode.InternalError, `Tool execution failed: ${error instanceof Error ? error.message : String(error)}`);
       }
     });
+  }
+
+  /**
+   * Initialize all services with configuration
+   */
+  private async initializeServices(configResult: ConfigurationLoadResult): Promise<void> {
+    console.error('🔧 Initializing BCKB services with layered configuration...');
+
+    // Store configuration
+    this.configuration = configResult.config;
+
+    // Initialize layer service with configuration
+    this.layerService = new LayerService();
+    await this.layerService.initializeFromConfiguration(this.configuration);
+
+    // Initialize legacy knowledge service for backward compatibility
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = dirname(__filename);
+
+    const legacyConfig: BCKBConfig = {
+      knowledge_base_path: process.env['BCKB_KB_PATH'] || join(__dirname, '../embedded-knowledge'),
+      indexes_path: process.env['BCKB_INDEXES_PATH'] || join(__dirname, '../embedded-knowledge/indexes'),
+      methodologies_path: process.env['BCKB_METHODOLOGIES_PATH'] || join(__dirname, '../embedded-knowledge/methodologies'),
+      cache_size: this.configuration.cache.max_size_mb * 1024, // Convert MB to entries approximation
+      max_search_results: 20,
+      default_bc_version: 'BC22',
+      enable_fuzzy_search: true,
+      search_threshold: 0.6
+    };
+
+    this.knowledgeService = new KnowledgeService(legacyConfig);
+    await this.knowledgeService.initialize();
+
+    this.codeAnalysisService = new CodeAnalysisService(this.knowledgeService);
+    this.methodologyService = new MethodologyService(legacyConfig.methodologies_path);
+
+    console.error('✅ All services initialized successfully');
+  }
+
+  /**
+   * Generate comprehensive system analytics
+   */
+  private async generateSystemAnalytics(
+    includeTopicAnalytics: boolean,
+    includeLayerPerformance: boolean,
+    includeConfigurationInsights: boolean
+  ): Promise<any> {
+    const analytics = {
+      timestamp: new Date().toISOString(),
+      system_overview: {
+        server_version: '2.0.0',
+        layers_active: this.layerService?.getLayers().length || 0,
+        configuration_loaded: !!this.configuration,
+        total_topics: this.layerService?.getAllTopicIds().length || 0
+      }
+    } as any;
+
+    if (includeTopicAnalytics && this.layerService) {
+      analytics.topic_analytics = await this.generateTopicAnalytics();
+    }
+
+    if (includeLayerPerformance && this.layerService) {
+      analytics.layer_performance = this.generateLayerPerformanceAnalytics();
+    }
+
+    if (includeConfigurationInsights && this.configuration) {
+      analytics.configuration_insights = await this.generateConfigurationInsights();
+    }
+
+    return analytics;
+  }
+
+  /**
+   * Generate topic distribution and coverage analytics
+   */
+  private async generateTopicAnalytics(): Promise<any> {
+    const allTopicIds = this.layerService.getAllTopicIds();
+    const domainDistribution: Record<string, number> = {};
+    const difficultyDistribution: Record<string, number> = {};
+    const overrideStats = this.layerService.getOverriddenTopics();
+
+    // Analyze a sample of topics for domain/difficulty distribution
+    const sampleSize = Math.min(50, allTopicIds.length);
+    const sampleTopics = allTopicIds.slice(0, sampleSize);
+
+    for (const topicId of sampleTopics) {
+      const resolution = await this.layerService.resolveTopic(topicId);
+      if (resolution) {
+        const domain = resolution.topic.frontmatter.domain;
+        const difficulty = resolution.topic.frontmatter.difficulty;
+
+        domainDistribution[domain] = (domainDistribution[domain] || 0) + 1;
+        difficultyDistribution[difficulty] = (difficultyDistribution[difficulty] || 0) + 1;
+      }
+    }
+
+    return {
+      total_topics: allTopicIds.length,
+      analyzed_sample: sampleSize,
+      domain_distribution: domainDistribution,
+      difficulty_distribution: difficultyDistribution,
+      override_statistics: {
+        total_overrides: Object.keys(overrideStats).length,
+        override_percentage: allTopicIds.length > 0
+          ? ((Object.keys(overrideStats).length / allTopicIds.length) * 100).toFixed(1) + '%'
+          : '0%'
+      },
+      coverage_insights: {
+        domains_covered: Object.keys(domainDistribution).length,
+        difficulty_levels: Object.keys(difficultyDistribution).length,
+        most_common_domain: Object.entries(domainDistribution).sort(([,a], [,b]) => b - a)[0]?.[0] || 'N/A',
+        most_common_difficulty: Object.entries(difficultyDistribution).sort(([,a], [,b]) => b - a)[0]?.[0] || 'N/A'
+      }
+    };
+  }
+
+  /**
+   * Generate layer performance analytics
+   */
+  private generateLayerPerformanceAnalytics(): any {
+    const layerStats = this.layerService.getLayerStatistics();
+    const layers = this.layerService.getLayers();
+
+    const layerMetrics = layers.map(layer => {
+      const stats = layer.getStatistics();
+      return {
+        name: layer.name,
+        priority: layer.priority,
+        enabled: layer.enabled,
+        topic_count: stats.topicCount,
+        index_count: stats.indexCount,
+        memory_usage_mb: stats.memoryUsage?.total ? (stats.memoryUsage.total / (1024 * 1024)).toFixed(2) : 'N/A',
+        load_time_ms: stats.loadTimeMs,
+        type: layer.constructor.name
+      };
+    });
+
+    return {
+      system_totals: {
+        total_layers: layerStats.total.layers,
+        total_topics: layerStats.total.totalTopics,
+        total_indexes: layerStats.total.totalIndexes,
+        total_memory_mb: layerStats.total.memoryUsage ? (layerStats.total.memoryUsage / (1024 * 1024)).toFixed(2) : 'N/A'
+      },
+      layer_metrics: layerMetrics,
+      performance_insights: {
+        fastest_layer: layerMetrics.sort((a, b) => (a.load_time_ms || 0) - (b.load_time_ms || 0))[0]?.name || 'N/A',
+        most_topics: layerMetrics.sort((a, b) => b.topic_count - a.topic_count)[0]?.name || 'N/A',
+        layer_efficiency: layerMetrics.length > 0
+          ? (layerStats.total.totalTopics / layerMetrics.length).toFixed(1) + ' topics/layer avg'
+          : 'N/A'
+      }
+    };
+  }
+
+  /**
+   * Generate configuration optimization insights
+   */
+  private async generateConfigurationInsights(): Promise<any> {
+    const validator = new ConfigurationValidator();
+    const validation = await validator.validate(this.configuration);
+
+    const insights = {
+      configuration_quality: {
+        overall_score: validation.score,
+        is_valid: validation.valid,
+        error_count: validation.errors.length,
+        warning_count: validation.warnings.length
+      },
+      layer_configuration: {
+        total_layers: this.configuration.layers.length,
+        enabled_layers: this.configuration.layers.filter(l => l.enabled).length,
+        layer_types: this.configuration.layers.reduce((acc, layer) => {
+          acc[layer.source.type] = (acc[layer.source.type] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>),
+        priority_distribution: this.configuration.layers.map(l => l.priority).sort((a, b) => a - b)
+      },
+      optimization_recommendations: []
+    } as any;
+
+    // Generate optimization recommendations
+    if (this.configuration.layers.filter(l => l.enabled).length < 2) {
+      insights.optimization_recommendations.push({
+        type: 'layer_diversity',
+        message: 'Consider adding more layer types (git, local overrides) for better customization',
+        impact: 'medium'
+      });
+    }
+
+    if (this.configuration.performance.max_concurrent_loads < 3) {
+      insights.optimization_recommendations.push({
+        type: 'performance',
+        message: 'Increase max_concurrent_loads for better performance on modern systems',
+        impact: 'low'
+      });
+    }
+
+    if (!this.configuration.security.validate_sources) {
+      insights.optimization_recommendations.push({
+        type: 'security',
+        message: 'Enable source validation for better security',
+        impact: 'high'
+      });
+    }
+
+    if (validation.warnings.length > 0) {
+      insights.optimization_recommendations.push({
+        type: 'configuration',
+        message: `Address ${validation.warnings.length} configuration warnings`,
+        impact: 'medium'
+      });
+    }
+
+    return insights;
   }
 
   private async generateOptimizationWorkflow(params: OptimizationWorkflowParams) {
@@ -515,29 +1110,62 @@ class BCKBServer {
 
   async run(): Promise<void> {
     try {
-      console.error('BCKB MCP Server starting...');
-      console.error('Knowledge base path:', this.knowledgeService['config'].knowledge_base_path);
-      console.error('Indexes path:', this.knowledgeService['config'].indexes_path);
-      
-      // Initialize methodology service
-      console.error('Initializing methodology service...');
-      console.error('Methodology path:', this.methodologyService['methodologyPath']);
-      
-      // Initialize knowledge services
-      console.error('Initializing knowledge services...');
-      await this.knowledgeService.initialize();
-      console.error('Knowledge services initialized successfully');
+      console.error('🚀 BCKB MCP Server v2.0 starting...');
+
+      // Load configuration
+      console.error('📋 Loading configuration...');
+      const configResult = await this.configLoader.loadConfiguration();
+
+      if (configResult.validation_errors.length > 0) {
+        console.error('❌ Configuration validation errors:');
+        configResult.validation_errors.forEach(error => {
+          console.error(`   - ${error.field}: ${error.message}`);
+        });
+        process.exit(1);
+      }
+
+      if (configResult.warnings.length > 0) {
+        console.error('⚠️  Configuration warnings:');
+        configResult.warnings.forEach(warning => {
+          console.error(`   - ${warning.type}: ${warning.message}`);
+        });
+      }
+
+      console.error(`✅ Configuration loaded with ${configResult.config.layers.length} layers`);
+
+      // Initialize all services
+      await this.initializeServices(configResult);
 
       // Start MCP server
-      console.error('Starting MCP transport...');
+      console.error('🌐 Starting MCP transport...');
       const transport = new StdioServerTransport();
       await this.server.connect(transport);
-      
-      console.error('BCKB MCP Server started successfully');
+
+      console.error('✅ BCKB MCP Server v2.0 started successfully');
+      console.error(`📊 System Status:`);
+      console.error(`   - ${this.layerService.getLayers().length} layers active`);
+      console.error(`   - ${this.layerService.getAllTopicIds().length} topics available`);
+      console.error(`   - Configuration quality: ${await this.getConfigurationQuality()}/100`);
+
     } catch (error) {
-      console.error('Fatal error during server startup:', error);
+      console.error('💥 Fatal error during server startup:', error);
       console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
       process.exit(1);
+    }
+  }
+
+  /**
+   * Get configuration quality score for startup diagnostics
+   */
+  private async getConfigurationQuality(): Promise<number> {
+    if (!this.configuration) return 0;
+
+    try {
+      const validator = new ConfigurationValidator();
+      const validation = await validator.validate(this.configuration);
+      return validation.score;
+    } catch {
+      return 0;
     }
   }
 }
