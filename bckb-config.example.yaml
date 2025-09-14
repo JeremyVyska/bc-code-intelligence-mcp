@@ -1,0 +1,63 @@
+# BCKB Configuration Example (YAML format)
+# Copy to bckb-config.yaml and customize for your needs
+
+layers:
+  - name: embedded
+    priority: 0
+    source:
+      type: embedded
+    enabled: true
+
+  - name: company-standards
+    priority: 20
+    source:
+      type: git
+      url: "https://github.com/yourcompany/bc-knowledge-base"
+      branch: main
+      subpath: knowledge
+    auth:
+      type: token
+      token_env_var: GITHUB_TOKEN
+    enabled: true
+    cache_duration: "2h"
+
+  - name: project
+    priority: 100
+    source:
+      type: local
+      path: "./bckb-overrides"
+    enabled: true
+
+resolution:
+  strategy: best_match
+  conflict_resolution: priority_wins
+  enable_fallback: true
+
+cache:
+  strategy: moderate
+  ttl:
+    git: "1h"
+    local: immediate
+    embedded: permanent
+  max_size_mb: 100
+  background_refresh: true
+
+security:
+  validate_sources: true
+  allow_http_sources: false
+  trusted_domains:
+    - github.com
+    - gitlab.com
+    - internal-gitlab.company.com
+
+performance:
+  max_concurrent_loads: 5
+  load_timeout_ms: 30000
+  lazy_loading: true
+  preload_embedded: true
+
+developer:
+  debug_layers: false
+  hot_reload: false
+  log_level: info
+  validate_on_startup: true

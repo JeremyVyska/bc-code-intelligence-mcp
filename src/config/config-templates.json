@@ -1,0 +1,164 @@
+{
+  "basic": {
+    "name": "Basic Configuration",
+    "description": "Simple setup with embedded knowledge and project overrides",
+    "config": {
+      "layers": [
+        {
+          "name": "embedded",
+          "priority": 0,
+          "source": { "type": "embedded" },
+          "enabled": true
+        },
+        {
+          "name": "project",
+          "priority": 100,
+          "source": { "type": "local", "path": "./bckb-overrides" },
+          "enabled": true
+        }
+      ]
+    }
+  },
+  "company": {
+    "name": "Company Setup",
+    "description": "Enterprise setup with company standards from git repository",
+    "config": {
+      "layers": [
+        {
+          "name": "embedded",
+          "priority": 0,
+          "source": { "type": "embedded" },
+          "enabled": true
+        },
+        {
+          "name": "company-standards",
+          "priority": 20,
+          "source": {
+            "type": "git",
+            "url": "${BCKB_COMPANY_KNOWLEDGE_URL}",
+            "branch": "main",
+            "subpath": "knowledge"
+          },
+          "auth": {
+            "type": "token",
+            "token_env_var": "BCKB_COMPANY_TOKEN"
+          },
+          "enabled": true
+        },
+        {
+          "name": "project",
+          "priority": 100,
+          "source": { "type": "local", "path": "./bckb-overrides" },
+          "enabled": true
+        }
+      ],
+      "cache": {
+        "strategy": "moderate",
+        "ttl": {
+          "git": "1h",
+          "local": "immediate",
+          "embedded": "permanent"
+        }
+      }
+    }
+  },
+  "enterprise": {
+    "name": "Enterprise Multi-Team",
+    "description": "Full enterprise setup with multiple organizational layers",
+    "config": {
+      "layers": [
+        {
+          "name": "embedded",
+          "priority": 0,
+          "source": { "type": "embedded" },
+          "enabled": true
+        },
+        {
+          "name": "enterprise-base",
+          "priority": 10,
+          "source": {
+            "type": "git",
+            "url": "https://internal-gitlab.company.com/bc/enterprise-knowledge",
+            "branch": "main"
+          },
+          "auth": { "type": "ssh", "key_path": "~/.ssh/company_rsa" },
+          "enabled": true
+        },
+        {
+          "name": "division",
+          "priority": 20,
+          "source": {
+            "type": "git",
+            "url": "https://internal-gitlab.company.com/bc/finance-division-knowledge"
+          },
+          "patterns": ["finance/*", "compliance/*"],
+          "enabled": true
+        },
+        {
+          "name": "team",
+          "priority": 30,
+          "source": { "type": "local", "path": "/shared/team-knowledge" },
+          "patterns": ["performance/*", "testing/*"],
+          "enabled": true
+        },
+        {
+          "name": "project",
+          "priority": 100,
+          "source": { "type": "local", "path": "./bckb-overrides" },
+          "enabled": true
+        }
+      ],
+      "security": {
+        "validate_sources": true,
+        "trusted_domains": ["internal-gitlab.company.com"],
+        "allow_http_sources": false
+      },
+      "cache": {
+        "strategy": "aggressive",
+        "max_size_mb": 200
+      },
+      "performance": {
+        "max_concurrent_loads": 10,
+        "memory_limit_mb": 1000
+      }
+    }
+  },
+  "development": {
+    "name": "Development Setup",
+    "description": "Developer-friendly configuration with debugging enabled",
+    "config": {
+      "layers": [
+        {
+          "name": "embedded",
+          "priority": 0,
+          "source": { "type": "embedded" },
+          "enabled": true
+        },
+        {
+          "name": "local-dev",
+          "priority": 50,
+          "source": { "type": "local", "path": "~/bckb-dev-knowledge" },
+          "enabled": true,
+          "cache_duration": "immediate"
+        },
+        {
+          "name": "project",
+          "priority": 100,
+          "source": { "type": "local", "path": "./bckb-overrides" },
+          "enabled": true
+        }
+      ],
+      "developer": {
+        "debug_layers": true,
+        "hot_reload": true,
+        "log_level": "debug",
+        "profile_performance": true,
+        "validate_on_startup": true
+      },
+      "cache": {
+        "strategy": "minimal",
+        "clear_on_startup": true
+      }
+    }
+  }
+}

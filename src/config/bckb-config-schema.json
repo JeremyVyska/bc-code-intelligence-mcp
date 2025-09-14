@@ -1,0 +1,368 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.bckb.dev/config/v1",
+  "title": "BCKB Configuration Schema",
+  "description": "Configuration schema for Business Central Knowledge Base MCP server",
+  "type": "object",
+  "required": ["layers"],
+  "properties": {
+    "layers": {
+      "type": "array",
+      "description": "Knowledge layers in priority order",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/definitions/LayerConfiguration"
+      }
+    },
+    "resolution": {
+      "$ref": "#/definitions/ResolutionSettings"
+    },
+    "cache": {
+      "$ref": "#/definitions/CacheSettings"
+    },
+    "security": {
+      "$ref": "#/definitions/SecuritySettings"
+    },
+    "performance": {
+      "$ref": "#/definitions/PerformanceSettings"
+    },
+    "developer": {
+      "$ref": "#/definitions/DeveloperSettings"
+    }
+  },
+  "definitions": {
+    "LayerConfiguration": {
+      "type": "object",
+      "required": ["name", "priority", "source", "enabled"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Unique layer name",
+          "pattern": "^[a-zA-Z][a-zA-Z0-9_-]*$"
+        },
+        "priority": {
+          "type": "integer",
+          "description": "Layer priority (higher numbers override lower)",
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "source": {
+          "$ref": "#/definitions/LayerSource"
+        },
+        "enabled": {
+          "type": "boolean",
+          "description": "Whether layer is active"
+        },
+        "patterns": {
+          "type": "array",
+          "description": "File patterns to include from this layer",
+          "items": {
+            "type": "string"
+          }
+        },
+        "cache_duration": {
+          "type": "string",
+          "description": "Cache duration override (e.g., '1h', '30m')",
+          "pattern": "^(\\d+)(ms|s|m|h|d|w|permanent|immediate)$"
+        },
+        "auth": {
+          "$ref": "#/definitions/AuthConfiguration"
+        }
+      }
+    },
+    "LayerSource": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["embedded", "git", "local", "http", "npm"]
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "type": { "const": "embedded" },
+            "path": {
+              "type": "string",
+              "description": "Path to embedded knowledge"
+            }
+          }
+        },
+        {
+          "properties": {
+            "type": { "const": "git" },
+            "url": {
+              "type": "string",
+              "format": "uri",
+              "description": "Git repository URL"
+            },
+            "branch": {
+              "type": "string",
+              "description": "Git branch to use"
+            },
+            "subpath": {
+              "type": "string",
+              "description": "Path within repository"
+            }
+          },
+          "required": ["url"]
+        },
+        {
+          "properties": {
+            "type": { "const": "local" },
+            "path": {
+              "type": "string",
+              "description": "Local filesystem path"
+            }
+          },
+          "required": ["path"]
+        },
+        {
+          "properties": {
+            "type": { "const": "http" },
+            "url": {
+              "type": "string",
+              "format": "uri",
+              "description": "HTTP URL to knowledge archive"
+            }
+          },
+          "required": ["url"]
+        },
+        {
+          "properties": {
+            "type": { "const": "npm" },
+            "package": {
+              "type": "string",
+              "description": "NPM package name"
+            }
+          },
+          "required": ["package"]
+        }
+      ]
+    },
+    "AuthConfiguration": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["token", "ssh", "basic", "oauth"]
+        },
+        "token": {
+          "type": "string",
+          "description": "Authentication token"
+        },
+        "token_env_var": {
+          "type": "string",
+          "description": "Environment variable containing token"
+        },
+        "username": {
+          "type": "string",
+          "description": "Username for basic auth"
+        },
+        "password": {
+          "type": "string",
+          "description": "Password for basic auth"
+        },
+        "password_env_var": {
+          "type": "string",
+          "description": "Environment variable containing password"
+        },
+        "key_path": {
+          "type": "string",
+          "description": "Path to SSH private key"
+        },
+        "client_id": {
+          "type": "string",
+          "description": "OAuth client ID"
+        },
+        "client_secret": {
+          "type": "string",
+          "description": "OAuth client secret"
+        }
+      }
+    },
+    "ResolutionSettings": {
+      "type": "object",
+      "properties": {
+        "strategy": {
+          "type": "string",
+          "enum": ["first_match", "best_match", "merge_all"],
+          "default": "best_match"
+        },
+        "conflict_resolution": {
+          "type": "string",
+          "enum": ["priority_wins", "user_choice", "merge_smart"],
+          "default": "priority_wins"
+        },
+        "enable_fallback": {
+          "type": "boolean",
+          "default": true
+        },
+        "fallback_to_embedded": {
+          "type": "boolean",
+          "default": true
+        }
+      }
+    },
+    "CacheSettings": {
+      "type": "object",
+      "properties": {
+        "strategy": {
+          "type": "string",
+          "enum": ["none", "minimal", "moderate", "aggressive"],
+          "default": "moderate"
+        },
+        "ttl": {
+          "$ref": "#/definitions/CacheTTLSettings"
+        },
+        "max_size_mb": {
+          "type": "integer",
+          "minimum": 10,
+          "maximum": 10000,
+          "default": 100
+        },
+        "clear_on_startup": {
+          "type": "boolean",
+          "default": false
+        },
+        "background_refresh": {
+          "type": "boolean",
+          "default": true
+        }
+      }
+    },
+    "CacheTTLSettings": {
+      "type": "object",
+      "properties": {
+        "git": {
+          "type": "string",
+          "pattern": "^(\\d+)(ms|s|m|h|d|w|permanent|immediate)$",
+          "default": "1h"
+        },
+        "local": {
+          "type": "string",
+          "pattern": "^(\\d+)(ms|s|m|h|d|w|permanent|immediate)$",
+          "default": "immediate"
+        },
+        "http": {
+          "type": "string",
+          "pattern": "^(\\d+)(ms|s|m|h|d|w|permanent|immediate)$",
+          "default": "30m"
+        },
+        "embedded": {
+          "type": "string",
+          "pattern": "^(\\d+)(ms|s|m|h|d|w|permanent|immediate)$",
+          "default": "permanent"
+        },
+        "npm": {
+          "type": "string",
+          "pattern": "^(\\d+)(ms|s|m|h|d|w|permanent|immediate)$",
+          "default": "24h"
+        }
+      }
+    },
+    "SecuritySettings": {
+      "type": "object",
+      "properties": {
+        "validate_sources": {
+          "type": "boolean",
+          "default": true
+        },
+        "allow_local_paths": {
+          "type": "boolean",
+          "default": true
+        },
+        "allow_http_sources": {
+          "type": "boolean",
+          "default": false
+        },
+        "trusted_domains": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "hostname"
+          }
+        },
+        "max_download_size_mb": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000,
+          "default": 50
+        },
+        "scan_for_malicious_content": {
+          "type": "boolean",
+          "default": true
+        }
+      }
+    },
+    "PerformanceSettings": {
+      "type": "object",
+      "properties": {
+        "max_concurrent_loads": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 20,
+          "default": 5
+        },
+        "load_timeout_ms": {
+          "type": "integer",
+          "minimum": 5000,
+          "maximum": 300000,
+          "default": 30000
+        },
+        "max_layers": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 20
+        },
+        "lazy_loading": {
+          "type": "boolean",
+          "default": true
+        },
+        "preload_embedded": {
+          "type": "boolean",
+          "default": true
+        },
+        "memory_limit_mb": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 5000,
+          "default": 500
+        }
+      }
+    },
+    "DeveloperSettings": {
+      "type": "object",
+      "properties": {
+        "debug_layers": {
+          "type": "boolean",
+          "default": false
+        },
+        "hot_reload": {
+          "type": "boolean",
+          "default": false
+        },
+        "log_level": {
+          "type": "string",
+          "enum": ["error", "warn", "info", "debug"],
+          "default": "info"
+        },
+        "profile_performance": {
+          "type": "boolean",
+          "default": false
+        },
+        "validate_on_startup": {
+          "type": "boolean",
+          "default": true
+        },
+        "export_config_schema": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    }
+  }
+}

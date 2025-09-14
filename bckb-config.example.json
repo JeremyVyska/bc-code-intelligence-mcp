@@ -1,0 +1,35 @@
+{
+  "$schema": "./src/config/bckb-config-schema.json",
+  "layers": [
+    {
+      "name": "embedded",
+      "priority": 0,
+      "source": {
+        "type": "embedded"
+      },
+      "enabled": true
+    },
+    {
+      "name": "project",
+      "priority": 100,
+      "source": {
+        "type": "local",
+        "path": "./bckb-overrides"
+      },
+      "enabled": true
+    }
+  ],
+  "cache": {
+    "strategy": "moderate",
+    "ttl": {
+      "git": "1h",
+      "local": "immediate",
+      "embedded": "permanent"
+    }
+  },
+  "developer": {
+    "debug_layers": false,
+    "hot_reload": false,
+    "log_level": "info"
+  }
+}

@@ -1,8 +1,9 @@
 /**
- * Layer Service
+ * Enhanced Layer Service
  *
  * Central service for managing and resolving knowledge from multiple layers.
- * Handles layer initialization, topic resolution with override logic, and
+ * Supports configuration-driven layer loading with git repositories,
+ * handles layer initialization, topic resolution with override logic, and
  * provides unified access to layered knowledge system.
  */
 
@@ -21,8 +22,17 @@ import {
   OverrideStrategy
 } from '../types/layer-types.js';
 
+import {
+  BCKBConfiguration,
+  LayerConfiguration,
+  LayerSourceType,
+  AuthConfiguration,
+  ConfigLayerLoadResult
+} from '../types/index.js';
+
 import { EmbeddedKnowledgeLayer } from './embedded-layer.js';
 import { ProjectKnowledgeLayer } from './project-layer.js';
+import { GitKnowledgeLayer } from './git-layer.js';
 import Fuse from 'fuse.js';
 
 export class LayerService {
@@ -37,11 +47,78 @@ export class LayerService {
     private readonly projectPath: string = './bckb-overrides',
     private readonly config: Partial<LayerSystemConfig> = {}
   ) {
-    this.initializeLayers();
+    // Don't initialize layers automatically anymore
+    // They will be initialized via initializeFromConfiguration or initializeLayers
   }
 
   /**
-   * Initialize the default layer stack
+   * Initialize layers from BCKB configuration
+   */
+  async initializeFromConfiguration(config: BCKBConfiguration): Promise<ConfigLayerLoadResult[]> {
+    console.log(`🔧 Initializing ${config.layers.length} layers from configuration...`);
+
+    const results: ConfigLayerLoadResult[] = [];
+    this.layers = [];
+
+    // Create layers based on configuration in priority order
+    const sortedLayers = [...config.layers]
+      .filter(layer => layer.enabled)
+      .sort((a, b) => a.priority - b.priority);
+
+    for (const layerConfig of sortedLayers) {
+      try {
+        console.log(`📦 Creating layer: ${layerConfig.name} (priority: ${layerConfig.priority})`);
+
+        const layer = await this.createLayerFromConfig(layerConfig);
+        this.layers.push(layer);
+
+        // Initialize the layer
+        const result = await layer.initialize();
+        results.push({
+          layer_name: layerConfig.name,
+          success: result.success,
+          topics_loaded: result.topicsLoaded,
+          load_time_ms: result.loadTimeMs,
+          errors: result.error ? [result.error] : [],
+          warnings: [],
+          source_info: {
+            type: layerConfig.source.type,
+            location: this.getLayerLocation(layerConfig),
+            last_updated: new Date()
+          }
+        });
+
+        this.loadResults.set(layerConfig.name, result);
+
+      } catch (error) {
+        const errorMessage = `Failed to create layer ${layerConfig.name}: ${error instanceof Error ? error.message : String(error)}`;
+        console.error(`❌ ${errorMessage}`);
+
+        results.push({
+          layer_name: layerConfig.name,
+          success: false,
+          topics_loaded: 0,
+          load_time_ms: 0,
+          errors: [errorMessage],
+          warnings: [],
+          source_info: {
+            type: layerConfig.source.type,
+            location: this.getLayerLocation(layerConfig)
+          }
+        });
+      }
+    }
+
+    // Build resolution index
+    await this.buildResolutionIndex();
+    this.initialized = true;
+
+    console.log(`✅ Initialized ${results.length} layers successfully`);
+    return results;
+  }
+
+  /**
+   * Initialize the default layer stack (legacy method)
    */
   private initializeLayers(): void {
     // Add layers in priority order (lowest to highest priority)
@@ -150,6 +227,77 @@ export class LayerService {
       this.loadResults.set(layer.name, result);
       throw error;
     }
+  }
+
+  /**
+   * Create a layer from configuration
+   */
+  private async createLayerFromConfig(config: LayerConfiguration): Promise<IKnowledgeLayer> {
+    switch (config.source.type) {
+      case LayerSourceType.EMBEDDED:
+        return new EmbeddedKnowledgeLayer(
+          config.source.path || this.embeddedPath
+        );
+
+      case LayerSourceType.GIT:
+        if (!('url' in config.source) || !config.source.url) {
+          throw new Error(`Git layer ${config.name} requires URL`);
+        }
+        return new GitKnowledgeLayer(
+          config.name,
+          config.priority,
+          config.source as any, // Cast to avoid type issues
+          config.auth
+        );
+
+      case LayerSourceType.LOCAL:
+        if (!('path' in config.source) || !config.source.path) {
+          throw new Error(`Local layer ${config.name} requires path`);
+        }
+        return new ProjectKnowledgeLayer(config.source.path);
+
+      case LayerSourceType.HTTP:
+        throw new Error(`HTTP layers not yet implemented for ${config.name}`);
+
+      case LayerSourceType.NPM:
+        throw new Error(`NPM layers not yet implemented for ${config.name}`);
+
+      default:
+        throw new Error(`Unsupported layer type for ${config.name}: ${config.source.type}`);
+    }
+  }
+
+  /**
+   * Get location string for a layer configuration
+   */
+  private getLayerLocation(config: LayerConfiguration): string {
+    switch (config.source.type) {
+      case LayerSourceType.GIT:
+        return 'url' in config.source ? config.source.url || '' : '';
+      case LayerSourceType.LOCAL:
+        return 'path' in config.source ? config.source.path || '' : '';
+      case LayerSourceType.EMBEDDED:
+        return 'path' in config.source ? config.source.path || this.embeddedPath : this.embeddedPath;
+      case LayerSourceType.HTTP:
+        return 'url' in config.source ? config.source.url || '' : '';
+      case LayerSourceType.NPM:
+        return 'package' in config.source ? config.source.package || '' : '';
+      default:
+        return 'unknown';
+    }
+  }
+
+  /**
+   * Build resolution index after configuration-based initialization
+   */
+  private async buildResolutionIndex(): Promise<void> {
+    // Clear cache
+    this.topicCache.clear();
+
+    // Build unified search index
+    this.buildUnifiedSearchIndex();
+
+    console.log(`📚 Built resolution index for ${this.layers.length} layers`);
   }
 
   /**
