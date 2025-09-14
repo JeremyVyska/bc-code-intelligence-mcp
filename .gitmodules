@@ -1,0 +1,3 @@
+[submodule "embedded-knowledge"]
+	path = embedded-knowledge
+	url = https://github.com/JeremyVyska/bc-knowledgebase.git
