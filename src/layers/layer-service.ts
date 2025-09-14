@@ -33,6 +33,7 @@ import {
 import { EmbeddedKnowledgeLayer } from './embedded-layer.js';
 import { ProjectKnowledgeLayer } from './project-layer.js';
 import { GitKnowledgeLayer } from './git-layer.js';
+import { AdvancedCacheManager } from '../cache/cache-manager.js';
 import Fuse from 'fuse.js';
 
 export class LayerService {
@@ -41,6 +42,7 @@ export class LayerService {
   private loadResults: Map<string, LayerLoadResult> = new Map();
   private topicCache = new Map<string, LayerResolutionResult>();
   private searchIndex: Fuse<AtomicTopic> | null = null;
+  private cacheManager: AdvancedCacheManager | null = null;
 
   constructor(
     private readonly embeddedPath: string = './embedded-knowledge',
@@ -56,6 +58,10 @@ export class LayerService {
    */
   async initializeFromConfiguration(config: BCKBConfiguration): Promise<ConfigLayerLoadResult[]> {
     console.log(`🔧 Initializing ${config.layers.length} layers from configuration...`);
+
+    // Initialize advanced cache manager
+    this.cacheManager = new AdvancedCacheManager(config.cache);
+    console.log(`💾 Advanced cache manager initialized with ${config.cache.max_size_mb}MB limit`);
 
     const results: ConfigLayerLoadResult[] = [];
     this.layers = [];
@@ -111,6 +117,12 @@ export class LayerService {
 
     // Build resolution index
     await this.buildResolutionIndex();
+
+    // Warm up cache with frequently accessed topics
+    if (this.cacheManager) {
+      await this.warmUpCache(config);
+    }
+
     this.initialized = true;
 
     console.log(`✅ Initialized ${results.length} layers successfully`);
@@ -350,7 +362,21 @@ export class LayerService {
       await this.initialize();
     }
 
-    // Check cache first
+    // Check advanced cache first if available
+    if (this.cacheManager) {
+      const cachedTopic = this.cacheManager.getTopic(topicId);
+      if (cachedTopic) {
+        // Return a resolution result from cached topic
+        return {
+          topic: cachedTopic,
+          sourceLayer: 'cache', // We'd need to store source layer info in cache
+          isOverride: false,
+          overriddenLayers: []
+        };
+      }
+    }
+
+    // Check legacy cache
     const cached = this.topicCache.get(topicId);
     if (cached) {
       return cached;
@@ -391,8 +417,16 @@ export class LayerService {
       overriddenLayers
     };
 
-    // Cache the result
+    // Cache the result in both caches
     this.topicCache.set(topicId, result);
+
+    if (this.cacheManager && resolvedTopic) {
+      // Determine source type for intelligent TTL
+      const sourceLayer = this.layers.find(l => l.name === result.sourceLayer);
+      const sourceType = this.getSourceTypeForLayer(sourceLayer);
+      this.cacheManager.cacheTopic(topicId, resolvedTopic, sourceType);
+    }
+
     return result;
   }
 
@@ -490,8 +524,27 @@ export class LayerService {
    */
   async refreshCache(): Promise<void> {
     this.topicCache.clear();
+
+    if (this.cacheManager) {
+      this.cacheManager.clearAll();
+    }
+
     this.initialized = false;
     await this.initialize();
+  }
+
+  /**
+   * Get cache statistics for monitoring
+   */
+  getCacheStats() {
+    if (!this.cacheManager) {
+      return { advanced_cache_enabled: false };
+    }
+
+    return {
+      advanced_cache_enabled: true,
+      ...this.cacheManager.getStats()
+    };
   }
 
   /**
@@ -551,5 +604,57 @@ export class LayerService {
       // For now, accept all results
       return true; // TODO: Implement proper BC version filtering
     });
+  }
+
+  /**
+   * Get source type for cache TTL determination
+   */
+  private getSourceTypeForLayer(layer: IKnowledgeLayer | undefined): 'git' | 'local' | 'embedded' | 'http' | 'npm' {
+    if (!layer) return 'embedded';
+
+    const layerType = layer.constructor.name;
+    switch (layerType) {
+      case 'GitKnowledgeLayer': return 'git';
+      case 'ProjectKnowledgeLayer': return 'local';
+      case 'EmbeddedKnowledgeLayer': return 'embedded';
+      default: return 'embedded';
+    }
+  }
+
+  /**
+   * Warm up cache with frequently accessed topics
+   */
+  private async warmUpCache(config: BCKBConfiguration): Promise<void> {
+    if (!this.cacheManager) return;
+
+    console.log('🔥 Warming up advanced cache...');
+
+    const warmUpTopics: Array<{ key: string; topic: AtomicTopic; sourceType: any }> = [];
+
+    // Sample some topics from each layer for warm-up
+    for (const layer of this.layers) {
+      const topicIds = layer.getTopicIds().slice(0, 10); // First 10 topics per layer
+      const sourceType = this.getSourceTypeForLayer(layer);
+
+      for (const topicId of topicIds) {
+        try {
+          const topic = await layer.getTopic(topicId);
+          if (topic) {
+            warmUpTopics.push({
+              key: topicId,
+              topic,
+              sourceType
+            });
+          }
+        } catch (error) {
+          // Skip topics that fail to load during warm-up
+          continue;
+        }
+      }
+    }
+
+    if (warmUpTopics.length > 0) {
+      await this.cacheManager.warmUpCache(warmUpTopics);
+    }
   }
 }
