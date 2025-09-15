@@ -6,7 +6,7 @@
   "type": "module",
   "files": [
     "dist/",
-    "knowledge-base/"
+    "embedded-knowledge/"
   ],
   "bin": {
     "bckb": "dist/cli/bckb-cli.js",
