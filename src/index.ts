@@ -454,7 +454,7 @@ class BCKBServer {
 
           case 'load_methodology': {
             const { user_request, domain = 'business-central' } = args as { user_request: string; domain?: string };
-            const result = this.methodologyService.loadMethodology({ user_request, domain });
+            const result = await this.methodologyService.loadMethodology({ user_request, domain });
 
             return {
               content: [
@@ -473,10 +473,10 @@ class BCKBServer {
 
           case 'get_phase_guidance': {
             const { phase_name, step } = args as { phase_name: string; step?: string };
-            const result = this.methodologyService.getPhaseGuidance({ phase_name, step });
+            const result = await this.methodologyService.getPhaseGuidance({ phase_name, step });
 
             if ('error' in result) {
-              throw new McpError(ErrorCode.InvalidRequest, result.error);
+              throw new McpError(ErrorCode.InvalidRequest, result.error as string);
             }
 
             return {
@@ -497,7 +497,7 @@ class BCKBServer {
 
           case 'validate_completeness': {
             const { phase, completed_items } = args as { phase: string; completed_items: string[] };
-            const result = this.methodologyService.validateCompleteness({ phase, completed_items });
+            const result = await this.methodologyService.validateCompleteness({ phase, completed_items });
 
             return {
               content: [
@@ -821,7 +821,7 @@ class BCKBServer {
     await this.knowledgeService.initialize();
 
     this.codeAnalysisService = new CodeAnalysisService(this.knowledgeService);
-    this.methodologyService = new MethodologyService(legacyConfig.methodologies_path);
+    this.methodologyService = new MethodologyService(this.knowledgeService, legacyConfig.methodologies_path);
 
     console.error('✅ All services initialized successfully');
   }
