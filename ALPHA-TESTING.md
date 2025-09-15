@@ -31,7 +31,7 @@ Update your Claude Desktop `claude_desktop_config.json`:
   "mcpServers": {
     "bckb": {
       "command": "npx",
-      "args": ["bckb-mcp-server@alpha"]
+      "args": ["--package=bckb-mcp-server@alpha", "bckb-server"]
     }
   }
 }
