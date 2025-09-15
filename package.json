@@ -1,5 +1,5 @@
 {
-  "name": "@bckb/mcp-server",
+  "name": "bckb-mcp-server",
   "version": "0.1.0-alpha.1",
   "description": "Business Central Knowledge Base MCP Server - Intelligent BC knowledge discovery and optimization guidance",
   "main": "dist/index.js",

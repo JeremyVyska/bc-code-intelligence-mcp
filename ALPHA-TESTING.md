@@ -1,12 +1,12 @@
 # BCKB MCP Server - Alpha Testing Guide
 
-🧪 **Alpha Release**: `@bckb/mcp-server@0.1.0-alpha.1`
+🧪 **Alpha Release**: `bckb-mcp-server@0.1.0-alpha.1`
 
 ## Quick Start for Alpha Testers
 
 ### 1. Install via NPM
 ```bash
-npm install -g @bckb/mcp-server@alpha
+npm install -g bckb-mcp-server@alpha
 ```
 
 ### 2. Test CLI (optional)
