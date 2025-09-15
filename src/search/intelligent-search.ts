@@ -124,7 +124,7 @@ export class IntelligentSearchEngine {
 
       const smartResult: SmartSearchResult = {
         ...baseResult,
-        relevance_reasons: this.calculateRelevanceReasons(topic, query, context, result.matches || []),
+        relevance_reasons: this.calculateRelevanceReasons(topic, query, context, Array.from(result.matches || [])),
         learning_path_position: this.calculateLearningPathPosition(topic, context),
         prerequisite_satisfaction_score: this.calculatePrerequisiteSatisfaction(topic, context),
         difficulty_match_score: this.calculateDifficultyMatch(topic, context),

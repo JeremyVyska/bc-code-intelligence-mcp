@@ -55,6 +55,14 @@ export class ConfigurationLoader {
         type: 'default',
         priority: 0
       });
+      // Resolve relative paths in default config to absolute paths
+      config.layers.forEach(layer => {
+        if (layer.source.type === 'embedded' && layer.source.path === 'embedded-knowledge') {
+          const __filename = fileURLToPath(import.meta.url);
+          const __dirname = dirname(__filename);
+          layer.source.path = join(__dirname, '../../embedded-knowledge');
+        }
+      });
 
       // 2. Load from environment variable specified config file
       const customConfigPath = process.env['BCKB_CONFIG_PATH'];

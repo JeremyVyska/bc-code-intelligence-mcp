@@ -6,7 +6,7 @@
  */
 
 import { access, stat, constants } from 'fs/promises';
-import { resolve } from 'path';
+import { resolve, join } from 'path';
 import { homedir } from 'os';
 
 import {
@@ -357,7 +357,7 @@ export class ConfigurationValidator {
     errors: ValidationError[],
     warnings: ConfigurationWarning[]
   ): Promise<void> {
-    const embeddedPath = source.path || './embedded-knowledge';
+    const embeddedPath = source.path || join(__dirname, '../embedded-knowledge');
 
     try {
       await access(embeddedPath, constants.R_OK);

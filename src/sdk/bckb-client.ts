@@ -53,6 +53,7 @@ export interface BCKBTopic {
   content: string;
   word_count: number;
   last_modified: string;
+  relevance_score?: number;
   samples?: {
     file_path: string;
     code: string;
@@ -94,8 +95,7 @@ export class BCKBClient extends EventEmitter {
     super();
 
     this.client = new Client(
-      { name: 'bckb-client', version: '1.0.0' },
-      { capabilities: {} }
+      { name: 'bckb-client', version: '1.0.0', capabilities: {} }
     );
 
     if (this.config.debug_logging) {
@@ -136,6 +136,7 @@ export class BCKBClient extends EventEmitter {
   /**
    * Disconnect from the server
    */
+
   async disconnect(): Promise<void> {
     if (!this.connected) return;
 
@@ -315,7 +316,7 @@ export class BCKBClient extends EventEmitter {
         CallToolRequestSchema
       );
 
-      return response.tools || [];
+      return (response as any).tools || [];
     } catch (error) {
       this.emit('error', error);
       throw error;
@@ -389,7 +390,7 @@ export class BCKBClient extends EventEmitter {
 
   // Private helper methods
 
-  private async callTool(toolName: string, args: any): Promise<any> {
+  async callTool(toolName: string, args: any): Promise<any> {
     this.ensureConnected();
 
     // Check cache first

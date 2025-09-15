@@ -7,7 +7,7 @@ import { ConfigurationLoader } from './config-loader.js';
 import { LayerService } from '../layers/layer-service.js';
 import { LayerSourceType, AuthType } from '../types/index.js';
 
-async function testEnhancedLayerService() {
+async function testEnhancedLayerService(): Promise<void> {
   console.log('🔧 Testing Enhanced Layer Service...');
 
   try {
@@ -107,7 +107,7 @@ async function testEnhancedLayerService() {
     }
 
     console.log('\n✅ Enhanced layer service test completed successfully!');
-    return initResults;
+    
 
   } catch (error) {
     console.error('❌ Enhanced layer service test failed:', error instanceof Error ? error.message : String(error));

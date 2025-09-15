@@ -5,8 +5,9 @@
  * This is the base layer (Layer 0) that provides the core BC knowledge content.
  */
 
+import { fileURLToPath } from 'url';
 import { readFile, readdir, stat } from 'fs/promises';
-import { join, basename, extname } from 'path';
+import { join, basename, extname, dirname } from 'path';
 import * as yaml from 'yaml';
 import glob from 'fast-glob';
 
@@ -16,7 +17,11 @@ import { BaseKnowledgeLayer } from './base-layer.js';
 
 export class EmbeddedKnowledgeLayer extends BaseKnowledgeLayer {
   constructor(
-    private readonly embeddedPath: string = './embedded-knowledge'
+    private readonly embeddedPath: string = (() => {
+      const __filename = fileURLToPath(import.meta.url);
+      const __dirname = dirname(__filename);
+      return join(__dirname, '../../embedded-knowledge');
+    })()
   ) {
     super('embedded', LayerPriority.EMBEDDED, true);
   }

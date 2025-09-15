@@ -7,6 +7,8 @@
  * provides unified access to layered knowledge system.
  */
 
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 import {
   AtomicTopic,
   TopicSearchParams,
@@ -45,7 +47,11 @@ export class LayerService {
   private cacheManager: AdvancedCacheManager | null = null;
 
   constructor(
-    private readonly embeddedPath: string = './embedded-knowledge',
+    private readonly embeddedPath: string = (() => {
+      const __filename = fileURLToPath(import.meta.url);
+      const __dirname = dirname(__filename);
+      return join(__dirname, '../../embedded-knowledge');
+    })(),
     private readonly projectPath: string = './bckb-overrides',
     private readonly config: Partial<LayerSystemConfig> = {}
   ) {

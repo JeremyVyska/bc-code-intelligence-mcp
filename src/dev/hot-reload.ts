@@ -194,7 +194,7 @@ export class HotReloadSystem extends EventEmitter {
           .on('change', () => this.handleConfigurationFileChange(configPath))
           .on('error', (error) => {
             if (this.verboseLogging) {
-              console.log(`📝 Config file watcher error for ${configPath}:`, error.message);
+              console.log(`📝 Config file watcher error for ${configPath}:`, (error as Error).message);
             }
           });
 
@@ -252,7 +252,7 @@ export class HotReloadSystem extends EventEmitter {
           .on('unlink', (path) => this.handleLayerChange(layerConfig.name, path, 'removed'))
           .on('error', (error) => {
             if (this.verboseLogging) {
-              console.warn(`🔥 Layer watcher error for ${layerConfig.name}:`, error.message);
+              console.warn(`🔥 Layer watcher error for ${layerConfig.name}:`, (error as Error).message);
             }
           });
 

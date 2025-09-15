@@ -208,7 +208,7 @@ export class SecurityManager extends EventEmitter {
     sourceUrl: string,
     sourceType: string,
     content?: string
-  ): Promise<{ secure: boolean; warnings: string[]; blocked_content?: string[] }> {
+  ): Promise<{ secure: boolean; warnings: string[]; blockedContent?: string[] }> {
     const warnings: string[] = [];
     const blockedContent: string[] = [];
 
@@ -270,12 +270,12 @@ export class SecurityManager extends EventEmitter {
       this.auditSecurityEvent('suspicious_activity', 'high', undefined, {
         source_url: sourceUrl,
         source_type: sourceType,
-        blocked_content: blockedContent,
+        blockedContent: blockedContent,
         warnings
       });
     }
 
-    return { secure, warnings, blocked_content };
+    return { secure, warnings, blockedContent };
   }
 
   /**
