@@ -1,6 +1,6 @@
 {
-  "name": "bckb-mcp-server",
-  "version": "1.0.0",
+  "name": "@bckb/mcp-server",
+  "version": "0.1.0-alpha.1",
   "description": "Business Central Knowledge Base MCP Server - Intelligent BC knowledge discovery and optimization guidance",
   "main": "dist/index.js",
   "type": "module",
@@ -8,13 +8,19 @@
     "dist/",
     "knowledge-base/"
   ],
+  "bin": {
+    "bckb": "dist/cli/bckb-cli.js",
+    "bckb-server": "dist/index.js"
+  },
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/index.ts",
     "start": "node dist/index.js",
     "test": "jest",
     "lint": "eslint src/**/*.ts",
-    "format": "prettier --write src/**/*.ts"
+    "format": "prettier --write src/**/*.ts",
+    "prepare": "npm run build",
+    "postinstall": "node dist/setup/post-install.js"
   },
   "keywords": [
     "business-central",

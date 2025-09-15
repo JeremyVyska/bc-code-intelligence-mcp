@@ -1,0 +1,39 @@
+# Development files
+src/
+tsconfig.json
+.env
+.env.local
+*.log
+
+# Testing
+tests/
+jest.config.js
+coverage/
+
+# Development tools
+.eslintrc.*
+.prettierrc.*
+nodemon.json
+
+# Git and CI
+.git/
+.github/
+.gitignore
+
+# Documentation (keep README.md)
+docs/
+examples/
+*.md
+!README.md
+!README-DISTRIBUTION.md
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts we don't need in distribution
+*.tsbuildinfo
