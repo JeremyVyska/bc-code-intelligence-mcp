@@ -4,7 +4,8 @@
 
 ## Quick Start for Alpha Testers
 
-### 1. Install via NPM
+### 1. Install via NPM (Optional)
+**Note**: Claude Desktop can use `npx` to auto-install, so global installation is optional.
 ```bash
 npm install -g bckb-mcp-server@alpha
 ```
@@ -29,7 +30,8 @@ Update your Claude Desktop `claude_desktop_config.json`:
 {
   "mcpServers": {
     "bckb": {
-      "command": "bckb-server"
+      "command": "npx",
+      "args": ["bckb-mcp-server@alpha"]
     }
   }
 }
