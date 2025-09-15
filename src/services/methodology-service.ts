@@ -1,10 +1,12 @@
 /**
- * Methodology Service - MCP v2.0 Framework Implementation
- * Systematic methodology loading and guidance for AI-assisted optimization
+ * Methodology Service - Knowledge-Driven Implementation
+ * Dynamic methodology loading and guidance using the layered knowledge system
  */
 
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
+import { KnowledgeService } from './knowledge-service.js';
+import { AtomicTopic } from '../types/bc-knowledge.js';
 
 export interface MethodologyLoadRequest {
   user_request: string;
@@ -72,8 +74,11 @@ export class MethodologyService {
     validation_status: Record<string, any>;
   };
 
-  constructor(methodologyPath?: string) {
-    // Updated to use embedded knowledge from submodule
+  constructor(
+    private knowledgeService: KnowledgeService,
+    methodologyPath?: string
+  ) {
+    // Keep methodology loading from files, but add knowledge service for BC content
     this.methodologyPath = methodologyPath || join(__dirname, '../../embedded-knowledge', 'methodologies');
     this.indexData = this.loadIndex();
     this.currentSession = {
@@ -119,7 +124,7 @@ export class MethodologyService {
   /**
    * Load methodology based on user request and intent analysis
    */
-  public loadMethodology(request: MethodologyLoadRequest): MethodologyLoadResult {
+  public async loadMethodology(request: MethodologyLoadRequest): Promise<MethodologyLoadResult> {
     // Analyze user intent
     const intent = this.analyzeIntent(request.user_request);
     const domain = request.domain || 'business-central';
@@ -130,10 +135,10 @@ export class MethodologyService {
     // Resolve dependencies
     const executionOrder = this.resolvePhaseDepedencies(requiredPhases);
 
-    // Load methodology content
+    // Load methodology content with knowledge-driven domain knowledge
     const loadedPhases: PhaseContent[] = [];
     for (const phase of executionOrder) {
-      const phaseContent = this.loadPhaseContent(phase, domain);
+      const phaseContent = await this.loadPhaseContent(phase, domain);
       loadedPhases.push(phaseContent);
     }
 
@@ -159,47 +164,42 @@ export class MethodologyService {
   /**
    * Get specific phase guidance and instructions
    */
-  public getPhaseGuidance(request: PhaseGuidanceRequest): PhaseContent | { error: string } {
-    // REMOVED: Phase restriction - methodology should determine when tools are used, not server
-    // if (!this.currentSession.phases.includes(request.phase_name)) {
-    //   return { error: `Phase '${request.phase_name}' not loaded in current session` };
-    // }
+  public async getPhaseGuidance(request: PhaseGuidanceRequest): Promise<PhaseContent | { error: string }> {
+    try {
+      // Load phase content if not already loaded
+      if (!this.loadedPhases[request.phase_name]) {
+        this.loadedPhases[request.phase_name] = await this.loadPhaseContent(
+          request.phase_name,
+          this.currentSession.domain
+        );
+      }
 
-    // Load phase content if not already loaded
-    if (!this.loadedPhases[request.phase_name]) {
-      this.loadedPhases[request.phase_name] = this.loadPhaseContent(
-        request.phase_name,
-        this.currentSession.domain
-      );
+      const phaseContent = this.loadedPhases[request.phase_name];
+
+      if (!phaseContent) {
+        return { error: `Phase '${request.phase_name}' content not loaded` };
+      }
+
+      // Extract specific step if requested
+      if (request.step) {
+        return this.extractStepContent(phaseContent, request.step);
+      }
+
+      return phaseContent;
+    } catch (error) {
+      return { error: `Failed to load phase guidance: ${error instanceof Error ? error.message : String(error)}` };
     }
-
-    const phaseContent = this.loadedPhases[request.phase_name];
-
-    if (!phaseContent) {
-      return { error: `Phase '${request.phase_name}' content not loaded` };
-    }
-
-    // Extract specific step if requested
-    if (request.step) {
-      return this.extractStepContent(phaseContent, request.step);
-    }
-
-    return phaseContent;
   }
 
   /**
    * Validate methodology completion against systematic framework
    */
-  public validateCompleteness(request: CompletenessValidationRequest): ValidationResult {
-    // REMOVED: Phase restriction - methodology should determine when tools are used, not server  
-    // if (!this.currentSession.phases.includes(request.phase)) {
-    //   throw new Error(`Phase '${request.phase}' not in current session`);
-    // }
+  public async validateCompleteness(request: CompletenessValidationRequest): Promise<ValidationResult> {
+    try {
+      // Load phase requirements
+      const phaseRequirements = await this.extractPhaseRequirements(request.phase);
 
-    // Load phase requirements
-    const phaseRequirements = this.extractPhaseRequirements(request.phase);
-
-    // Calculate completion
+      // Calculate completion
     const totalRequirements = phaseRequirements.length;
     const completedCount = request.completed_items.filter(item => 
       phaseRequirements.some(req => req.toLowerCase().includes(item.toLowerCase()))
@@ -223,16 +223,19 @@ export class MethodologyService {
     // Determine next actions
     const nextActions = this.getNextActions(request.phase, missingItems, completionPercentage);
 
-    return {
-      phase: request.phase,
-      completion_percentage: completionPercentage,
-      completed_items_count: completedCount,
-      total_requirements: totalRequirements,
-      missing_items: missingItems,
-      quality_score: qualityScore,
-      next_actions: nextActions,
-      can_proceed_to_next_phase: completionPercentage >= 80
-    };
+      return {
+        phase: request.phase,
+        completion_percentage: completionPercentage,
+        completed_items_count: completedCount,
+        total_requirements: totalRequirements,
+        missing_items: missingItems,
+        quality_score: qualityScore,
+        next_actions: nextActions,
+        can_proceed_to_next_phase: completionPercentage >= 80
+      };
+    } catch (error) {
+      throw new Error(`Failed to validate completeness: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
   private analyzeIntent(userRequest: string): string {
@@ -287,7 +290,7 @@ export class MethodologyService {
     return resolved;
   }
 
-  private loadPhaseContent(phaseName: string, domain: string): PhaseContent {
+  private async loadPhaseContent(phaseName: string, domain: string): Promise<PhaseContent> {
     const phaseFile = join(this.methodologyPath, 'phases', `${phaseName}.md`);
 
     if (!existsSync(phaseFile)) {
@@ -296,8 +299,8 @@ export class MethodologyService {
 
     const content = readFileSync(phaseFile, 'utf-8');
 
-    // Load domain-specific knowledge
-    const domainKnowledge = this.loadDomainKnowledge(domain, phaseName);
+    // Load domain-specific knowledge dynamically
+    const domainKnowledge = await this.loadDomainKnowledge(domain, phaseName);
 
     return {
       phase_name: phaseName,
@@ -308,16 +311,39 @@ export class MethodologyService {
     };
   }
 
-  private loadDomainKnowledge(domain: string, phase: string): DomainKnowledge {
-    // Reference existing knowledge base instead of duplicating
-    // For now, return empty structure - domain knowledge should be accessed via existing tools
-    const knowledge: DomainKnowledge = { 
-      patterns: `Use find_bc_topics and get_topic_content tools to access domain knowledge from existing knowledge base`, 
-      anti_patterns: `Use analyze_code_patterns tool to detect anti-patterns from existing knowledge base`,
-      best_practices: [`Reference existing knowledge base via MCP tools`] 
-    };
+  private async loadDomainKnowledge(domain: string, phase: string): Promise<DomainKnowledge> {
+    try {
+      // Load relevant knowledge dynamically from the knowledge service
+      const domainTopics = await this.knowledgeService.searchTopics({
+        domain: domain,
+        limit: 10
+      });
 
-    return knowledge;
+      // Get patterns and anti-patterns
+      const codePatterns = await this.knowledgeService.findTopicsByType('code-pattern');
+      const goodPatterns = codePatterns.filter(p => p.frontmatter.pattern_type === 'good');
+      const badPatterns = codePatterns.filter(p => p.frontmatter.pattern_type === 'bad');
+
+      // Extract best practices from domain topics
+      const bestPractices = domainTopics
+        .filter(topic => topic.tags?.includes('best-practice'))
+        .map(topic => topic.title)
+        .slice(0, 5);
+
+      return {
+        patterns: goodPatterns.map(p => p.title).join(', ') || 'No patterns found',
+        anti_patterns: badPatterns.map(p => p.title).join(', ') || 'No anti-patterns found',
+        best_practices: bestPractices.length > 0 ? bestPractices : ['Use knowledge base tools for best practices']
+      };
+    } catch (error) {
+      console.error('Failed to load domain knowledge:', error);
+      // Fallback to static content
+      return {
+        patterns: `Use find_bc_topics tool to access ${domain} patterns from knowledge base`,
+        anti_patterns: `Use analyze_code_patterns tool to detect ${domain} anti-patterns`,
+        best_practices: [`Reference ${domain} best practices via knowledge base tools`]
+      };
+    }
   }
 
   private extractChecklists(content: string): ChecklistItem[] {
@@ -336,9 +362,9 @@ export class MethodologyService {
     return matches.map(match => match[1]).filter((item): item is string => Boolean(item));
   }
 
-  private extractPhaseRequirements(phase: string): string[] {
+  private async extractPhaseRequirements(phase: string): Promise<string[]> {
     if (!this.loadedPhases[phase]) {
-      this.loadedPhases[phase] = this.loadPhaseContent(phase, this.currentSession.domain);
+      this.loadedPhases[phase] = await this.loadPhaseContent(phase, this.currentSession.domain);
     }
 
     const content = this.loadedPhases[phase]?.methodology_content || '';

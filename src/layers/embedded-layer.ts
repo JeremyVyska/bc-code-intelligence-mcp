@@ -69,7 +69,15 @@ export class EmbeddedKnowledgeLayer extends BaseKnowledgeLayer {
     const domainsPath = join(this.embeddedPath, 'domains');
 
     // Use glob to find all markdown files in domains, excluding samples
-    const pattern = join(domainsPath, '**', '*.md').replace(/\\/g, '/');
+    // Convert Windows paths to the format expected by fast-glob
+    let pattern = join(domainsPath, '**', '*.md').replace(/\\/g, '/');
+
+    // Convert /c/path to C:/path on Windows
+    if (pattern.startsWith('/c/')) {
+      pattern = 'C:' + pattern.substring(2);
+    }
+
+    console.error(`🔍 Using glob pattern: ${pattern}`);
     const topicFiles = await glob(pattern, {
       ignore: ['**/samples/**'] // Ignore sample files
     });
@@ -155,6 +163,7 @@ export class EmbeddedKnowledgeLayer extends BaseKnowledgeLayer {
 
     return {
       id: topicId,
+      title: frontmatter.title || topicId.replace(/-/g, ' '), // Use frontmatter title or derive from ID
       filePath,
       frontmatter,
       content: markdownContent?.trim() || '',

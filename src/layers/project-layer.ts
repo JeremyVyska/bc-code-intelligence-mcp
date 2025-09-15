@@ -210,6 +210,7 @@ export class ProjectKnowledgeLayer extends BaseKnowledgeLayer {
 
     return {
       id: topicId,
+      title: frontmatter.title || topicId.replace(/-/g, ' '),
       filePath,
       frontmatter: {
         ...frontmatter,

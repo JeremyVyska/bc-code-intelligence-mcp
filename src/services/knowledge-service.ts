@@ -20,7 +20,12 @@ export class KnowledgeService {
 
   constructor(private config: BCKBConfig) {
     // Initialize layer service with embedded knowledge from submodule
-    const embeddedPath = config.knowledge_base_path.replace(/\/knowledge-base$/, '/embedded-knowledge');
+    // For testing, use the knowledge_base_path directly if it doesn't contain embedded-knowledge
+    const embeddedPath = config.knowledge_base_path.includes('embedded-knowledge')
+      ? config.knowledge_base_path
+      : config.knowledge_base_path.replace(/\/knowledge-base$/, '/embedded-knowledge');
+
+    console.error(`🔧 Using embedded path: ${embeddedPath}`);
     this.layerService = new LayerService(embeddedPath, './bckb-overrides');
   }
 
@@ -181,6 +186,27 @@ export class KnowledgeService {
     }
 
     return relatedTopics;
+  }
+
+  /**
+   * Find topics by type from frontmatter (e.g., 'code-pattern', 'workflow')
+   */
+  async findTopicsByType(type: string): Promise<AtomicTopic[]> {
+    if (!this.initialized) {
+      await this.initialize();
+    }
+
+    try {
+      const allTopics = await this.layerService.getAllResolvedTopics();
+
+      return allTopics.filter(topic => {
+        const frontmatter = topic.frontmatter;
+        return frontmatter && frontmatter.type === type;
+      });
+    } catch (error) {
+      console.error(`Error finding topics by type '${type}':`, error);
+      return [];
+    }
   }
 
   /**

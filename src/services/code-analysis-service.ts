@@ -5,25 +5,83 @@ import {
   ALCodePattern
 } from '../types/bc-knowledge.js';
 import { KnowledgeService } from './knowledge-service.js';
+import { BCKBTopic } from '../sdk/bckb-client.js';
 
 /**
  * AL Code Analysis Service
- * 
+ *
  * Analyzes AL code for performance issues, anti-patterns, and optimization
- * opportunities. Maps identified issues to relevant atomic BC topics.
+ * opportunities. Dynamically loads patterns from the layered knowledge system.
  */
 export class CodeAnalysisService {
-  private alPatterns: ALCodePattern[] = [];
+  private patternCache: ALCodePattern[] | null = null;
+  private cacheExpiry: number = 0;
+  private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-  constructor(private knowledgeService: KnowledgeService) {
-    this.initializePatterns();
+  constructor(private knowledgeService: KnowledgeService) {}
+
+  /**
+   * Load AL code patterns dynamically from knowledge base
+   */
+  private async loadPatterns(): Promise<ALCodePattern[]> {
+    // Check cache first
+    if (this.patternCache && Date.now() < this.cacheExpiry) {
+      return this.patternCache;
+    }
+
+    try {
+      // Get all code-pattern topics from the knowledge base
+      const patternTopics = await this.knowledgeService.findTopicsByType('code-pattern');
+
+      const patterns: ALCodePattern[] = patternTopics.map(topic => {
+        const frontmatter = topic.frontmatter || {};
+
+        return {
+          name: frontmatter.name || topic.id,
+          pattern_type: frontmatter.pattern_type || 'unknown',
+          regex_patterns: this.parseRegexPatterns(frontmatter.regex_patterns),
+          description: frontmatter.description || topic.title,
+          related_topics: frontmatter.related_topics || [],
+          severity: frontmatter.severity,
+          category: frontmatter.category,
+          impact_level: frontmatter.impact_level,
+          detection_confidence: frontmatter.detection_confidence
+        };
+      });
+
+      // Update cache
+      this.patternCache = patterns;
+      this.cacheExpiry = Date.now() + this.CACHE_TTL;
+
+      return patterns;
+    } catch (error) {
+      console.warn('Failed to load code patterns from knowledge base:', error);
+      return this.getFallbackPatterns();
+    }
   }
 
   /**
-   * Initialize AL code patterns for detection
+   * Parse regex patterns from YAML (can be strings or array)
    */
-  private initializePatterns(): void {
-    this.alPatterns = [
+  private parseRegexPatterns(patterns: any): RegExp[] {
+    if (!patterns) return [];
+
+    const patternArray = Array.isArray(patterns) ? patterns : [patterns];
+    return patternArray.map(pattern => {
+      try {
+        return new RegExp(pattern, 'gis');
+      } catch (error) {
+        console.warn(`Invalid regex pattern: ${pattern}`);
+        return new RegExp('(?!)', 'g'); // Never-matching regex
+      }
+    });
+  }
+
+  /**
+   * Fallback patterns if knowledge base is unavailable
+   */
+  private getFallbackPatterns(): ALCodePattern[] {
+    return [
       // Performance Anti-Patterns
       {
         name: 'manual-summation-instead-of-sift',
@@ -105,7 +163,7 @@ export class CodeAnalysisService {
       },
       {
         name: 'fielderror-usage',
-        pattern_type: 'neutral',
+        pattern_type: 'unknown',
         regex_patterns: [
           /FieldError\s*\(/gi
         ],
@@ -397,7 +455,7 @@ export class CodeAnalysisService {
     };
 
     // Detect patterns in the code
-    const detectedPatterns = this.detectPatterns(code);
+    const detectedPatterns = await this.detectPatterns(code);
     result.patterns_detected = detectedPatterns.map(p => p.name);
 
     // Analyze for issues and opportunities
@@ -433,12 +491,13 @@ export class CodeAnalysisService {
   }
 
   /**
-   * Detect AL patterns in code
+   * Detect AL patterns in code using dynamically loaded patterns
    */
-  private detectPatterns(code: string): ALCodePattern[] {
+  private async detectPatterns(code: string): Promise<ALCodePattern[]> {
     const detected: ALCodePattern[] = [];
+    const patterns = await this.loadPatterns();
 
-    for (const pattern of this.alPatterns) {
+    for (const pattern of patterns) {
       for (const regex of pattern.regex_patterns) {
         if (regex.test(code)) {
           detected.push(pattern);

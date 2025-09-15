@@ -7,17 +7,32 @@ import { z } from 'zod';
  * indexes, and relationships for intelligent AI consumption.
  */
 
-// YAML Frontmatter Schema
+// YAML Frontmatter Schema - Extended for structured knowledge types
 export const AtomicTopicFrontmatterSchema = z.object({
-  title: z.string().describe("Human-readable topic title"),
-  domain: z.string().describe("Knowledge domain (performance, validation, etc.)"),
-  difficulty: z.enum(["beginner", "intermediate", "advanced", "expert"]).describe("Complexity level"),
-  bc_versions: z.string().describe("Supported BC versions (e.g., '14+', '18+')"),
-  tags: z.array(z.string()).describe("Searchable tags for topic discovery"),
+  title: z.string().optional().describe("Human-readable topic title"),
+  domain: z.string().optional().describe("Knowledge domain (performance, validation, etc.)"),
+  difficulty: z.enum(["beginner", "intermediate", "advanced", "expert"]).optional().describe("Complexity level"),
+  bc_versions: z.string().optional().describe("Supported BC versions (e.g., '14+', '18+')"),
+  tags: z.array(z.string()).optional().describe("Searchable tags for topic discovery"),
   prerequisites: z.array(z.string()).optional().describe("Required prerequisite topics"),
   related_topics: z.array(z.string()).optional().describe("Related and complementary topics"),
   samples: z.string().optional().describe("Path to companion sample file"),
   estimated_time: z.string().optional().describe("Time to read/implement (e.g., '15 minutes')"),
+
+  // Extended properties for structured knowledge types
+  type: z.string().optional().describe("Knowledge type (code-pattern, workflow, etc.)"),
+  name: z.string().optional().describe("Unique name for structured types"),
+  pattern_type: z.enum(["good", "bad", "unknown"]).optional().describe("Pattern classification"),
+  regex_patterns: z.array(z.string()).optional().describe("Regex patterns for code detection"),
+  description: z.string().optional().describe("Brief description for structured types"),
+  category: z.string().optional().describe("Category classification"),
+  severity: z.enum(["low", "medium", "high", "critical"]).optional().describe("Severity level"),
+  impact_level: z.enum(["low", "medium", "high"]).optional().describe("Impact level"),
+  detection_confidence: z.enum(["low", "medium", "high"]).optional().describe("Detection confidence"),
+
+  // Workflow-specific properties
+  workflow_type: z.string().optional().describe("Type of workflow (checklist, procedure, etc.)"),
+  phases: z.array(z.any()).optional().describe("Workflow phases"),
 });
 
 export type AtomicTopicFrontmatter = z.infer<typeof AtomicTopicFrontmatterSchema>;
@@ -25,6 +40,7 @@ export type AtomicTopicFrontmatter = z.infer<typeof AtomicTopicFrontmatterSchema
 // Complete Atomic Topic Structure
 export interface AtomicTopic {
   id: string;                    // Unique topic identifier
+  title: string;                 // Human-readable title (derived from frontmatter or filename)
   filePath: string;              // File system path
   frontmatter: AtomicTopicFrontmatter;
   content: string;               // Markdown content without frontmatter
@@ -222,10 +238,14 @@ export interface OptimizationWorkflow {
 // AL Code Pattern Detection Types
 export interface ALCodePattern {
   name: string;
-  pattern_type: "good" | "bad" | "neutral";
+  pattern_type: "good" | "bad" | "unknown";
   regex_patterns: RegExp[];
   description: string;
   related_topics: string[];
+  severity?: "low" | "medium" | "high" | "critical";
+  category?: string;
+  impact_level?: "low" | "medium" | "high";
+  detection_confidence?: "low" | "medium" | "high";
 }
 
 // MCP Server Configuration

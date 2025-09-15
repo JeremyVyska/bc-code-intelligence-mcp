@@ -380,6 +380,7 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
 
       return {
         id: topicId,
+        title: frontmatter.title || topicId.replace(/-/g, ' '),
         filePath,
         frontmatter,
         content: markdownContent?.trim() || '',

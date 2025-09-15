@@ -55,8 +55,15 @@ export class LayerService {
     private readonly projectPath: string = './bckb-overrides',
     private readonly config: Partial<LayerSystemConfig> = {}
   ) {
-    // Don't initialize layers automatically anymore
-    // They will be initialized via initializeFromConfiguration or initializeLayers
+    // Initialize basic layers for simple constructor usage
+    console.error(`🔧 Creating embedded layer from path: ${this.embeddedPath}`);
+    this.layers.push(new EmbeddedKnowledgeLayer(this.embeddedPath));
+
+    // Add project layer if path exists (will be checked during initialization)
+    if (this.projectPath) {
+      console.error(`🔧 Creating project layer from path: ${this.projectPath}`);
+      this.layers.push(new ProjectKnowledgeLayer(this.projectPath));
+    }
   }
 
   /**
@@ -625,6 +632,32 @@ export class LayerService {
       case 'EmbeddedKnowledgeLayer': return 'embedded';
       default: return 'embedded';
     }
+  }
+
+  /**
+   * Get all topics from all layers with resolution applied
+   */
+  async getAllResolvedTopics(): Promise<AtomicTopic[]> {
+    const allTopics: AtomicTopic[] = [];
+    const processedIds = new Set<string>();
+
+    // Get all topic IDs from all layers
+    for (const layer of this.layers) {
+      const topicIds = layer.getTopicIds();
+
+      for (const topicId of topicIds) {
+        if (!processedIds.has(topicId)) {
+          processedIds.add(topicId);
+
+          const resolution = await this.resolveTopic(topicId);
+          if (resolution && resolution.topic) {
+            allTopics.push(resolution.topic);
+          }
+        }
+      }
+    }
+
+    return allTopics;
   }
 
   /**
