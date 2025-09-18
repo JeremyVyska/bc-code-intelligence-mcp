@@ -493,6 +493,20 @@ class BCKBServer {
 
       try {
         switch (name) {
+          case 'analyze_al_workspace': {
+            const { workspace_path, analysis_depth = 'detailed', focus_area = 'understanding' } = args as any;
+            
+            // Perform workspace analysis
+            const analysis = await this.analyzeALWorkspace(workspace_path, analysis_depth, focus_area);
+            
+            return {
+              content: [{
+                type: 'text',
+                text: analysis
+              }]
+            };
+          }
+          
           case 'find_bc_topics': {
             const { specialist, query, expertise_area, difficulty, tags, bc_version, limit = 10 } = args as any;
             

@@ -320,7 +320,17 @@ Phase ${status.session.current_phase + 1} of ${status.session.specialist_pipelin
       // TODO: Add remaining pipeline definitions
       'debug-bc-issues': { specialists: [], phases: [] },
       'modernize-bc-code': { specialists: [], phases: [] },
-      'onboard-developer': { specialists: [], phases: [] },
+      'onboard-developer': {
+        specialists: ['maya-mentor', 'sam-coder', 'alex-architect', 'dean-debug', 'quinn-tester', 'roger-reviewer'],
+        phases: [
+          { methodology_id: 'developer-introduction', title: 'BC Development Fundamentals', description: 'Introduction to Business Central development fundamentals and environment setup' },
+          { methodology_id: 'coding-basics', title: 'AL Language Fundamentals', description: 'Core AL language concepts, syntax, and coding standards' },
+          { methodology_id: 'architecture-intro', title: 'BC Architecture Overview', description: 'Understanding BC architecture patterns and best practices' },
+          { methodology_id: 'debugging-intro', title: 'Debugging and Diagnostics', description: 'Debugging techniques and diagnostic tools for BC development' },
+          { methodology_id: 'testing-intro', title: 'Testing Fundamentals', description: 'Testing strategies and quality assurance practices' },
+          { methodology_id: 'code-review-intro', title: 'Code Review Process', description: 'Code review standards and collaborative development practices' }
+        ]
+      },
       'upgrade-bc-version': { specialists: [], phases: [] },
       'add-ecosystem-features': { specialists: [], phases: [] },
       'document-bc-solution': { specialists: [], phases: [] }
