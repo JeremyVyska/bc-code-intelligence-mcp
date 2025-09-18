@@ -238,6 +238,46 @@ export class MethodologyService {
     }
   }
 
+  /**
+   * Find workflows by search query
+   */
+  public async findWorkflowsByQuery(query: string): Promise<any[]> {
+    const queryLower = query.toLowerCase();
+    
+    // Search through methodology workflows and return matching ones
+    const workflows = [];
+    
+    // Search through methodology index for workflow-related content
+    if (this.indexData.workflow_mappings) {
+      for (const [workflowName, workflowData] of Object.entries(this.indexData.workflow_mappings)) {
+        const workflowDataTyped = workflowData as any;
+        if (workflowName.toLowerCase().includes(queryLower) ||
+            (workflowDataTyped.description && workflowDataTyped.description.toLowerCase().includes(queryLower)) ||
+            (workflowDataTyped.phases && workflowDataTyped.phases.some((phase: string) => 
+              phase.toLowerCase().includes(queryLower)))) {
+          workflows.push({
+            name: workflowName,
+            description: workflowDataTyped.description || 'BC development workflow',
+            phases: workflowDataTyped.phases || [],
+            methodology_type: workflowDataTyped.methodology_type || 'general'
+          });
+        }
+      }
+    }
+    
+    // If no specific workflow matches, return generic BC workflow suggestions
+    if (workflows.length === 0) {
+      workflows.push({
+        name: 'bc-development-workflow',
+        description: 'General Business Central development workflow',
+        phases: ['analysis', 'design', 'implementation', 'testing', 'deployment'],
+        methodology_type: 'development'
+      });
+    }
+    
+    return workflows;
+  }
+
   private analyzeIntent(userRequest: string): string {
     const userRequestLower = userRequest.toLowerCase();
 

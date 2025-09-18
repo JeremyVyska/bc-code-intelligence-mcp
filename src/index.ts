@@ -356,6 +356,45 @@ class BCKBServer {
     this.workflowService = new WorkflowService(this.knowledgeService, this.methodologyService, personaRegistry);
 
     console.error('✅ All services initialized successfully');
+    
+    // Validate tool contracts at startup
+    await this.validateToolContracts();
+  }
+
+  /**
+   * Validate that all tool schemas match service implementations
+   */
+  private async validateToolContracts(): Promise<void> {
+    try {
+      console.error('🔍 Validating tool contracts...');
+      
+      const handlers = createStreamlinedHandlers(this.server, {
+        knowledgeService: this.knowledgeService,
+        codeAnalysisService: this.codeAnalysisService,
+        methodologyService: this.methodologyService,
+        workflowService: this.workflowService,
+        layerService: this.layerService
+      }) as any;
+      
+      let hasIssues = false;
+      
+      for (const tool of streamlinedTools) {
+        if (!handlers[tool.name]) {
+          console.error(`❌ No handler found for tool: ${tool.name}`);
+          hasIssues = true;
+        }
+      }
+      
+      if (hasIssues) {
+        console.error('💥 Contract validation failed! Server may have dead ends.');
+        // Don't fail startup, but warn loudly
+      } else {
+        console.error('✅ Tool contract validation passed');
+      }
+    } catch (error) {
+      console.error(`⚠️  Contract validation error: ${error}`);
+      // Don't fail startup for validation errors
+    }
   }
 
   /**

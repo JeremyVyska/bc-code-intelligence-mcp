@@ -192,7 +192,7 @@ export interface TopicSearchResult {
 
 export interface CodeAnalysisParams {
   code_snippet: string;
-  analysis_type?: "performance" | "validation" | "architecture" | "general";
+  analysis_type?: "performance" | "quality" | "security" | "patterns" | "comprehensive";
   suggest_topics?: boolean;
   bc_version?: string | undefined;
 }

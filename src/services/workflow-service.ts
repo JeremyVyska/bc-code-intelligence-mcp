@@ -275,6 +275,32 @@ Phase ${status.session.current_phase + 1} of ${status.session.specialist_pipelin
   }
 
   /**
+   * Get all active workflows
+   */
+  async getActiveWorkflows(): Promise<any[]> {
+    // TODO: In a real implementation, this would query a database or session store
+    // For now, return empty array as workflows are not persisted between sessions
+    return [];
+  }
+
+  /**
+   * Get workflow methodology for a specific workflow
+   */
+  async getWorkflowMethodology(workflowId: string): Promise<any> {
+    const status = await this.getWorkflowStatus(workflowId);
+    const pipeline = this.pipelineDefinitions[status.session.type];
+    
+    return {
+      workflow_id: workflowId,
+      workflow_type: status.session.type,
+      total_phases: pipeline.phases.length,
+      phases: pipeline.phases,
+      specialists: pipeline.specialists,
+      methodology_overview: `This workflow follows a ${pipeline.phases.length}-phase methodology for ${status.session.type}.`
+    };
+  }
+
+  /**
    * Initialize pipeline definitions for all workflow types
    */
   private initializePipelineDefinitions(): Record<WorkflowType, PipelineDefinition> {

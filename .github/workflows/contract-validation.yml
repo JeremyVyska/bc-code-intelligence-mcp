@@ -1,0 +1,46 @@
+name: Contract Validation
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  validate-contracts:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Validate Tool Contracts
+      run: npm run validate:contracts
+    
+    - name: Build
+      run: npm run build
+    
+    - name: Run tests
+      run: npm test
+      
+    - name: Comment PR on Contract Failure
+      if: failure() && github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: '❌ **Contract Validation Failed**\n\nThis PR introduces dead ends where tool schemas don\'t match implementations. Please fix before merging.\n\nRun `npm run validate:contracts` locally to see details.'
+          })

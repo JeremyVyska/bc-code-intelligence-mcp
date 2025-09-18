@@ -445,7 +445,7 @@ export class CodeAnalysisService {
    */
   async analyzeCode(params: CodeAnalysisParams): Promise<CodeAnalysisResult> {
     const code = params.code_snippet;
-    const analysisType = params.analysis_type || 'general';
+    const analysisType = params.analysis_type || 'comprehensive';
     
     const result: CodeAnalysisResult = {
       issues: [],
@@ -456,10 +456,13 @@ export class CodeAnalysisService {
 
     // Detect patterns in the code
     const detectedPatterns = await this.detectPatterns(code);
-    result.patterns_detected = detectedPatterns.map(p => p.name);
+    
+    // Filter patterns based on analysis type
+    const filteredPatterns = this.filterPatternsByAnalysisType(detectedPatterns, analysisType);
+    result.patterns_detected = filteredPatterns.map(p => p.name);
 
     // Analyze for issues and opportunities
-    for (const pattern of detectedPatterns) {
+    for (const pattern of filteredPatterns) {
       if (pattern.pattern_type === 'bad') {
         result.issues.push({
           type: 'anti-pattern',
@@ -507,6 +510,33 @@ export class CodeAnalysisService {
     }
 
     return detected;
+  }
+
+  /**
+   * Filter patterns based on analysis type
+   */
+  private filterPatternsByAnalysisType(patterns: ALCodePattern[], analysisType: string): ALCodePattern[] {
+    if (analysisType === 'comprehensive') {
+      return patterns; // Return all patterns
+    }
+
+    return patterns.filter(pattern => {
+      const domain = pattern.related_topics?.[0] || '';
+      const name = pattern.name.toLowerCase();
+      
+      switch (analysisType) {
+        case 'performance':
+          return domain === 'performance' || name.includes('performance') || name.includes('optimization');
+        case 'quality':
+          return domain === 'code-quality' || domain === 'best-practices' || pattern.pattern_type === 'good';
+        case 'security':
+          return domain === 'security' || name.includes('security') || name.includes('permission');
+        case 'patterns':
+          return pattern.pattern_type === 'good' || pattern.pattern_type === 'bad';
+        default:
+          return true; // Return all for unknown types
+      }
+    });
   }
 
   /**

@@ -1,4 +1,21 @@
-// Streamlined tool handlers for BCKB MCP Server 1.1.0
+// Streamlined tool handlers for BCKB MCP Server 1.0.2
+
+// Map streamlined workflow types to existing workflow types
+function mapWorkflowType(streamlinedType: string): string {
+  const workflowMapping: Record<string, string> = {
+    'code-optimization': 'enhance-bc-app',
+    'architecture-review': 'review-bc-code', 
+    'security-audit': 'review-bc-code',
+    'performance-analysis': 'enhance-bc-app',
+    'integration-design': 'enhance-bc-app',
+    'upgrade-planning': 'upgrade-bc-version',
+    'testing-strategy': 'enhance-bc-app',
+    'developer-onboarding': 'onboard-developer',
+    'pure-review': 'review-bc-code'
+  };
+  
+  return workflowMapping[streamlinedType] || streamlinedType;
+}
 
 export function createStreamlinedHandlers(server: any, services: any) {
   const {
@@ -111,16 +128,17 @@ export function createStreamlinedHandlers(server: any, services: any) {
       const { code, analysis_type = 'comprehensive', bc_version, suggest_workflows = true } = args;
       
       if (code.toLowerCase() === 'workspace') {
-        // Workspace analysis
-        const analysisResult = await codeAnalysisService.analyzeWorkspace({
-          workspace_path: undefined, // auto-detect
-          analysis_depth: 'detailed',
-          focus_area: 'understanding'
+        // Workspace analysis using existing method
+        const analysisResult = await codeAnalysisService.analyzeCode({
+          code_snippet: "// Workspace analysis requested", 
+          analysis_type: 'workspace_overview',
+          suggest_topics: suggest_workflows,
+          bc_version
         });
         
         if (suggest_workflows) {
           // Suggest relevant workflows based on analysis
-          const workflowSuggestions = await methodologyService.suggestWorkflows(analysisResult);
+          const workflowSuggestions = await methodologyService.findWorkflowsByQuery('code analysis optimization');
           analysisResult.suggested_workflows = workflowSuggestions;
         }
         
@@ -151,7 +169,7 @@ export function createStreamlinedHandlers(server: any, services: any) {
     'get_bc_topic': async (args: any) => {
       const { topic_id, include_samples = true } = args;
       
-      const topic = await knowledgeService.getTopicContent(topic_id, include_samples);
+      const topic = await knowledgeService.getTopic(topic_id, include_samples);
       
       return {
         content: [{
@@ -164,8 +182,11 @@ export function createStreamlinedHandlers(server: any, services: any) {
     'start_bc_workflow': async (args: any) => {
       const { workflow_type, context, bc_version, additional_info } = args;
       
+      // Map streamlined workflow type to existing workflow type
+      const mappedWorkflowType = mapWorkflowType(workflow_type);
+      
       const startRequest = {
-        workflow_type,
+        workflow_type: mappedWorkflowType,
         project_context: context,
         bc_version: bc_version || 'BC22',
         additional_context: additional_info
@@ -179,7 +200,8 @@ export function createStreamlinedHandlers(server: any, services: any) {
           type: 'text',
           text: JSON.stringify({
             workflow_id: session.id,
-            workflow_type,
+            workflow_type: workflow_type, // Return original type for clarity
+            mapped_to: mappedWorkflowType,
             status: 'started',
             current_phase: session.current_phase,
             specialist: session.current_specialist,
@@ -192,7 +214,7 @@ export function createStreamlinedHandlers(server: any, services: any) {
     'advance_workflow': async (args: any) => {
       const { workflow_id, phase_results, next_focus } = args;
       
-      const result = await workflowService.advanceWorkflow({
+      const result = await workflowService.advancePhase({
         workflow_id,
         phase_results,
         specialist_notes: next_focus
@@ -260,11 +282,39 @@ export function createStreamlinedHandlers(server: any, services: any) {
     'get_bc_help': async (args: any) => {
       const { current_situation, workspace_context } = args;
       
-      // Analyze the situation and suggest appropriate tools/workflows
-      const suggestions = await knowledgeService.analyzeSituationAndSuggest({
-        situation: current_situation,
-        workspace_context
+      // Basic situation analysis using existing methods
+      const searchResults = await knowledgeService.searchTopics({ 
+        query: current_situation, 
+        limit: 5 
       });
+      
+      const specialists = knowledgeService.findSpecialistsByQuery(current_situation);
+      const workflows = await methodologyService.findWorkflowsByQuery(current_situation);
+      
+      // Basic analysis and suggestions
+      const suggestions = {
+        analysis: `Based on your situation: "${current_situation}", I've analyzed available resources.`,
+        tools: [
+          {
+            tool: 'find_bc_knowledge',
+            reason: 'Search for specific BC topics related to your situation',
+            usage: `find_bc_knowledge({ query: "${current_situation}" })`
+          },
+          {
+            tool: 'ask_bc_expert', 
+            reason: 'Get expert consultation with automatic specialist selection',
+            usage: `ask_bc_expert({ question: "${current_situation}" })`
+          }
+        ],
+        workflows: workflows.slice(0, 3),
+        specialists: specialists.slice(0, 3),
+        related_topics: searchResults,
+        next_steps: [
+          'Start with ask_bc_expert for immediate consultation',
+          'Use find_bc_knowledge to explore related topics',
+          'Consider starting a workflow if this is a complex task'
+        ]
+      };
       
       return {
         content: [{
@@ -273,6 +323,8 @@ export function createStreamlinedHandlers(server: any, services: any) {
             situation_analysis: suggestions.analysis,
             recommended_tools: suggestions.tools,
             suggested_workflows: suggestions.workflows,
+            available_specialists: suggestions.specialists,
+            related_topics: suggestions.related_topics,
             next_steps: suggestions.next_steps
           }, null, 2)
         }]

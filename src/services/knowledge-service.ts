@@ -362,6 +362,22 @@ export class KnowledgeService {
     return this.personaRegistry.getCollaboratingSpecialists(primarySpecialist, question);
   }
 
+  /**
+   * Find specialists by search query
+   */
+  findSpecialistsByQuery(query: string): BCSpecialist[] {
+    const allSpecialists = this.personaRegistry.getAllSpecialists();
+    const queryLower = query.toLowerCase();
+    
+    return allSpecialists.filter(specialist => {
+      // Search in name, role, or any expertise area
+      return specialist.name.toLowerCase().includes(queryLower) ||
+             specialist.role.toLowerCase().includes(queryLower) ||
+             specialist.expertise_areas.some(area => area.toLowerCase().includes(queryLower)) ||
+             specialist.consultation_style.toLowerCase().includes(queryLower);
+    });
+  }
+
   // ============================================================================
   // PRIVATE HELPER METHODS FOR PERSONA CONSULTATION
   // ============================================================================

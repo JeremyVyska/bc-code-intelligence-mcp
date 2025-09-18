@@ -107,7 +107,7 @@ export const streamlinedTools = [
       properties: {
         workflow_type: {
           type: 'string',
-          enum: ['code-optimization', 'architecture-review', 'security-audit', 'performance-analysis', 'integration-design', 'upgrade-planning', 'testing-strategy', 'developer-onboarding', 'pure-review'],
+          enum: ['new-bc-app', 'enhance-bc-app', 'review-bc-code', 'debug-bc-issues', 'modernize-bc-code', 'onboard-developer', 'upgrade-bc-version', 'add-ecosystem-features', 'document-bc-solution'],
           description: 'Type of workflow to start'
         },
         context: {

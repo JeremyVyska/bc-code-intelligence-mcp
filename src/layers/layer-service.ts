@@ -9,6 +9,7 @@
 
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { getEmbeddedKnowledgePath } from '../utils/path-utils.js';
 import {
   AtomicTopic,
   TopicSearchParams,
@@ -47,11 +48,7 @@ export class LayerService {
   private cacheManager: AdvancedCacheManager | null = null;
 
   constructor(
-    private readonly embeddedPath: string = (() => {
-      const __filename = fileURLToPath(import.meta.url);
-      const __dirname = dirname(__filename);
-      return join(__dirname, '../../embedded-knowledge');
-    })(),
+    private readonly embeddedPath: string = getEmbeddedKnowledgePath(),
     private readonly projectPath: string = './bckb-overrides',
     private readonly config: Partial<LayerSystemConfig> = {}
   ) {
