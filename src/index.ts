@@ -7,12 +7,15 @@ import {
   ErrorCode,
   ListToolsRequestSchema,
   McpError,
+  ListPromptsRequestSchema,
+  GetPromptRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { KnowledgeService } from './services/knowledge-service.js';
 import { CodeAnalysisService } from './services/code-analysis-service.js';
 import { MethodologyService } from './services/methodology-service.js';
+import { WorkflowService } from './services/workflow-service.js';
 import { LayerService } from './layers/layer-service.js';
 import { ConfigurationLoader } from './config/config-loader.js';
 import { ConfigurationValidator } from './config/config-validator.js';
@@ -23,6 +26,8 @@ import {
   OptimizationWorkflowParams,
   BCKBConfig
 } from './types/bc-knowledge.js';
+import { BCSpecialist, PersonaRegistry } from './types/persona-types.js';
+import { WorkflowType, WorkflowStartRequest, WorkflowAdvanceRequest } from './services/workflow-service.js';
 import {
   BCKBConfiguration,
   ConfigurationLoadResult
@@ -40,6 +45,7 @@ class BCKBServer {
   private knowledgeService!: KnowledgeService;
   private codeAnalysisService!: CodeAnalysisService;
   private methodologyService!: MethodologyService;
+  private workflowService!: WorkflowService;
   private layerService!: LayerService;
   private configuration!: BCKBConfiguration;
   private configLoader: ConfigurationLoader;
@@ -58,6 +64,7 @@ class BCKBServer {
 
     // Services will be initialized asynchronously in run()
     this.setupToolHandlers();
+    this.setupPrompts();
   }
 
   private setupToolHandlers(): void {
@@ -67,27 +74,32 @@ class BCKBServer {
         tools: [
           {
             name: 'find_bc_topics',
-            description: 'Search BC atomic knowledge topics by tags, domain, difficulty, or code context',
+            description: 'Search BC knowledge topics by specialist persona or expertise area',
             inputSchema: {
               type: 'object',
               properties: {
-                tags: {
-                  type: 'array',
-                  items: { type: 'string' },
-                  description: 'Topic tags to search for (e.g., ["sift", "performance"])'
-                },
-                domain: {
+                specialist: {
                   type: 'string',
-                  description: 'Knowledge domain (performance, validation, architecture, etc.)'
+                  enum: ['alex-architect', 'casey-copilot', 'dean-debug', 'eva-errors', 'jordan-bridge', 'logan-legacy', 'maya-mentor', 'morgan-market', 'quinn-tester', 'roger-reviewer', 'sam-coder', 'seth-security', 'taylor-docs', 'uma-ux'],
+                  description: 'BC specialist persona to consult (e.g., "dean-debug" for performance, "alex-architect" for design)'
+                },
+                query: {
+                  type: 'string',
+                  description: 'Search query or question for the specialist'
+                },
+                expertise_area: {
+                  type: 'string',
+                  description: 'Specific expertise area (sift, performance, data-models, security, etc.)'
                 },
                 difficulty: {
                   type: 'string',
                   enum: ['beginner', 'intermediate', 'advanced', 'expert'],
                   description: 'Complexity level filter'
                 },
-                code_context: {
-                  type: 'string',
-                  description: 'Code context for semantic search (e.g., "flowfield calculations")'
+                tags: {
+                  type: 'array',
+                  items: { type: 'string' },
+                  description: 'Topic tags to search for (e.g., ["sift", "performance"])'
                 },
                 bc_version: {
                   type: 'string',
@@ -97,6 +109,42 @@ class BCKBServer {
                   type: 'number',
                   description: 'Maximum number of results (default: 10)',
                   default: 10
+                }
+              }
+            }
+          },
+          {
+            name: 'consult_bc_specialist',
+            description: 'Get expert consultation from a specific BC specialist on your question',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                specialist_id: {
+                  type: 'string',
+                  enum: ['alex-architect', 'casey-copilot', 'dean-debug', 'eva-errors', 'jordan-bridge', 'logan-legacy', 'maya-mentor', 'morgan-market', 'quinn-tester', 'roger-reviewer', 'sam-coder', 'seth-security', 'taylor-docs', 'uma-ux'],
+                  description: 'BC specialist to consult (optional - will auto-detect if not provided)'
+                },
+                question: {
+                  type: 'string', 
+                  description: 'Your specific question or challenge'
+                },
+                code_context: {
+                  type: 'string',
+                  description: 'Optional code snippet for context'
+                }
+              },
+              required: ['question']
+            }
+          },
+          {
+            name: 'get_specialist_roster',
+            description: 'Get the roster of available BC specialists and their expertise areas',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                expertise_filter: {
+                  type: 'string',
+                  description: 'Filter specialists by expertise area (optional)'
                 }
               }
             }
@@ -355,6 +403,60 @@ class BCKBServer {
                 }
               }
             }
+          },
+          {
+            name: 'advance_workflow',
+            description: 'Advance a workflow session to the next phase with current phase results',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                workflow_id: {
+                  type: 'string',
+                  description: 'ID of the workflow session to advance'
+                },
+                phase_results: {
+                  type: 'string',
+                  description: 'Summary of work completed in the current phase'
+                },
+                specialist_notes: {
+                  type: 'string',
+                  description: 'Additional notes from the current phase specialist'
+                }
+              },
+              required: ['workflow_id']
+            }
+          },
+          {
+            name: 'get_workflow_status',
+            description: 'Get current status and progress of a workflow session',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                workflow_id: {
+                  type: 'string',
+                  description: 'ID of the workflow session to check'
+                }
+              },
+              required: ['workflow_id']
+            }
+          },
+          {
+            name: 'get_workflow_guidance',
+            description: 'Get detailed guidance for the current workflow phase',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                workflow_id: {
+                  type: 'string',
+                  description: 'ID of the workflow session'
+                },
+                detailed_context: {
+                  type: 'string',
+                  description: 'Additional context for more specific guidance'
+                }
+              },
+              required: ['workflow_id']
+            }
           }
         ]
       };
@@ -367,8 +469,33 @@ class BCKBServer {
       try {
         switch (name) {
           case 'find_bc_topics': {
-            const searchParams = args as TopicSearchParams;
-            const results = await this.knowledgeService.searchTopics(searchParams);
+            const { specialist, query, expertise_area, difficulty, tags, bc_version, limit = 10 } = args as any;
+            
+            let results;
+            
+            if (specialist) {
+              // Search by specialist persona
+              results = await this.knowledgeService.searchTopicsBySpecialist(specialist, query, limit);
+            } else if (expertise_area) {
+              // Find specialists by expertise area and search their topics
+              const specialists = this.knowledgeService.getSpecialistsByExpertise(expertise_area);
+              if (specialists.length === 0) {
+                results = [];
+              } else {
+                // Search the first matching specialist's topics
+                results = await this.knowledgeService.searchTopicsBySpecialist(specialists[0].id, query, limit);
+              }
+            } else {
+              // Fallback to general search with updated params
+              const searchParams: TopicSearchParams = {
+                tags,
+                difficulty,
+                bc_version,
+                code_context: query,
+                limit
+              };
+              results = await this.knowledgeService.searchTopics(searchParams);
+            }
             
             return {
               content: [
@@ -377,7 +504,8 @@ class BCKBServer {
                   text: JSON.stringify({
                     results,
                     total_found: results.length,
-                    search_params: searchParams
+                    specialist_used: specialist,
+                    expertise_area: expertise_area
                   }, null, 2)
                 }
               ]
@@ -777,6 +905,160 @@ class BCKBServer {
             };
           }
 
+          case 'consult_bc_specialist': {
+            const { specialist_id, question, code_context } = args as { 
+              specialist_id?: string; 
+              question: string; 
+              code_context?: string; 
+            };
+            
+            const result = await this.knowledgeService.askSpecialist(question, specialist_id);
+            
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify({
+                    specialist: {
+                      id: result.specialist.id,
+                      name: result.specialist.name,
+                      role: result.specialist.role,
+                      expertise_areas: result.specialist.expertise_areas,
+                      communication_tone: result.specialist.communication_tone
+                    },
+                    question: result.question,
+                    consultation_guidance: result.consultation_guidance,
+                    relevant_knowledge: result.relevant_knowledge,
+                    follow_up_suggestions: result.follow_up_suggestions,
+                    confidence_level: result.confidence_level
+                  }, null, 2)
+                }
+              ]
+            };
+          }
+
+          case 'get_specialist_roster': {
+            const { expertise_filter } = args as { expertise_filter?: string };
+            
+            let specialists;
+            if (expertise_filter) {
+              specialists = this.knowledgeService.getSpecialistsByExpertise(expertise_filter);
+            } else {
+              specialists = this.knowledgeService.getAllSpecialists();
+            }
+            
+            const roster = specialists.map(specialist => ({
+              id: specialist.id,
+              name: specialist.name,
+              role: specialist.role,
+              expertise_areas: specialist.expertise_areas,
+              typical_questions: specialist.typical_questions,
+              communication_tone: specialist.communication_tone,
+              consultation_style: specialist.consultation_style
+            }));
+            
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify({
+                    specialists: roster,
+                    total_specialists: roster.length,
+                    expertise_filter: expertise_filter
+                  }, null, 2)
+                }
+              ]
+            };
+          }
+
+          case 'advance_workflow': {
+            const { workflow_id, phase_results, specialist_notes } = args as { 
+              workflow_id: string; 
+              phase_results?: string; 
+              specialist_notes?: string; 
+            };
+            
+            const status = await this.workflowService.advancePhase({
+              workflow_id,
+              phase_results,
+              specialist_notes
+            });
+            
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify({
+                    workflow_id: status.session.id,
+                    previous_phase: status.session.current_phase - 1,
+                    current_phase: status.session.current_phase,
+                    progress_percentage: status.progress_percentage,
+                    status: status.session.status,
+                    current_specialist: status.current_specialist?.name,
+                    next_specialist: status.next_specialist?.name,
+                    phase_summary: status.phase_summary,
+                    next_actions: status.next_actions
+                  }, null, 2)
+                }
+              ]
+            };
+          }
+
+          case 'get_workflow_status': {
+            const { workflow_id } = args as { workflow_id: string };
+            
+            const status = await this.workflowService.getWorkflowStatus(workflow_id);
+            
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify({
+                    workflow_id: status.session.id,
+                    type: status.session.type,
+                    current_phase: status.session.current_phase,
+                    total_phases: status.session.specialist_pipeline.length,
+                    progress_percentage: status.progress_percentage,
+                    status: status.session.status,
+                    current_specialist: {
+                      id: status.current_specialist?.id,
+                      name: status.current_specialist?.name,
+                      specialization: status.current_specialist?.specialization
+                    },
+                    next_specialist: status.next_specialist ? {
+                      id: status.next_specialist.id,
+                      name: status.next_specialist.name,
+                      specialization: status.next_specialist.specialization
+                    } : null,
+                    phase_results: status.session.phase_results,
+                    constitutional_gates: status.session.constitutional_gates,
+                    methodology_state: status.session.methodology_state,
+                    created_at: status.session.created_at,
+                    last_updated: status.session.last_updated
+                  }, null, 2)
+                }
+              ]
+            };
+          }
+
+          case 'get_workflow_guidance': {
+            const { workflow_id, detailed_context } = args as { 
+              workflow_id: string; 
+              detailed_context?: string; 
+            };
+            
+            const guidance = await this.workflowService.getPhaseGuidance(workflow_id, detailed_context);
+            
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: guidance
+                }
+              ]
+            };
+          }
+
           default:
             throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
         }
@@ -787,6 +1069,188 @@ class BCKBServer {
         throw new McpError(ErrorCode.InternalError, `Tool execution failed: ${error instanceof Error ? error.message : String(error)}`);
       }
     });
+  }
+
+  /**
+   * Setup prompts for workflow pipelines
+   */
+  private setupPrompts(): void {
+    console.error('🎯 Setting up MCP Prompts for workflow pipelines...');
+
+    // Define workflow prompts that guide users through structured pipelines
+    const workflowPrompts = [
+      {
+        name: 'workflow_code_optimization',
+        description: 'Optimize existing Business Central code using systematic analysis phases',
+        arguments: [
+          {
+            name: 'code_location',
+            description: 'Path to the code file or description of the code to optimize',
+            required: true
+          }
+        ]
+      },
+      {
+        name: 'workflow_architecture_review',
+        description: 'Conduct comprehensive architecture review of Business Central solution',
+        arguments: [
+          {
+            name: 'scope',
+            description: 'Scope of review (module, solution, or specific components)',
+            required: true
+          }
+        ]
+      },
+      {
+        name: 'workflow_security_audit',
+        description: 'Perform security analysis and compliance check for Business Central implementation',
+        arguments: [
+          {
+            name: 'audit_scope',
+            description: 'Security audit scope (permissions, data access, API security, etc.)',
+            required: true
+          }
+        ]
+      },
+      {
+        name: 'workflow_performance_analysis',
+        description: 'Analyze and optimize Business Central performance issues',
+        arguments: [
+          {
+            name: 'performance_concern',
+            description: 'Description of performance issue or area to analyze',
+            required: true
+          }
+        ]
+      },
+      {
+        name: 'workflow_integration_design',
+        description: 'Design robust integration patterns for Business Central',
+        arguments: [
+          {
+            name: 'integration_type',
+            description: 'Type of integration (API, data sync, external service, etc.)',
+            required: true
+          }
+        ]
+      },
+      {
+        name: 'workflow_upgrade_planning',
+        description: 'Plan Business Central version upgrade with risk assessment',
+        arguments: [
+          {
+            name: 'current_version',
+            description: 'Current Business Central version',
+            required: true
+          },
+          {
+            name: 'target_version',
+            description: 'Target Business Central version',
+            required: true
+          }
+        ]
+      },
+      {
+        name: 'workflow_testing_strategy',
+        description: 'Develop comprehensive testing strategy for Business Central solutions',
+        arguments: [
+          {
+            name: 'testing_scope',
+            description: 'Scope of testing (unit, integration, user acceptance, etc.)',
+            required: true
+          }
+        ]
+      },
+      {
+        name: 'workflow_new_developer_onboarding',
+        description: 'Guide new developer through Business Central development onboarding',
+        arguments: [
+          {
+            name: 'experience_level',
+            description: 'Developer experience level (beginner, intermediate, expert)',
+            required: true
+          },
+          {
+            name: 'focus_area',
+            description: 'Primary focus area for onboarding (development, customization, integration)',
+            required: false
+          }
+        ]
+      },
+      {
+        name: 'workflow_pure_review',
+        description: 'Conduct pure review and analysis without implementation changes',
+        arguments: [
+          {
+            name: 'review_target',
+            description: 'What to review (code, architecture, documentation, processes)',
+            required: true
+          },
+          {
+            name: 'review_depth',
+            description: 'Review depth (surface, detailed, comprehensive)',
+            required: false
+          }
+        ]
+      }
+    ];
+
+    // Register prompt list handler
+    this.server.setRequestHandler(ListPromptsRequestSchema, async () => ({
+      prompts: workflowPrompts.map(p => ({
+        name: p.name,
+        description: p.description,
+        arguments: p.arguments
+      }))
+    }));
+
+    // Register get prompt handler for all workflows
+    this.server.setRequestHandler(GetPromptRequestSchema, async (request) => {
+      const { name, arguments: args } = request.params;
+      
+      const prompt = workflowPrompts.find(p => p.name === name);
+      if (!prompt) {
+        throw new McpError(ErrorCode.InvalidRequest, `Unknown prompt: ${name}`);
+      }
+
+        try {
+          // Convert workflow name to type and create start request
+          const workflowType = name.replace('workflow_', '').replace(/_/g, '-') as any;
+          
+          const startRequest = {
+            workflow_type: workflowType,
+            project_context: args?.code_location || args?.scope || args?.audit_scope || 
+                           args?.performance_concern || args?.integration_type || 
+                           args?.testing_scope || args?.review_target || 
+                           'General workflow request',
+            bc_version: args?.target_version || args?.current_version,
+            additional_context: args
+          };
+          
+          // Start the workflow session
+          const session = await this.workflowService.startWorkflow(startRequest);
+          
+          // Get the initial guidance for this workflow
+          const initialGuidance = await this.workflowService.getPhaseGuidance(session.id);
+          
+          return {
+            description: `Starting ${workflowType} workflow`,
+            messages: [
+              {
+                role: 'user',
+                content: {
+                  type: 'text',
+                  text: initialGuidance
+                }
+              }
+            ]
+          };
+        } catch (error) {
+          throw new McpError(ErrorCode.InternalError, `Failed to start workflow: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      });
+
+    console.error('✅ MCP Prompts configured for workflow orchestration');
   }
 
   /**
@@ -822,6 +1286,11 @@ class BCKBServer {
 
     this.codeAnalysisService = new CodeAnalysisService(this.knowledgeService);
     this.methodologyService = new MethodologyService(this.knowledgeService, legacyConfig.methodologies_path);
+    
+    // Initialize workflow service with persona registry
+    const { PersonaRegistry } = await import('./types/persona-types.js');
+    const personaRegistry = PersonaRegistry.getInstance();
+    this.workflowService = new WorkflowService(this.knowledgeService, this.methodologyService, personaRegistry);
 
     console.error('✅ All services initialized successfully');
   }

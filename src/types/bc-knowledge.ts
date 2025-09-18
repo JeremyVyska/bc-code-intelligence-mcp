@@ -169,7 +169,8 @@ export interface BCVersionMatrix {
 // MCP Tool Input/Output Types
 export interface TopicSearchParams {
   tags?: string[];
-  domain?: string;
+  domain?: string; // Can be specialist ID (e.g., "dean-debug") or legacy domain
+  specialist?: string; // Direct specialist ID for persona-based search
   difficulty?: "beginner" | "intermediate" | "advanced" | "expert";
   code_context?: string;
   bc_version?: string | undefined;
@@ -179,7 +180,8 @@ export interface TopicSearchParams {
 export interface TopicSearchResult {
   id: string;
   title: string;
-  domain: string;
+  domain: string; // Will be specialist ID in persona-based system
+  specialist?: string; // Explicit specialist reference
   difficulty: string;
   relevance_score: number;
   summary: string;

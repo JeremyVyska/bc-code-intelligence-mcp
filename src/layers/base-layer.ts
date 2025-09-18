@@ -59,6 +59,13 @@ export abstract class BaseKnowledgeLayer implements IKnowledgeLayer {
   }
 
   /**
+   * Get a topic from this layer synchronously (for already loaded topics)
+   */
+  getTopicSync(topicId: string): AtomicTopic | null {
+    return this.topics.get(topicId) || null;
+  }
+
+  /**
    * Get all topic IDs available in this layer
    */
   getTopicIds(): string[] {

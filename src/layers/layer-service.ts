@@ -585,9 +585,8 @@ export class LayerService {
   private getTopicFromLayer(layer: IKnowledgeLayer, topicId: string): AtomicTopic | null {
     if (!layer.hasTopic(topicId)) return null;
 
-    // This is a synchronous approximation - actual implementation would need async
-    // For now, return a placeholder - the real implementation would cache topics during initialization
-    return null; // TODO: Implement proper synchronous topic access
+    // Use the synchronous method to get already loaded topics
+    return layer.getTopicSync(topicId);
   }
 
   private topicToSearchResult(topic: AtomicTopic, relevanceScore: number): TopicSearchResult {

@@ -1,7 +1,7 @@
 {
   "name": "bckb-mcp-server",
-  "version": "0.1.0-alpha.3",
-  "description": "Business Central Knowledge Base MCP Server - Intelligent BC knowledge discovery and optimization guidance",
+  "version": "1.0.0",
+  "description": "Business Central Knowledge Base MCP Server - Persona-driven workflow orchestration and intelligent BC knowledge discovery",
   "main": "dist/index.js",
   "type": "module",
   "files": [
@@ -10,7 +10,8 @@
   ],
   "bin": {
     "bckb": "dist/cli/bckb-cli.js",
-    "bckb-server": "dist/index.js"
+    "bckb-server": "dist/index.js",
+    "bckb-mcp-server": "dist/index.js"
   },
   "scripts": {
     "build": "tsc",

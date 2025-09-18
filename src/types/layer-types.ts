@@ -117,6 +117,11 @@ export interface IKnowledgeLayer {
   getTopic(topicId: string): Promise<AtomicTopic | null>;
 
   /**
+   * Get a topic from this layer synchronously (for already loaded topics)
+   */
+  getTopicSync(topicId: string): AtomicTopic | null;
+
+  /**
    * Get all topic IDs available in this layer
    */
   getTopicIds(): string[];

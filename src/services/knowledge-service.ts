@@ -6,6 +6,12 @@ import {
 } from '../types/bc-knowledge.js';
 import { LayerService } from '../layers/layer-service.js';
 import { LayerResolutionResult } from '../types/layer-types.js';
+import { 
+  BCSpecialist, 
+  SpecialistConsultation, 
+  SpecialistResponse, 
+  PersonaRegistry 
+} from '../types/persona-types.js';
 
 /**
  * Business Central Knowledge Service
@@ -17,6 +23,7 @@ import { LayerResolutionResult } from '../types/layer-types.js';
 export class KnowledgeService {
   private layerService: LayerService;
   private initialized = false;
+  private personaRegistry: PersonaRegistry;
 
   constructor(private config: BCKBConfig) {
     // Initialize layer service with embedded knowledge from submodule
@@ -27,6 +34,7 @@ export class KnowledgeService {
 
     console.error(`🔧 Using embedded path: ${embeddedPath}`);
     this.layerService = new LayerService(embeddedPath, './bckb-overrides');
+    this.personaRegistry = PersonaRegistry.getInstance();
   }
 
   /**
@@ -231,5 +239,186 @@ export class KnowledgeService {
       last_loaded: new Date().toISOString(),
       memory_usage: layerStats.total.memoryUsage
     };
+  }
+
+  // ============================================================================
+  // PERSONA-BASED METHODS
+  // ============================================================================
+
+  /**
+   * Search topics by specialist persona
+   */
+  async searchTopicsBySpecialist(specialistId: string, query?: string, limit = 10): Promise<TopicSearchResult[]> {
+    if (!this.initialized) {
+      await this.initialize();
+    }
+
+    console.error(`🔍 Searching topics for specialist: ${specialistId}, query: "${query}"`);
+
+    // Direct search within specialist's domain folder
+    const searchResults = await this.layerService.searchTopics({
+      domain: specialistId, // Persona ID as domain
+      code_context: query,
+      limit
+    });
+
+    console.error(`📊 Found ${searchResults.length} results for specialist ${specialistId}`);
+    
+    return searchResults;
+  }
+
+  /**
+   * Get specialist consultation for a specific topic
+   */
+  async getSpecialistConsultation(topicId: string, question?: string): Promise<SpecialistConsultation> {
+    if (!this.initialized) {
+      await this.initialize();
+    }
+
+    const topic = await this.getTopic(topicId);
+    if (!topic) {
+      throw new Error(`Topic not found: ${topicId}`);
+    }
+
+    // Get specialist from topic's domain (should be persona ID)
+    const specialist = this.personaRegistry.getSpecialist(topic.frontmatter.domain || '');
+    if (!specialist) {
+      throw new Error(`No specialist found for domain: ${topic.frontmatter.domain}`);
+    }
+
+    // Find related topics in same specialist area
+    const relatedTopics = await this.searchTopicsBySpecialist(specialist.id, question, 5);
+
+    return {
+      topic,
+      specialist,
+      consultation_approach: this.generateConsultationApproach(specialist, topic, question),
+      related_topics: relatedTopics,
+      expertise_context: this.generateExpertiseContext(specialist, topic)
+    };
+  }
+
+  /**
+   * Natural language specialist consultation
+   */
+  async askSpecialist(question: string, specialistId?: string): Promise<SpecialistResponse> {
+    if (!this.initialized) {
+      await this.initialize();
+    }
+
+    let specialist: BCSpecialist;
+
+    if (specialistId) {
+      // Use specified specialist
+      const requestedSpecialist = this.personaRegistry.getSpecialist(specialistId);
+      if (!requestedSpecialist) {
+        throw new Error(`Unknown specialist: ${specialistId}`);
+      }
+      specialist = requestedSpecialist;
+    } else {
+      // Infer specialist from question
+      const inferredSpecialist = this.personaRegistry.inferSpecialistFromQuestion(question);
+      if (!inferredSpecialist) {
+        throw new Error('Could not determine appropriate specialist for question. Please specify a specialist ID.');
+      }
+      specialist = inferredSpecialist;
+    }
+
+    // Find relevant knowledge in specialist's domain
+    const relevantTopics = await this.searchTopicsBySpecialist(specialist.id, question, 8);
+
+    return {
+      specialist,
+      question,
+      relevant_knowledge: relevantTopics,
+      consultation_guidance: this.generateConsultationGuidance(specialist, question, relevantTopics),
+      follow_up_suggestions: this.generateFollowUpSuggestions(specialist, question, relevantTopics),
+      confidence_level: relevantTopics.length > 0 ? 'high' : 'medium'
+    };
+  }
+
+  /**
+   * Get all available specialists
+   */
+  getAllSpecialists(): BCSpecialist[] {
+    return this.personaRegistry.getAllSpecialists();
+  }
+
+  /**
+   * Get specialists by expertise area
+   */
+  getSpecialistsByExpertise(expertiseArea: string): BCSpecialist[] {
+    return this.personaRegistry.getSpecialistsByExpertise(expertiseArea);
+  }
+
+  /**
+   * Get specialist collaboration recommendations
+   */
+  getCollaboratingSpecialists(primarySpecialistId: string, question: string): BCSpecialist[] {
+    const primarySpecialist = this.personaRegistry.getSpecialist(primarySpecialistId);
+    if (!primarySpecialist) {
+      return [];
+    }
+    return this.personaRegistry.getCollaboratingSpecialists(primarySpecialist, question);
+  }
+
+  // ============================================================================
+  // PRIVATE HELPER METHODS FOR PERSONA CONSULTATION
+  // ============================================================================
+
+  private generateConsultationApproach(specialist: BCSpecialist, topic: AtomicTopic, question?: string): string {
+    const baseApproach = `${specialist.name} approaches this topic with ${specialist.consultation_style.toLowerCase()}.`;
+    
+    if (question) {
+      return `${baseApproach} For your specific question about "${question}", ${specialist.name} would focus on ${specialist.expertise_areas.slice(0, 3).join(', ')} aspects, providing ${specialist.communication_tone} guidance.`;
+    }
+    
+    return `${baseApproach} This topic (${topic.frontmatter.title}) aligns with ${specialist.name}'s expertise in ${specialist.expertise_areas.slice(0, 3).join(', ')}.`;
+  }
+
+  private generateExpertiseContext(specialist: BCSpecialist, topic: AtomicTopic): string {
+    return `${specialist.name} is particularly qualified to discuss "${topic.frontmatter.title}" because of their expertise in: ${specialist.expertise_areas.join(', ')}. Their ${specialist.communication_tone} approach focuses on ${specialist.consultation_style.toLowerCase()}.`;
+  }
+
+  private generateConsultationGuidance(specialist: BCSpecialist, question: string, relevantTopics: TopicSearchResult[]): string {
+    let guidance = `${specialist.name} says: "${specialist.consultation_style}"\n\n`;
+    
+    if (relevantTopics.length > 0) {
+      guidance += `Based on my expertise in ${specialist.expertise_areas.slice(0, 3).join(', ')}, here's what I recommend:\n\n`;
+      guidance += `Key knowledge areas to explore:\n`;
+      relevantTopics.slice(0, 3).forEach((topic, index) => {
+        guidance += `${index + 1}. ${topic.title} - ${topic.summary}\n`;
+      });
+    } else {
+      guidance += `While I don't have specific knowledge topics for this exact question, as ${specialist.role}, I'd approach this by focusing on ${specialist.expertise_areas.slice(0, 2).join(' and ')}.`;
+    }
+    
+    return guidance;
+  }
+
+  private generateFollowUpSuggestions(specialist: BCSpecialist, question: string, relevantTopics: TopicSearchResult[]): string[] {
+    const suggestions: string[] = [];
+    
+    // Add specialist-specific follow-ups
+    if (specialist.typical_questions.length > 0) {
+      suggestions.push(`Ask ${specialist.name}: "${specialist.typical_questions[0]}"`);
+    }
+    
+    // Add topic-based suggestions
+    if (relevantTopics.length > 0) {
+      suggestions.push(`Explore the "${relevantTopics[0].title}" topic in detail`);
+    }
+    
+    // Add expertise area suggestions
+    const primaryExpertise = specialist.expertise_areas[0];
+    suggestions.push(`Learn more about ${primaryExpertise} fundamentals`);
+    
+    // Add collaboration suggestions
+    const collaborators = this.getCollaboratingSpecialists(specialist.id, question);
+    if (collaborators.length > 0) {
+      suggestions.push(`Consider also consulting ${collaborators[0].name} for ${collaborators[0].expertise_areas[0]} perspective`);
+    }
+    
+    return suggestions.slice(0, 4); // Limit to 4 suggestions
   }
 }
