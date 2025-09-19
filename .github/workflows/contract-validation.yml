@@ -24,6 +24,9 @@ jobs:
     - name: Install dependencies
       run: npm ci --ignore-scripts
     
+    - name: Install esbuild platform package for CI
+      run: npm install @esbuild/linux-x64 --no-save
+    
     - name: Build
       run: npm run build
     
