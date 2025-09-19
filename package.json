@@ -52,21 +52,22 @@
   },
   "devDependencies": {
     "@types/node": "^20.19.14",
-    "@typescript-eslint/eslint-plugin": "^6.18.1",
-    "@typescript-eslint/parser": "^6.18.1",
-    "eslint": "^8.56.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "eslint": "^9.0.0",
     "prettier": "^3.1.1",
     "tsx": "^4.7.0",
     "typescript": "^5.3.3"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/bc-knowledge-base/bckb-mcp-server.git"
+    "url": "https://github.com/JeremyVyska/bc-knowledgebase-mcp.git"
   },
   "bugs": {
-    "url": "https://github.com/bc-knowledge-base/bckb-mcp-server/issues"
-  }
+    "url": "https://github.com/JeremyVyska/bc-knowledgebase-mcp/issues"
+  },
+  "homepage": "https://github.com/JeremyVyska/bc-knowledgebase-mcp"
 }
