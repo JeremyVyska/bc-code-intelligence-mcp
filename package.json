@@ -60,8 +60,9 @@
     "typescript": "^5.3.3"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=18.0.0"
   },
+  "preferGlobal": false,
   "repository": {
     "type": "git",
     "url": "https://github.com/JeremyVyska/bc-knowledgebase-mcp.git"
