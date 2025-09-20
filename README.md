@@ -4,7 +4,13 @@
 
 Model Context Protocol server providing intelligent access to Business Central knowledge through a complete specialist consultation system.
 
-## ✨ v1.2.0 - Complete Specialist Bundle
+# BC Code Intelligence MCP Server v1.3.0
+
+*Complete Specialist Bundle with Comprehensive Workflow Support*
+
+---
+
+## ✨ v1.3.0 - Enhanced Developer Workflows
 
 ### 🎯 Core Features
 - **🤖 Smart Specialist Discovery**: Intelligent routing to 14 BC domain experts based on query analysis

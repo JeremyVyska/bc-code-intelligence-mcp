@@ -5,6 +5,40 @@ All notable changes to the BC Code Intelligence MCP Server will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2025-09-20
+
+### 🎯 Major Features - Enhanced Developer Workflows
+
+#### Added - Comprehensive Workflow Prompts
+- **New Workflow Prompts**: 5 new prompts covering complete developer lifecycle
+  - `app_takeover` - Analyze and orient developer taking over unfamiliar BC app
+  - `spec_analysis` - Requirements analysis and development readiness gating
+  - `bug_investigation` - Context-aware debugging with call stack/repro support
+  - `monolith_to_modules` - SOLID refactoring with dependency injection patterns
+  - `data_flow_tracing` - Field/table dependency investigation across codeunits
+
+#### Added - Universal MCP Discovery
+- **External MCP Tool Discovery**: Automatic guidance for external AL/BC MCP servers
+  - Object ID Ninja MCP server integration guidance
+  - AL Dependency MCP server integration guidance
+  - Future-proof support for any AL/BC specialized tooling
+- **Enhanced Prompt Service**: All workflows now include external tool discovery guidance
+
+#### Improved - Architecture
+- **Dynamic Specialist Discovery**: Removed hard-coded specialist logic for extensibility
+- **Workflow Type Mapping**: Added new workflow types for enhanced prompt support
+- **Complete Developer Coverage**: From requirements → support with specialized prompts
+
+### 🔧 Technical Improvements
+- Enhanced Enhanced Prompt Service with MCP discovery guidance
+- Updated workflow orchestration for new prompt types
+- Improved specialist consultation system extensibility
+
+### 📚 Documentation
+- Updated version references throughout documentation
+- Enhanced README with new workflow capabilities
+- Updated distribution guide for v1.3.0 features
+
 ## [1.2.0] - 2025-01-21
 
 ### 🎯 Major Features - Complete Specialist Bundle

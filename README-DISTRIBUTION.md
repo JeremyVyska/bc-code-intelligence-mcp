@@ -1,8 +1,8 @@
-# BC Code Intelligence MCP Server v1.2.0 - Distribution Guide
+# BC Code Intelligence MCP Server v1.3.0 - Distribution Guide
 
-## ✨ What's New in v1.2.0 - Complete Specialist Bundle
+## ✨ What's New in v1.3.0 - Enhanced Developer Workflows
 
-The v1.2.0 release introduces a revolutionary **Specialist Bundle** that transforms BC/AL development into a collaborative, expert-driven experience:
+The v1.3.0 release builds on the revolutionary **Specialist Bundle** with comprehensive workflow support that covers the complete developer lifecycle:
 
 - **🤖 14 BC Domain Specialists**: From Alex Architect to Uma UX, each with specialized expertise
 - **🔍 Smart Discovery**: AI-powered specialist routing based on your specific challenges  
@@ -123,7 +123,7 @@ handoff_to_specialist({
 })
 ```
 
-## 🧪 Testing the v1.2.0 Specialist Bundle
+## 🧪 Testing the v1.3.0 Enhanced Workflows
 
 ### Core Functionality Tests
 
