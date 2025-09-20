@@ -480,7 +480,7 @@ export class BCCodeIntelClient extends EventEmitter {
 }
 
 /**
- * Convenience factory function for creating BCKB clients
+ * Convenience factory function for creating BC Code Intelligence clients
  */
 export function createBCCodeIntelClient(config: BCCodeIntelClientConfig): BCCodeIntelClient {
   return new BCCodeIntelClient(config);

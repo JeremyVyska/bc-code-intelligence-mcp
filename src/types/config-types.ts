@@ -1,9 +1,9 @@
 /**
- * Configuration system types for BCKB MCP server
+ * Configuration system types for BC Code Intelligence MCP server
  * Supports multi-source configuration with layer-based knowledge management
  */
 
-export interface BCKBConfiguration {
+export interface BCCodeIntelConfiguration {
   layers: LayerConfiguration[];
   resolution: ResolutionSettings;
   cache: CacheSettings;
@@ -145,7 +145,7 @@ export interface ConfigurationSource {
 }
 
 export interface ConfigurationLoadResult {
-  config: BCKBConfiguration;
+  config: BCCodeIntelConfiguration;
   sources: ConfigurationSource[];
   warnings: ConfigurationWarning[];
   validation_errors: ValidationError[];
@@ -185,7 +185,7 @@ export interface LayerSourceInfo {
 }
 
 // Default configuration template
-export const DEFAULT_BCKB_CONFIG: BCKBConfiguration = {
+export const DEFAULT_BC_CODE_INTEL_CONFIG: BCCodeIntelConfiguration = {
   layers: [
     {
       name: 'embedded',
@@ -201,7 +201,7 @@ export const DEFAULT_BCKB_CONFIG: BCKBConfiguration = {
       priority: 100,
       source: {
         type: LayerSourceType.LOCAL,
-        path: './bckb-overrides'
+        path: './bc-code-intel-overrides'
       },
       enabled: true,
       patterns: ['*']
@@ -254,21 +254,21 @@ export const DEFAULT_BCKB_CONFIG: BCKBConfiguration = {
 
 // Environment variable mappings
 export const ENV_VAR_MAPPINGS = {
-  'BCKB_CONFIG_PATH': 'config_file_path',
-  'BCKB_DEBUG_LAYERS': 'developer.debug_layers',
-  'BCKB_HOT_RELOAD': 'developer.hot_reload',
-  'BCKB_LOG_LEVEL': 'developer.log_level',
-  'BCKB_CACHE_STRATEGY': 'cache.strategy',
-  'BCKB_CACHE_TTL_GIT': 'cache.ttl.git',
-  'BCKB_CACHE_TTL_LOCAL': 'cache.ttl.local',
-  'BCKB_ALLOW_HTTP_SOURCES': 'security.allow_http_sources',
-  'BCKB_MAX_LAYERS': 'performance.max_layers',
-  'BCKB_MEMORY_LIMIT_MB': 'performance.memory_limit_mb',
+  'BC_CODE_INTEL_CONFIG_PATH': 'config_file_path',
+  'BC_CODE_INTEL_DEBUG_LAYERS': 'developer.debug_layers',
+  'BC_CODE_INTEL_HOT_RELOAD': 'developer.hot_reload',
+  'BC_CODE_INTEL_LOG_LEVEL': 'developer.log_level',
+  'BC_CODE_INTEL_CACHE_STRATEGY': 'cache.strategy',
+  'BC_CODE_INTEL_CACHE_TTL_GIT': 'cache.ttl.git',
+  'BC_CODE_INTEL_CACHE_TTL_LOCAL': 'cache.ttl.local',
+  'BC_CODE_INTEL_ALLOW_HTTP_SOURCES': 'security.allow_http_sources',
+  'BC_CODE_INTEL_MAX_LAYERS': 'performance.max_layers',
+  'BC_CODE_INTEL_MEMORY_LIMIT_MB': 'performance.memory_limit_mb',
 
   // Quick git layer setup
-  'BCKB_COMPANY_KNOWLEDGE_URL': 'layers[company].source.url',
-  'BCKB_COMPANY_KNOWLEDGE_TOKEN': 'layers[company].auth.token',
-  'BCKB_COMPANY_KNOWLEDGE_BRANCH': 'layers[company].source.branch'
+  'BC_CODE_INTEL_COMPANY_KNOWLEDGE_URL': 'layers[company].source.url',
+  'BC_CODE_INTEL_COMPANY_KNOWLEDGE_TOKEN': 'layers[company].auth.token',
+  'BC_CODE_INTEL_COMPANY_KNOWLEDGE_BRANCH': 'layers[company].source.branch'
 } as const;
 
 export type ConfigurationPath = typeof ENV_VAR_MAPPINGS[keyof typeof ENV_VAR_MAPPINGS];

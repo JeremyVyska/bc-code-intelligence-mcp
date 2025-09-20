@@ -26,7 +26,7 @@ import {
 } from '../types/layer-types.js';
 
 import {
-  BCKBConfiguration,
+  BCCodeIntelConfiguration,
   LayerConfiguration,
   LayerSourceType,
   AuthConfiguration,
@@ -66,7 +66,7 @@ export class LayerService {
   /**
    * Initialize layers from BCKB configuration
    */
-  async initializeFromConfiguration(config: BCKBConfiguration): Promise<ConfigLayerLoadResult[]> {
+  async initializeFromConfiguration(config: BCCodeIntelConfiguration): Promise<ConfigLayerLoadResult[]> {
     console.log(`🔧 Initializing ${config.layers.length} layers from configuration...`);
 
     // Initialize advanced cache manager
@@ -659,7 +659,7 @@ export class LayerService {
   /**
    * Warm up cache with frequently accessed topics
    */
-  private async warmUpCache(config: BCKBConfiguration): Promise<void> {
+  private async warmUpCache(config: BCCodeIntelConfiguration): Promise<void> {
     if (!this.cacheManager) return;
 
     console.log('🔥 Warming up advanced cache...');

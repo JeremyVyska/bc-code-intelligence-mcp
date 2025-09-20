@@ -51,22 +51,22 @@ export class BCCodeIntelExtension {
   private async initialize(): Promise<void> {
     try {
       // Register tree data providers
-      vscode.window.createTreeView('bckb-knowledge', {
+      vscode.window.createTreeView('bc-code-intel-knowledge', {
         treeDataProvider: this.knowledgeProvider,
         showCollapseAll: true
       });
 
-      vscode.window.createTreeView('bckb-search-results', {
+      vscode.window.createTreeView('bc-code-intel-search-results', {
         treeDataProvider: this.searchResultsProvider,
         showCollapseAll: true
       });
 
-      vscode.window.createTreeView('bckb-recommendations', {
+      vscode.window.createTreeView('bc-code-intel-recommendations', {
         treeDataProvider: this.recommendationsProvider,
         showCollapseAll: false
       });
 
-      vscode.window.createTreeView('bckb-layers', {
+      vscode.window.createTreeView('bc-code-intel-layers', {
         treeDataProvider: this.layerInfoProvider,
         showCollapseAll: false
       });
@@ -78,29 +78,29 @@ export class BCCodeIntelExtension {
       this.setupEventListeners();
 
       // Auto-connect if enabled
-      const config = vscode.workspace.getConfiguration('bckb');
+      const config = vscode.workspace.getConfiguration('bc-code-intel');
       if (config.get('autoConnect')) {
         await this.connectToServer();
       }
 
-      this.log('BCKB Extension initialized successfully');
+      this.log('BC Code Intelligence Extension initialized successfully');
 
     } catch (error) {
       this.log(`Extension initialization failed: ${error instanceof Error ? error.message : String(error)}`);
-      vscode.window.showErrorMessage(`BCKB Extension failed to initialize: ${error instanceof Error ? error.message : String(error)}`);
+      vscode.window.showErrorMessage(`BC Code Intelligence Extension failed to initialize: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
   private registerCommands(): void {
     const commands = [
-      vscode.commands.registerCommand('bckb.search', () => this.searchKnowledge()),
-      vscode.commands.registerCommand('bckb.analyzeCode', () => this.analyzeCurrentCode()),
-      vscode.commands.registerCommand('bckb.getTopic', (topicId: string) => this.getTopicDetails(topicId)),
-      vscode.commands.registerCommand('bckb.showStatus', () => this.showServerStatus()),
-      vscode.commands.registerCommand('bckb.refreshKnowledge', () => this.refreshKnowledge()),
-      vscode.commands.registerCommand('bckb.openTopic', (topic: BCKBTopic) => this.openTopicInEditor(topic)),
-      vscode.commands.registerCommand('bckb.copyTopicId', (topic: BCKBTopic) => this.copyTopicId(topic)),
-      vscode.commands.registerCommand('bckb.exportAnalysis', () => this.exportAnalysis())
+      vscode.commands.registerCommand('bc-code-intel.search', () => this.searchKnowledge()),
+      vscode.commands.registerCommand('bc-code-intel.analyzeCode', () => this.analyzeCurrentCode()),
+      vscode.commands.registerCommand('bc-code-intel.getTopic', (topicId: string) => this.getTopicDetails(topicId)),
+      vscode.commands.registerCommand('bc-code-intel.showStatus', () => this.showServerStatus()),
+      vscode.commands.registerCommand('bc-code-intel.refreshKnowledge', () => this.refreshKnowledge()),
+      vscode.commands.registerCommand('bc-code-intel.openTopic', (topic: BCCodeIntelTopic) => this.openTopicInEditor(topic)),
+      vscode.commands.registerCommand('bc-code-intel.copyTopicId', (topic: BCCodeIntelTopic) => this.copyTopicId(topic)),
+      vscode.commands.registerCommand('bc-code-intel.exportAnalysis', () => this.exportAnalysis())
     ];
 
     commands.forEach(command => this.context.subscriptions.push(command));
@@ -109,7 +109,7 @@ export class BCCodeIntelExtension {
   private setupEventListeners(): void {
     // Listen for file save events if analysis on save is enabled
     const onSaveDisposable = vscode.workspace.onDidSaveTextDocument(async (document) => {
-      const config = vscode.workspace.getConfiguration('bckb');
+      const config = vscode.workspace.getConfiguration('bc-code-intel');
       if (config.get('analysisOnSave') && document.languageId === 'al') {
         await this.analyzeDocument(document);
       }
@@ -131,7 +131,7 @@ export class BCCodeIntelExtension {
 
     // Listen for configuration changes
     const onConfigChangeDisposable = vscode.workspace.onDidChangeConfiguration(async (event) => {
-      if (event.affectsConfiguration('bckb')) {
+      if (event.affectsConfiguration('bc-code-intel')) {
         await this.handleConfigurationChange();
       }
     });
@@ -146,24 +146,24 @@ export class BCCodeIntelExtension {
 
   private async connectToServer(): Promise<void> {
     try {
-      this.statusBarItem.text = '$(sync~spin) BCKB: Connecting...';
+      this.statusBarItem.text = '$(sync~spin) BC Code Intelligence: Connecting...';
 
       await this.client.connect();
 
       const status = await this.client.getSystemStatus();
-      this.statusBarItem.text = `$(book) BCKB: ${status.layers_active} layers, ${status.total_topics} topics`;
+      this.statusBarItem.text = `$(book) BC Code Intelligence: ${status.layers_active} layers, ${status.total_topics} topics`;
 
       // Refresh all providers
       this.knowledgeProvider.refresh();
       this.layerInfoProvider.refresh();
 
-      this.log('Connected to BCKB server successfully');
-      vscode.window.showInformationMessage('Connected to BCKB Knowledge Server');
+      this.log('Connected to BC Code Intelligence server successfully');
+      vscode.window.showInformationMessage('Connected to BC Code Intelligence Knowledge Server');
 
     } catch (error) {
-      this.statusBarItem.text = '$(error) BCKB: Connection Failed';
+      this.statusBarItem.text = '$(error) BC Code Intelligence: Connection Failed';
       this.log(`Connection failed: ${error instanceof Error ? error.message : String(error)}`);
-      vscode.window.showErrorMessage(`Failed to connect to BCKB server: ${error instanceof Error ? error.message : String(error)}`);
+      vscode.window.showErrorMessage(`Failed to connect to BC Code Intelligence server: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -180,14 +180,14 @@ export class BCCodeIntelExtension {
         await this.connectToServer();
       }
 
-      const config = vscode.workspace.getConfiguration('bckb');
+      const config = vscode.workspace.getConfiguration('bc-code-intel');
       const maxResults = config.get('maxSearchResults', 20);
 
       // Perform smart search if available
       const results = await this.client.smartSearch(query, { limit: maxResults });
 
       this.searchResultsProvider.setResults(results);
-      vscode.commands.executeCommand('bckb-search-results.focus');
+      vscode.commands.executeCommand('bc-code-intel-search-results.focus');
 
       this.log(`Search completed: ${results.length} results for "${query}"`);
 
@@ -239,7 +239,7 @@ export class BCCodeIntelExtension {
 
   private async showAnalysisResults(analysis: any): Promise<void> {
     const panel = vscode.window.createWebviewPanel(
-      'bckb-analysis',
+      'bc-code-intel-analysis',
       'Code Analysis Results',
       vscode.ViewColumn.Two,
       { enableScripts: true }
@@ -286,14 +286,14 @@ export class BCCodeIntelExtension {
     }
   }
 
-  private async openTopicInEditor(topic: BCKBTopic): Promise<void> {
-    const uri = vscode.Uri.parse(`bckb-topic:${topic.id}.bckb-topic`);
+  private async openTopicInEditor(topic: BCCodeIntelTopic): Promise<void> {
+    const uri = vscode.Uri.parse(`bc-code-intel-topic:${topic.id}.bc-code-intel-topic`);
 
     const doc = await vscode.workspace.openTextDocument(uri);
     await vscode.window.showTextDocument(doc, vscode.ViewColumn.Two);
   }
 
-  private async copyTopicId(topic: BCKBTopic): Promise<void> {
+  private async copyTopicId(topic: BCCodeIntelTopic): Promise<void> {
     await vscode.env.clipboard.writeText(topic.id);
     vscode.window.showInformationMessage(`Copied topic ID: ${topic.id}`);
   }
@@ -301,7 +301,7 @@ export class BCCodeIntelExtension {
   private async showServerStatus(): Promise<void> {
     try {
       if (!this.client.isConnected()) {
-        vscode.window.showInformationMessage('Not connected to BCKB server');
+        vscode.window.showInformationMessage('Not connected to BC Code Intelligence server');
         return;
       }
 
@@ -312,8 +312,8 @@ export class BCCodeIntelExtension {
       ]);
 
       const panel = vscode.window.createWebviewPanel(
-        'bckb-status',
-        'BCKB Server Status',
+        'bc-code-intel-status',
+        'BC Code Intelligence Server Status',
         vscode.ViewColumn.Two,
         { enableScripts: true }
       );
@@ -358,7 +358,7 @@ export class BCCodeIntelExtension {
       const analytics = await this.client.getSystemAnalytics();
 
       const uri = await vscode.window.showSaveDialog({
-        defaultUri: vscode.Uri.file('bckb-analysis.json'),
+        defaultUri: vscode.Uri.file('bc-code-intel-analysis.json'),
         filters: { 'JSON Files': ['json'] }
       });
 
@@ -463,7 +463,7 @@ export class BCCodeIntelExtension {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BCKB Server Status</title>
+    <title>BC Code Intelligence Server Status</title>
     <style>
         body { font-family: var(--vscode-font-family); margin: 20px; }
         .status-card { margin: 15px 0; padding: 15px; border: 1px solid var(--vscode-panel-border); border-radius: 8px; }
@@ -474,7 +474,7 @@ export class BCCodeIntelExtension {
     </style>
 </head>
 <body>
-    <h2>${healthIcon} BCKB Server Status</h2>
+    <h2>${healthIcon} BC Code Intelligence Server Status</h2>
 
     <div class="status-card">
         <h3>🏥 Health Status</h3>
@@ -518,7 +518,7 @@ export class BCCodeIntelExtension {
     try {
       if (!this.client.isConnected()) return;
 
-      const config = vscode.workspace.getConfiguration('bckb');
+      const config = vscode.workspace.getConfiguration('bc-code-intel');
       if (!config.get('enableRecommendations')) return;
 
       // Extract context from current file
@@ -562,7 +562,7 @@ export class BCCodeIntelExtension {
   }
 
   private async handleConfigurationChange(): Promise<void> {
-    const config = vscode.workspace.getConfiguration('bckb');
+    const config = vscode.workspace.getConfiguration('bc-code-intel');
 
     // Recreate client with new configuration if server path changed
     const newServerPath = config.get('serverPath');
@@ -571,11 +571,11 @@ export class BCCodeIntelExtension {
     if (newServerPath !== currentConfig.server_command) {
       await this.client.disconnect();
 
-      const clientConfig = BCKBClientDefaults.local(newServerPath);
+      const clientConfig = BCCodeIntelClientDefaults.local(newServerPath);
       clientConfig.server_args = config.get('serverArgs') || ['dist/index.js'];
       clientConfig.debug_logging = config.get('debugLogging') || false;
 
-      this.client = new BCKBClient(clientConfig);
+      this.client = new BCCodeIntelClient(clientConfig);
 
       if (config.get('autoConnect')) {
         await this.connectToServer();
@@ -597,18 +597,18 @@ export class BCCodeIntelExtension {
 
 // Extension activation
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
-  console.log('BCKB Knowledge Assistant is activating...');
+  console.log('BC Code Intelligence Knowledge Assistant is activating...');
 
-  const extension = new BCKBExtension(context);
+  const extension = new BCCodeIntelExtension(context);
 
   // Register extension for cleanup
   context.subscriptions.push({
     dispose: () => extension.dispose()
   });
 
-  console.log('BCKB Knowledge Assistant activated successfully');
+  console.log('BC Code Intelligence Knowledge Assistant activated successfully');
 }
 
 export function deactivate(): void {
-  console.log('BCKB Knowledge Assistant is deactivating...');
+  console.log('BC Code Intelligence Knowledge Assistant is deactivating...');
 }

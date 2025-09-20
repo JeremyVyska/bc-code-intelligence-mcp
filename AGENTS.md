@@ -101,7 +101,7 @@ export async function toolName(
 ### Layer Service Integration Patterns
 - **Layer Resolution Order**: Embedded → Company → Team → Project
 - **Cache Invalidation**: Clear caches when layer configuration changes
-- **Override Detection**: Check local ./bckb-overrides/ before embedded knowledge
+- **Override Detection**: Check local ./bc-code-intel-overrides/ before embedded knowledge
 - **Version Filtering**: Apply BC version compatibility at query time
 - **Error Propagation**: Layer failures should fallback to next layer
 

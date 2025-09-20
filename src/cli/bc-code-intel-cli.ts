@@ -239,7 +239,7 @@ program
 // Status command
 program
   .command('status')
-  .description('Check BCKB server status and health')
+  .description('Check BC Code Intelligence server status and health')
   .option('--json', 'Output as JSON')
   .action(async (options) => {
     const client = createClient(options);
@@ -259,7 +259,7 @@ program
         const healthIcon = status.overall_health === 'healthy' ? '✅' :
                           status.overall_health === 'degraded' ? '⚠️' : '❌';
 
-        console.log(`\n${healthIcon} BCKB Server Status: ${status.overall_health.toUpperCase()}`);
+        console.log(`\n${healthIcon} BC Code Intelligence Server Status: ${status.overall_health.toUpperCase()}`);
         console.log('='.repeat(40));
         console.log(`Configuration: ${status.configuration_loaded ? '✅ Loaded' : '❌ Not loaded'}`);
         console.log(`Active Layers: ${status.layers_active}`);
@@ -293,7 +293,7 @@ program
 // Config command
 program
   .command('config')
-  .description('Manage BCKB server configuration')
+  .description('Manage BC Code Intelligence server configuration')
   .option('--validate', 'Validate current configuration')
   .option('--reload', 'Reload configuration')
   .option('--export <path>', 'Export configuration to file')
@@ -367,13 +367,13 @@ program
 program
   .command('interactive')
   .alias('i')
-  .description('Start interactive BCKB session')
+  .description('Start interactive BC Code Intelligence session')
   .action(async (options) => {
     const client = createClient(options);
 
     try {
       await client.connect();
-      console.log('🚀 BCKB Interactive Session Started');
+      console.log('🚀 BC Code Intelligence Interactive Session Started');
       console.log('Type "help" for available commands or "exit" to quit\n');
 
       // Import readline dynamically for interactive mode
@@ -381,7 +381,7 @@ program
       const rl = readline.createInterface({
         input: process.stdin,
         output: process.stdout,
-        prompt: 'bckb> '
+        prompt: 'bc-code-intel> '
       });
 
       rl.prompt();

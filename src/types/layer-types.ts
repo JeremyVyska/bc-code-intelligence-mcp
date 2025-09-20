@@ -14,7 +14,7 @@ export const enum LayerPriority {
   EMBEDDED = 0,      // Embedded knowledge from submodule (base layer)
   COMPANY = 100,     // Company-wide standards from git repo
   TEAM = 200,        // Team-specific overrides from git repo
-  PROJECT = 300      // Project-local overrides from ./bckb-overrides/
+  PROJECT = 300      // Project-local overrides from ./bc-code-intel-overrides/
 }
 
 /**

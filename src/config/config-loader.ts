@@ -10,8 +10,8 @@ import { parse as parseYAML } from 'yaml';
 import { fileURLToPath } from 'url';
 
 import {
-  BCKBConfiguration,
-  DEFAULT_BCKB_CONFIG,
+  BCCodeIntelConfiguration,
+  DEFAULT_BC_CODE_INTEL_CONFIG,
   ENV_VAR_MAPPINGS,
   ConfigurationLoadResult,
   ConfigurationSource,
@@ -50,7 +50,7 @@ export class ConfigurationLoader {
 
     try {
       // 1. Start with default configuration
-      let config = this.deepClone(DEFAULT_BCKB_CONFIG);
+      let config = this.deepClone(DEFAULT_BC_CODE_INTEL_CONFIG);
       sources.push({
         type: 'default',
         priority: 0
@@ -123,7 +123,7 @@ export class ConfigurationLoader {
       });
 
       return {
-        config: DEFAULT_BCKB_CONFIG,
+        config: DEFAULT_BC_CODE_INTEL_CONFIG,
         sources,
         warnings,
         validation_errors: validationErrors
@@ -132,13 +132,13 @@ export class ConfigurationLoader {
   }
 
   private async loadFromFiles(): Promise<{
-    config?: Partial<BCKBConfiguration>;
+    config?: Partial<BCCodeIntelConfiguration>;
     sources: ConfigurationSource[];
     warnings: ConfigurationWarning[];
   }> {
     const sources: ConfigurationSource[] = [];
     const warnings: ConfigurationWarning[] = [];
-    let config: Partial<BCKBConfiguration> | undefined;
+    let config: Partial<BCCodeIntelConfiguration> | undefined;
 
     for (const configPath of this.CONFIG_PATHS) {
       const result = await this.loadFromFile(configPath);
@@ -168,7 +168,7 @@ export class ConfigurationLoader {
 
   private async loadFromFile(filePath: string): Promise<{
     success: boolean;
-    config?: Partial<BCKBConfiguration>;
+    config?: Partial<BCCodeIntelConfiguration>;
     error?: string;
   }> {
     try {
@@ -186,7 +186,7 @@ export class ConfigurationLoader {
 
       return {
         success: true,
-        config: parsed as Partial<BCKBConfiguration>
+        config: parsed as Partial<BCCodeIntelConfiguration>
       };
     } catch (error) {
       return {
@@ -197,7 +197,7 @@ export class ConfigurationLoader {
   }
 
   private loadFromEnvironment(): {
-    config?: Partial<BCKBConfiguration>;
+    config?: Partial<BCCodeIntelConfiguration>;
     warnings: ConfigurationWarning[];
   } {
     const warnings: ConfigurationWarning[] = [];
@@ -307,9 +307,9 @@ export class ConfigurationLoader {
   }
 
   private mergeConfigurations(
-    base: BCKBConfiguration,
-    override: Partial<BCKBConfiguration>
-  ): BCKBConfiguration {
+    base: BCCodeIntelConfiguration,
+    override: Partial<BCCodeIntelConfiguration>
+  ): BCCodeIntelConfiguration {
     const result = this.deepClone(base);
 
     // Handle layers specially - merge by name
@@ -351,13 +351,13 @@ export class ConfigurationLoader {
   }
 
   private applyEnvironmentOverrides(
-    config: BCKBConfiguration,
-    overrides: Partial<BCKBConfiguration>
-  ): BCKBConfiguration {
+    config: BCCodeIntelConfiguration,
+    overrides: Partial<BCCodeIntelConfiguration>
+  ): BCCodeIntelConfiguration {
     return this.mergeConfigurations(config, overrides);
   }
 
-  private validateConfiguration(config: BCKBConfiguration): {
+  private validateConfiguration(config: BCCodeIntelConfiguration): {
     errors: ValidationError[];
     warnings: ConfigurationWarning[];
   } {

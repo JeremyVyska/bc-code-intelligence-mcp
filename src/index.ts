@@ -32,7 +32,7 @@ import {
 import { BCSpecialist, PersonaRegistry } from './types/persona-types.js';
 import { WorkflowType, WorkflowStartRequest, WorkflowAdvanceRequest } from './services/workflow-service.js';
 import {
-  BCKBConfiguration,
+  BCCodeIntelConfiguration,
   ConfigurationLoadResult
 } from './types/index.js';
 
@@ -50,7 +50,7 @@ class BCKBServer {
   private methodologyService!: MethodologyService;
   private workflowService!: WorkflowService;
   private layerService!: LayerService;
-  private configuration!: BCKBConfiguration;
+  private configuration!: BCCodeIntelConfiguration;
   private configLoader: ConfigurationLoader;
 
   private getPackageVersion(): string {

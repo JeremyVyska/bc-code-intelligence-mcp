@@ -5,7 +5,7 @@ import {
   ALCodePattern
 } from '../types/bc-knowledge.js';
 import { KnowledgeService } from './knowledge-service.js';
-import { BCKBTopic } from '../sdk/bckb-client.js';
+import { BCCodeIntelTopic } from '../sdk/bc-code-intel-client.js';
 
 /**
  * AL Code Analysis Service

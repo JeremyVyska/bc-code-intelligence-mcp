@@ -1,4 +1,4 @@
-// Type exports for BCKB MCP server
+// Type exports for BC Code Intelligence MCP server
 
 export * from './bc-knowledge.js';
 
@@ -9,12 +9,12 @@ export * from './layer-types.js';
 export {
   LayerSourceType,
   AuthType,
-  DEFAULT_BCKB_CONFIG,
+  DEFAULT_BC_CODE_INTEL_CONFIG,
   ENV_VAR_MAPPINGS
 } from './config-types.js';
 
 export type {
-  BCKBConfiguration,
+  BCCodeIntelConfiguration,
   LayerConfiguration,
   LayerSource as ConfigLayerSource,
   GitLayerSource as ConfigGitLayerSource,

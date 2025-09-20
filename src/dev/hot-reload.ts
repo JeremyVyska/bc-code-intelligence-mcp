@@ -10,7 +10,7 @@ import { readFile, stat } from 'fs/promises';
 import { EventEmitter } from 'events';
 import { LayerService } from '../layers/layer-service.js';
 import { ConfigurationLoader } from '../config/config-loader.js';
-import { BCKBConfiguration } from '../types/index.js';
+import { BCCodeIntelConfiguration } from '../types/index.js';
 
 export interface HotReloadEvent {
   type: 'config_changed' | 'layer_updated' | 'topic_changed' | 'index_rebuilt';
@@ -32,7 +32,7 @@ export class HotReloadSystem extends EventEmitter {
   private watchers: FSWatcher[] = [];
   private layerService?: LayerService;
   private configLoader?: ConfigurationLoader;
-  private currentConfig?: BCKBConfiguration;
+  private currentConfig?: BCCodeIntelConfiguration;
   private reloadCount = 0;
   private startTime = Date.now();
   private lastReload = 0;
@@ -351,7 +351,7 @@ export class HotReloadSystem extends EventEmitter {
   /**
    * Handle configuration changes and trigger appropriate reloads
    */
-  private async handleConfigurationChange(newConfig: BCKBConfiguration): Promise<void> {
+  private async handleConfigurationChange(newConfig: BCCodeIntelConfiguration): Promise<void> {
     try {
       console.log('🔧 Configuration changed, reinitializing services...');
 

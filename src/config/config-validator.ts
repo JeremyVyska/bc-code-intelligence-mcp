@@ -10,7 +10,7 @@ import { resolve, join } from 'path';
 import { homedir } from 'os';
 
 import {
-  BCKBConfiguration,
+  BCCodeIntelConfiguration,
   LayerConfiguration,
   LayerSourceType,
   AuthType,
@@ -30,7 +30,7 @@ export class ConfigurationValidator {
   /**
    * Validate complete BCKB configuration
    */
-  async validate(config: BCKBConfiguration): Promise<ValidationResult> {
+  async validate(config: BCCodeIntelConfiguration): Promise<ValidationResult> {
     const errors: ValidationError[] = [];
     const warnings: ConfigurationWarning[] = [];
 
@@ -73,7 +73,7 @@ export class ConfigurationValidator {
   /**
    * Validate basic configuration structure
    */
-  private validateBasicStructure(config: BCKBConfiguration, errors: ValidationError[]): void {
+  private validateBasicStructure(config: BCCodeIntelConfiguration, errors: ValidationError[]): void {
     if (!config.layers || !Array.isArray(config.layers)) {
       errors.push({
         field: 'layers',
@@ -598,7 +598,7 @@ export class ConfigurationValidator {
    * Validate performance settings
    */
   private validatePerformanceSettings(
-    config: BCKBConfiguration,
+    config: BCCodeIntelConfiguration,
     errors: ValidationError[],
     warnings: ConfigurationWarning[]
   ): void {
@@ -641,7 +641,7 @@ export class ConfigurationValidator {
    * Validate security settings
    */
   private validateSecuritySettings(
-    config: BCKBConfiguration,
+    config: BCCodeIntelConfiguration,
     errors: ValidationError[],
     warnings: ConfigurationWarning[]
   ): void {
@@ -676,7 +676,7 @@ export class ConfigurationValidator {
    * Validate cache settings
    */
   private validateCacheSettings(
-    config: BCKBConfiguration,
+    config: BCCodeIntelConfiguration,
     errors: ValidationError[],
     warnings: ConfigurationWarning[]
   ): void {
@@ -746,7 +746,7 @@ export class ConfigurationValidator {
    * Calculate configuration quality score
    */
   private calculateQualityScore(
-    config: BCKBConfiguration,
+    config: BCCodeIntelConfiguration,
     errorCount: number,
     warningCount: number
   ): number {
