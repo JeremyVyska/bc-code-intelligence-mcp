@@ -1,21 +1,21 @@
-# BCKB Integration Ecosystem
+# BC Code Intelligence Integration Ecosystem
 
 ## Overview
 
-The Business Central Knowledge Base (BCKB) MCP Server provides a comprehensive integration ecosystem that enables seamless access to BC knowledge across multiple development environments and tools.
+The BC Code Intelligence MCP Server provides a comprehensive integration ecosystem that enables seamless access to BC knowledge across multiple development environments and tools.
 
 ## Architecture
 
 ```mermaid
 graph TB
     subgraph "Knowledge Base"
-        KB[bc-knowledgebase<br/>Markdown + YAML]
+        KB[bc-code-intelligence<br/>Markdown + YAML]
         LM[Layer Manager]
         KB --> LM
     end
 
     subgraph "MCP Server Core"
-        MCP[BCKB MCP Server<br/>TypeScript + MCP SDK]
+        MCP[BC Code Intelligence MCP Server<br/>TypeScript + MCP SDK]
         LS[Layer Service]
         CS[Cache Service]
         AS[Analytics Service]
@@ -56,9 +56,9 @@ graph TB
 
 ## Integration Components
 
-### 1. TypeScript SDK (`src/sdk/bckb-client.ts`)
+### 1. TypeScript SDK (`src/sdk/bc-code-intel-client.ts`)
 
-**Purpose**: Type-safe client library for connecting to BCKB MCP servers
+**Purpose**: Type-safe client library for connecting to BC Code Intelligence MCP servers
 
 **Key Features:**
 - Intelligent caching with configurable TTL
@@ -69,9 +69,9 @@ graph TB
 
 **Usage Example:**
 ```typescript
-import { BCKBClient, BCKBClientDefaults } from './sdk/bckb-client.js';
+import { BCCodeIntelClient, BCCodeIntelClientDefaults } from './sdk/bc-code-intel-client.js';
 
-const client = new BCKBClient(BCKBClientDefaults.local());
+const client = new BCCodeIntelClient(BCCodeIntelClientDefaults.local());
 await client.connect();
 
 const topics = await client.searchTopics('posting routines', {
@@ -87,31 +87,31 @@ const analysis = await client.analyzeCode({
 });
 ```
 
-### 2. Command Line Interface (`src/cli/bckb-cli.ts`)
+### 2. Command Line Interface (`src/cli/bc-code-intel-cli.ts`)
 
 **Purpose**: Developer-friendly CLI for testing, automation, and batch operations
 
 **Commands:**
-- `bckb search` - Search knowledge topics with filters
-- `bckb get` - Retrieve specific topic details
-- `bckb analyze` - Analyze AL code files or snippets
-- `bckb status` - Check server health and statistics
-- `bckb config` - Manage server configuration
-- `bckb interactive` - Start interactive session
+- `bc-code-intel search` - Search knowledge topics with filters
+- `bc-code-intel get` - Retrieve specific topic details
+- `bc-code-intel analyze` - Analyze AL code files or snippets
+- `bc-code-intel status` - Check server health and statistics
+- `bc-code-intel config` - Manage server configuration
+- `bc-code-intel interactive` - Start interactive session
 
 **Usage Example:**
 ```bash
 # Search for topics
-bckb search "table relationships" --domain sales --limit 10
+bc-code-intel search "table relationships" --domain sales --limit 10
 
 # Analyze AL code file
-bckb analyze --file MyCodeunit.al --type performance --json
+bc-code-intel analyze --file MyCodeunit.al --type performance --json
 
 # Interactive mode
-bckb interactive
-bckb> search posting patterns
-bckb> analyze var customerRec: Record Customer;
-bckb> exit
+bc-code-intel interactive
+bc-code-intel> search posting patterns
+bc-code-intel> analyze var customerRec: Record Customer;
+bc-code-intel> exit
 ```
 
 ### 3. VS Code Extension (`vscode-extension/`)
@@ -135,7 +135,7 @@ npm run compile
 vsce package
 
 # Install in VS Code
-code --install-extension bckb-knowledge-assistant-1.0.0.vsix
+code --install-extension bc-code-intel-knowledge-assistant-1.0.0.vsix
 ```
 
 ### 4. GitHub Copilot Integration (`integrations/copilot/`)
@@ -143,7 +143,7 @@ code --install-extension bckb-knowledge-assistant-1.0.0.vsix
 **Purpose**: Enhanced Copilot Chat with BC-specific knowledge
 
 **Capabilities:**
-- **@bckb search**: Direct knowledge search within Copilot Chat
+- **@bc-code-intel search**: Direct knowledge search within Copilot Chat
 - **Code Analysis**: Automatic BC pattern recognition
 - **Smart Suggestions**: Context-aware recommendations
 - **Explanation Enhancement**: Detailed BC concept explanations
@@ -152,12 +152,12 @@ code --install-extension bckb-knowledge-assistant-1.0.0.vsix
 **Usage Example:**
 ```
 // In Copilot Chat
-@bckb search posting procedures in purchase domain
+@bc-code-intel search posting procedures in purchase domain
 
-@bckb analyze this codeunit for performance issues:
+@bc-code-intel analyze this codeunit for performance issues:
 [paste AL code]
 
-@bckb explain table relationships in BC
+@bc-code-intel explain table relationships in BC
 ```
 
 ### 5. Claude Desktop Integration (`integrations/claude-desktop/`)
@@ -175,12 +175,12 @@ code --install-extension bckb-knowledge-assistant-1.0.0.vsix
 ```json
 {
   "mcpServers": {
-    "bckb": {
+    "bc-code-intel": {
       "command": "node",
       "args": ["dist/index.js"],
       "env": {
-        "BCKB_LOG_LEVEL": "info",
-        "BCKB_CACHE_ENABLED": "true"
+        "BC_CODE_INTEL_LOG_LEVEL": "info",
+        "BC_CODE_INTEL_CACHE_ENABLED": "true"
       }
     }
   }
@@ -195,21 +195,21 @@ code --install-extension bckb-knowledge-assistant-1.0.0.vsix
 sequenceDiagram
     participant Dev as Developer
     participant VSC as VS Code
-    participant BCKB as BCKB Server
+    participant BCCodeIntel as BC Code Intelligence Server
     participant KB as Knowledge Base
 
     Dev->>VSC: Write AL code
-    VSC->>BCKB: Analyze code (on save)
-    BCKB->>KB: Search relevant patterns
-    KB->>BCKB: Return topics
-    BCKB->>VSC: Analysis results
+    VSC->>BCCodeIntel: Analyze code (on save)
+    BCCodeIntel->>KB: Search relevant patterns
+    KB->>BCCodeIntel: Return topics
+    BCCodeIntel->>VSC: Analysis results
     VSC->>Dev: Show recommendations
 
     Dev->>VSC: Search knowledge (Ctrl+Alt+K)
-    VSC->>BCKB: Search request
-    BCKB->>KB: Query knowledge
-    KB->>BCKB: Return results
-    BCKB->>VSC: Formatted results
+    VSC->>BCCodeIntel: Search request
+    BCCodeIntel->>KB: Query knowledge
+    KB->>BCCodeIntel: Return results
+    BCCodeIntel->>VSC: Formatted results
     VSC->>Dev: Display in tree view
 ```
 
@@ -219,21 +219,21 @@ sequenceDiagram
 sequenceDiagram
     participant Dev as Developer
     participant COP as Copilot Chat
-    participant BCKB as BCKB Integration
+    participant BCCodeIntel as BC Code Intelligence Integration
     participant KB as Knowledge Base
 
-    Dev->>COP: @bckb search posting
-    COP->>BCKB: Handle search request
-    BCKB->>KB: Query knowledge
-    KB->>BCKB: Return topics
-    BCKB->>COP: Enhanced results
+    Dev->>COP: @bc-code-intel search posting
+    COP->>BCCodeIntel: Handle search request
+    BCCodeIntel->>KB: Query knowledge
+    KB->>BCCodeIntel: Return topics
+    BCCodeIntel->>COP: Enhanced results
     COP->>Dev: Rich BC knowledge
 
     Dev->>COP: Paste AL code + analyze
-    COP->>BCKB: Code analysis request
-    BCKB->>KB: Pattern matching
-    KB->>BCKB: Related topics
-    BCKB->>COP: Analysis + recommendations
+    COP->>BCCodeIntel: Code analysis request
+    BCCodeIntel->>KB: Pattern matching
+    KB->>BCCodeIntel: Related topics
+    BCCodeIntel->>COP: Analysis + recommendations
     COP->>Dev: Detailed feedback
 ```
 
@@ -243,21 +243,21 @@ sequenceDiagram
 sequenceDiagram
     participant User as User
     participant Claude as Claude Desktop
-    participant BCKB as BCKB MCP
+    participant BCCodeIntel as BC Code Intelligence MCP
     participant KB as Knowledge Base
 
     User->>Claude: "How to optimize BC performance?"
-    Claude->>BCKB: Extract BC context
-    BCKB->>KB: Search optimization topics
-    KB->>BCKB: Return relevant knowledge
-    BCKB->>Claude: Enhanced context
+    Claude->>BCCodeIntel: Extract BC context
+    BCCodeIntel->>KB: Search optimization topics
+    KB->>BCCodeIntel: Return relevant knowledge
+    BCCodeIntel->>Claude: Enhanced context
     Claude->>User: Rich response + BC topics
 
     User->>Claude: Paste AL code for review
-    Claude->>BCKB: Analyze code patterns
-    BCKB->>KB: Pattern recognition
-    KB->>BCKB: Best practices
-    BCKB->>Claude: Analysis results
+    Claude->>BCCodeIntel: Analyze code patterns
+    BCCodeIntel->>KB: Pattern recognition
+    KB->>BCCodeIntel: Best practices
+    BCCodeIntel->>Claude: Analysis results
     Claude->>User: Detailed code review
 ```
 
@@ -267,37 +267,37 @@ sequenceDiagram
 
 ```bash
 # Core Settings
-BCKB_LOG_LEVEL=info|debug|warn|error
-BCKB_CACHE_ENABLED=true|false
-BCKB_CACHE_TTL_SECONDS=600
+BC_CODE_INTEL_LOG_LEVEL=info|debug|warn|error
+BC_CODE_INTEL_CACHE_ENABLED=true|false
+BC_CODE_INTEL_CACHE_TTL_SECONDS=600
 
 # Layer Configuration
-BCKB_DEBUG_LAYERS=true|false
-BCKB_COMPANY_KNOWLEDGE_URL=https://github.com/company/bc-knowledge
-BCKB_PROJECT_OVERRIDES_PATH=./bckb-overrides
+BC_CODE_INTEL_DEBUG_LAYERS=true|false
+BC_CODE_INTEL_COMPANY_KNOWLEDGE_URL=https://github.com/company/bc-knowledge
+BC_CODE_INTEL_PROJECT_OVERRIDES_PATH=./bc-code-intel-overrides
 
 # Performance Settings
-BCKB_MAX_SEARCH_RESULTS=10
-BCKB_REQUEST_TIMEOUT_MS=10000
-BCKB_CONCURRENT_REQUESTS=5
+BC_CODE_INTEL_MAX_SEARCH_RESULTS=10
+BC_CODE_INTEL_REQUEST_TIMEOUT_MS=10000
+BC_CODE_INTEL_CONCURRENT_REQUESTS=5
 
 # Integration Settings
-BCKB_VSCODE_AUTO_ANALYSIS=true|false
-BCKB_COPILOT_ENHANCED_MODE=true|false
-BCKB_CLAUDE_CONTEXT_RETENTION=10
+BC_CODE_INTEL_VSCODE_AUTO_ANALYSIS=true|false
+BC_CODE_INTEL_COPILOT_ENHANCED_MODE=true|false
+BC_CODE_INTEL_CLAUDE_CONTEXT_RETENTION=10
 ```
 
 ### Configuration Validation
 
 ```bash
 # Validate current configuration
-bckb config --validate
+bc-code-intel config --validate
 
 # Reload configuration without restart
-bckb config --reload
+bc-code-intel config --reload
 
 # Export configuration analytics
-bckb config --export config-report.json
+bc-code-intel config --export config-report.json
 ```
 
 ## Monitoring and Analytics
@@ -368,9 +368,9 @@ const exportData = await client.getSystemAnalytics({
 
 ```bash
 # Configure secure endpoints
-export BCKB_COMPANY_KNOWLEDGE_URL=https://github.com/company/bc-knowledge
-export BCKB_API_TIMEOUT_MS=5000
-export BCKB_MAX_RETRY_ATTEMPTS=3
+export BC_CODE_INTEL_COMPANY_KNOWLEDGE_URL=https://github.com/company/bc-knowledge
+export BC_CODE_INTEL_API_TIMEOUT_MS=5000
+export BC_CODE_INTEL_MAX_RETRY_ATTEMPTS=3
 ```
 
 ## Deployment Strategies
@@ -380,13 +380,13 @@ export BCKB_MAX_RETRY_ATTEMPTS=3
 ```json
 {
   "mcpServers": {
-    "bckb": {
+    "bc-code-intel": {
       "command": "npm",
       "args": ["run", "dev"],
       "env": {
-        "BCKB_LOG_LEVEL": "debug",
-        "BCKB_DEBUG_LAYERS": "true",
-        "BCKB_CACHE_ENABLED": "false"
+        "BC_CODE_INTEL_LOG_LEVEL": "debug",
+        "BC_CODE_INTEL_DEBUG_LAYERS": "true",
+        "BC_CODE_INTEL_CACHE_ENABLED": "false"
       }
     }
   }
@@ -398,14 +398,14 @@ export BCKB_MAX_RETRY_ATTEMPTS=3
 ```json
 {
   "mcpServers": {
-    "bckb": {
+    "bc-code-intel": {
       "command": "node",
       "args": ["dist/index.js"],
       "env": {
-        "BCKB_LOG_LEVEL": "warn",
-        "BCKB_DEBUG_LAYERS": "false",
-        "BCKB_CACHE_ENABLED": "true",
-        "BCKB_CACHE_TTL_SECONDS": "1800"
+        "BC_CODE_INTEL_LOG_LEVEL": "warn",
+        "BC_CODE_INTEL_DEBUG_LAYERS": "false",
+        "BC_CODE_INTEL_CACHE_ENABLED": "true",
+        "BC_CODE_INTEL_CACHE_TTL_SECONDS": "1800"
       }
     }
   }
@@ -417,16 +417,16 @@ export BCKB_MAX_RETRY_ATTEMPTS=3
 ```bash
 # Docker deployment
 docker run -d \
-  --name bckb-server \
+  --name bc-code-intel-server \
   -p 3000:3000 \
-  -e BCKB_LOG_LEVEL=info \
-  -e BCKB_COMPANY_KNOWLEDGE_URL=https://internal-git/bc-knowledge \
-  -v ./company-overrides:/app/bckb-overrides \
-  bckb-server:latest
+  -e BC_CODE_INTEL_LOG_LEVEL=info \
+  -e BC_CODE_INTEL_COMPANY_KNOWLEDGE_URL=https://internal-git/bc-knowledge \
+  -v ./company-overrides:/app/bc-code-intel-overrides \
+  bc-code-intel-server:latest
 
 # Kubernetes deployment
-kubectl apply -f k8s/bckb-deployment.yaml
-kubectl expose deployment bckb-server --type=LoadBalancer --port=3000
+kubectl apply -f k8s/bc-code-intel-deployment.yaml
+kubectl expose deployment bc-code-intel-server --type=LoadBalancer --port=3000
 ```
 
 ## Future Roadmap
@@ -463,4 +463,4 @@ kubectl expose deployment bckb-server --type=LoadBalancer --port=3000
 
 ---
 
-*The BCKB Integration Ecosystem provides a comprehensive foundation for BC knowledge access across the entire development lifecycle, from initial learning to production optimization.*
+*The BC Code Intelligence Integration Ecosystem provides a comprehensive foundation for BC knowledge access across the entire development lifecycle, from initial learning to production optimization.*

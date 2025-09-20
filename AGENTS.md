@@ -33,7 +33,7 @@ src/
 │   └── mcp-types.ts       # MCP protocol extensions
 └── index.ts              # MCP server entry point
 
-embedded-knowledge/        # Git submodule → bc-knowledgebase
+embedded-knowledge/        # Git submodule → bc-code-intelligence
 package.json              # Dependencies and build scripts
 tsconfig.json            # TypeScript configuration
 ```
@@ -213,6 +213,6 @@ src/
 - **Layer Isolation**: Maintain clean separation between layers
 
 ## Integration Points
-- **Knowledge Source**: embedded-knowledge/ submodule from bc-knowledgebase
+- **Knowledge Source**: embedded-knowledge/ submodule from bc-code-intelligence
 - **Client Integration**: MCP protocol for AI development tools
 - **Layer Sources**: Local overrides, git repos, HTTP endpoints (extensible)

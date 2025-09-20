@@ -453,7 +453,6 @@ program
               rl.close();
               await client.disconnect();
               process.exit(0);
-              break;
 
             case '':
               break; // Empty line, do nothing

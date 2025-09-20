@@ -104,4 +104,4 @@ npm start
 - **🏗️ Pure TypeScript**: Clean separation from knowledge content
 
 ## Knowledge Source
-Knowledge content is linked via git submodule from [bc-knowledgebase](../bc-knowledgebase).
+Knowledge content is linked via git submodule from [bc-code-intelligence](../bc-code-intelligence).
