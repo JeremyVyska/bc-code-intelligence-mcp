@@ -6,12 +6,8 @@ import {
 } from '../types/bc-knowledge.js';
 import { LayerService } from '../layers/layer-service.js';
 import { LayerResolutionResult } from '../types/layer-types.js';
-import { 
-  BCSpecialist, 
-  SpecialistConsultation, 
-  SpecialistResponse, 
-  PersonaRegistry 
-} from '../types/persona-types.js';
+import { SpecialistDefinition } from './specialist-loader.js';
+import { SpecialistDiscoveryService } from './specialist-discovery.js';
 
 /**
  * Business Central Knowledge Service
@@ -23,7 +19,6 @@ import {
 export class KnowledgeService {
   private layerService: LayerService;
   private initialized = false;
-  private personaRegistry: PersonaRegistry;
 
   constructor(private config: BCKBConfig) {
     // Initialize layer service with embedded knowledge from submodule
@@ -34,7 +29,6 @@ export class KnowledgeService {
 
     console.error(`🔧 Using embedded path: ${embeddedPath}`);
     this.layerService = new LayerService(embeddedPath, './bckb-overrides');
-    this.personaRegistry = PersonaRegistry.getInstance();
   }
 
   /**
@@ -269,7 +263,9 @@ export class KnowledgeService {
 
   /**
    * Get specialist consultation for a specific topic
+   * TODO: Refactor to use SpecialistDefinition
    */
+  /*
   async getSpecialistConsultation(topicId: string, question?: string): Promise<SpecialistConsultation> {
     if (!this.initialized) {
       await this.initialize();
@@ -297,10 +293,13 @@ export class KnowledgeService {
       expertise_context: this.generateExpertiseContext(specialist, topic)
     };
   }
+  */
 
   /**
    * Natural language specialist consultation
+   * TODO: Refactor to use SpecialistDefinition
    */
+  /*
   async askSpecialist(question: string, specialistId?: string): Promise<SpecialistResponse> {
     if (!this.initialized) {
       await this.initialize();
@@ -336,24 +335,42 @@ export class KnowledgeService {
       confidence_level: relevantTopics.length > 0 ? 'high' : 'medium'
     };
   }
+  */
 
   /**
    * Get all available specialists
    */
-  getAllSpecialists(): BCSpecialist[] {
-    return this.personaRegistry.getAllSpecialists();
+  /**
+   * Get all available specialists
+   * Now delegates to the embedded layer for modern specialist definitions
+   */
+  async getAllSpecialists(): Promise<SpecialistDefinition[]> {
+    if (!this.initialized) {
+      await this.initialize();
+    }
+    
+    const embeddedLayer = this.layerService.getLayer('embedded');
+    if (embeddedLayer && 'getAllSpecialists' in embeddedLayer) {
+      return (embeddedLayer as any).getAllSpecialists();
+    }
+    
+    return [];
   }
 
   /**
    * Get specialists by expertise area
+   * TODO: Refactor to use SpecialistDefinition
    */
+  /*
   getSpecialistsByExpertise(expertiseArea: string): BCSpecialist[] {
     return this.personaRegistry.getSpecialistsByExpertise(expertiseArea);
   }
+  */
 
-  /**
-   * Get specialist collaboration recommendations
-   */
+  /*
+  // TODO: The following methods need to be refactored to use SpecialistDefinition
+  // when specialist consultation features are needed again
+  
   getCollaboratingSpecialists(primarySpecialistId: string, question: string): BCSpecialist[] {
     const primarySpecialist = this.personaRegistry.getSpecialist(primarySpecialistId);
     if (!primarySpecialist) {
@@ -362,15 +379,11 @@ export class KnowledgeService {
     return this.personaRegistry.getCollaboratingSpecialists(primarySpecialist, question);
   }
 
-  /**
-   * Find specialists by search query
-   */
   findSpecialistsByQuery(query: string): BCSpecialist[] {
     const allSpecialists = this.personaRegistry.getAllSpecialists();
     const queryLower = query.toLowerCase();
     
     return allSpecialists.filter(specialist => {
-      // Search in name, role, or any expertise area
       return specialist.name.toLowerCase().includes(queryLower) ||
              specialist.role.toLowerCase().includes(queryLower) ||
              specialist.expertise_areas.some(area => area.toLowerCase().includes(queryLower)) ||
@@ -378,63 +391,20 @@ export class KnowledgeService {
     });
   }
 
-  // ============================================================================
-  // PRIVATE HELPER METHODS FOR PERSONA CONSULTATION
-  // ============================================================================
-
   private generateConsultationApproach(specialist: BCSpecialist, topic: AtomicTopic, question?: string): string {
-    const baseApproach = `${specialist.name} approaches this topic with ${specialist.consultation_style.toLowerCase()}.`;
-    
-    if (question) {
-      return `${baseApproach} For your specific question about "${question}", ${specialist.name} would focus on ${specialist.expertise_areas.slice(0, 3).join(', ')} aspects, providing ${specialist.communication_tone} guidance.`;
-    }
-    
-    return `${baseApproach} This topic (${topic.frontmatter.title}) aligns with ${specialist.name}'s expertise in ${specialist.expertise_areas.slice(0, 3).join(', ')}.`;
+    // implementation details...
   }
 
   private generateExpertiseContext(specialist: BCSpecialist, topic: AtomicTopic): string {
-    return `${specialist.name} is particularly qualified to discuss "${topic.frontmatter.title}" because of their expertise in: ${specialist.expertise_areas.join(', ')}. Their ${specialist.communication_tone} approach focuses on ${specialist.consultation_style.toLowerCase()}.`;
+    // implementation details...
   }
 
   private generateConsultationGuidance(specialist: BCSpecialist, question: string, relevantTopics: TopicSearchResult[]): string {
-    let guidance = `${specialist.name} says: "${specialist.consultation_style}"\n\n`;
-    
-    if (relevantTopics.length > 0) {
-      guidance += `Based on my expertise in ${specialist.expertise_areas.slice(0, 3).join(', ')}, here's what I recommend:\n\n`;
-      guidance += `Key knowledge areas to explore:\n`;
-      relevantTopics.slice(0, 3).forEach((topic, index) => {
-        guidance += `${index + 1}. ${topic.title} - ${topic.summary}\n`;
-      });
-    } else {
-      guidance += `While I don't have specific knowledge topics for this exact question, as ${specialist.role}, I'd approach this by focusing on ${specialist.expertise_areas.slice(0, 2).join(' and ')}.`;
-    }
-    
-    return guidance;
+    // implementation details...
   }
 
   private generateFollowUpSuggestions(specialist: BCSpecialist, question: string, relevantTopics: TopicSearchResult[]): string[] {
-    const suggestions: string[] = [];
-    
-    // Add specialist-specific follow-ups
-    if (specialist.typical_questions.length > 0) {
-      suggestions.push(`Ask ${specialist.name}: "${specialist.typical_questions[0]}"`);
-    }
-    
-    // Add topic-based suggestions
-    if (relevantTopics.length > 0) {
-      suggestions.push(`Explore the "${relevantTopics[0].title}" topic in detail`);
-    }
-    
-    // Add expertise area suggestions
-    const primaryExpertise = specialist.expertise_areas[0];
-    suggestions.push(`Learn more about ${primaryExpertise} fundamentals`);
-    
-    // Add collaboration suggestions
-    const collaborators = this.getCollaboratingSpecialists(specialist.id, question);
-    if (collaborators.length > 0) {
-      suggestions.push(`Consider also consulting ${collaborators[0].name} for ${collaborators[0].expertise_areas[0]} perspective`);
-    }
-    
-    return suggestions.slice(0, 4); // Limit to 4 suggestions
+    // implementation details...
   }
+  */
 }

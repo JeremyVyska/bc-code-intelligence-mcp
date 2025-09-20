@@ -27,6 +27,16 @@ export interface SessionContext {
     project?: string;
   };
   
+  // Methodology context - NEW for workflow-driven conversations
+  methodology_context?: {
+    methodology_id: string;
+    methodology_title: string;
+    current_phase: string;
+    phase_progress: Record<string, any>;
+    confirmed_by_user: boolean;
+    suggested_at: Date;
+  };
+  
   // Solutions and recommendations discussed
   solutions: string[];
   recommendations: string[];
@@ -58,6 +68,16 @@ export interface SpecialistSession {
   
   // Context and state
   context: SessionContext;
+  
+  // Methodology context - quick access for methodology state
+  methodology_context?: {
+    methodology_id: string;
+    methodology_title: string;
+    current_phase: string;
+    phase_progress: Record<string, any>;
+    confirmed_by_user: boolean;
+    suggested_at: Date;
+  };
   
   // Session metadata
   transferredFrom?: string;    // If transferred from another specialist

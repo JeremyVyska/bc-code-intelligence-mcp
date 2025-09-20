@@ -76,11 +76,13 @@ export interface SpecialistResponse {
   }[];
   
   // Session updates
-  context_updates?: Partial<SessionContext>;
+  context_updates?: Partial<SessionContext> & {
+    methodology_suggested?: boolean;
+  };
   recommendations_added?: string[];
   
   // Response type and intent
-  response_type: 'guidance' | 'solution' | 'question' | 'handoff' | 'encouragement';
+  response_type: 'guidance' | 'solution' | 'question' | 'handoff' | 'encouragement' | 'methodology_onboarding' | 'methodology_suggestion';
   confidence_level: 'high' | 'medium' | 'low';
 }
 
@@ -178,6 +180,16 @@ export interface KnowledgeRetriever {
    */
   findRelevantTopics(
     userMessage: string,
+    specialistExpertise: string[],
+    limit?: number
+  ): Promise<AtomicTopic[]>;
+  
+  /**
+   * Find relevant topics within methodology context
+   */
+  findRelevantTopicsInMethodology(
+    userMessage: string,
+    methodologyContext: any,
     specialistExpertise: string[],
     limit?: number
   ): Promise<AtomicTopic[]>;

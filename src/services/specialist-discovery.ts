@@ -111,6 +111,17 @@ export class SpecialistDiscoveryService {
   }
 
   /**
+   * Get a specific specialist by ID
+   */
+  async getSpecialistById(specialistId: string): Promise<SpecialistDefinition | null> {
+    await this.ensureInitialized();
+    
+    return this.specialists.find(specialist => 
+      specialist.specialist_id === specialistId
+    ) || null;
+  }
+
+  /**
    * Analyze how well a specialist matches the given context
    */
   private analyzeSpecialistMatch(

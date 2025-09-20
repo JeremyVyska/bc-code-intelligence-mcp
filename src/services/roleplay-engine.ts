@@ -46,34 +46,93 @@ export class BCSpecialistRoleplayEngine implements RoleplayEngine {
   }
 
   /**
-   * Generate a personality-driven response from a specialist
+   * Generate a methodology-contextual response from a specialist
    */
   async generateResponse(context: RoleplayContext): Promise<SpecialistResponse> {
     const { specialist, userMessage, session } = context;
     
-    // Analyze the specialist's personality
+    // Check if methodology context is established
+    if (!session.methodology_context?.confirmed_by_user) {
+      return await this.establishMethodologyContext(specialist, userMessage, session);
+    }
+    
+    // Apply knowledge within established methodology context
+    return await this.applyKnowledgeInMethodology(specialist, userMessage, session);
+  }
+
+  /**
+   * Establish methodology context before applying domain knowledge
+   */
+  private async establishMethodologyContext(
+    specialist: SpecialistDefinition,
+    userMessage: string,
+    session: any
+  ): Promise<SpecialistResponse> {
     const personality = this.analyzePersonality(specialist);
     
-    // Find relevant knowledge
-    const relevantTopics = await this.knowledgeRetriever.findRelevantTopics(
+    // Suggest appropriate methodologies based on user request and specialist expertise
+    const suggestedMethodologies = await this.suggestMethodologies(userMessage, specialist);
+    
+    // Build methodology onboarding response
+    const response = await this.buildMethodologyOnboardingResponse(
+      specialist,
+      personality,
       userMessage,
+      suggestedMethodologies
+    );
+
+    return {
+      content: response.content,
+      specialist_id: specialist.specialist_id,
+      personality_elements: response.personality_elements,
+      topics_referenced: [],
+      knowledge_applied: [],
+      suggested_handoffs: [],
+      context_updates: { methodology_suggested: true },
+      recommendations_added: response.recommendations || [],
+      response_type: 'methodology_onboarding',
+      confidence_level: 'high'
+    };
+  }
+
+  /**
+   * Apply knowledge within established methodology context
+   */
+  private async applyKnowledgeInMethodology(
+    specialist: SpecialistDefinition,
+    userMessage: string,
+    session: any
+  ): Promise<SpecialistResponse> {
+    const personality = this.analyzePersonality(specialist);
+    
+    // Find relevant knowledge within methodology context
+    const relevantTopics = await this.knowledgeRetriever.findRelevantTopicsInMethodology(
+      userMessage,
+      session.methodology_context,
       specialist.expertise.primary.concat(specialist.expertise.secondary),
       5
     );
 
-    // Generate personality-driven response
-    const response = await this.buildPersonalityResponse(
+    // Generate methodology-contextual response
+    const response = await this.buildMethodologyResponse(
       specialist,
       personality,
-      context,
+      userMessage,
+      session.methodology_context,
       relevantTopics
     );
 
     // Apply session context updates
-    const contextUpdates = this.generateContextUpdates(context, relevantTopics);
+    const contextUpdates = this.generateContextUpdates(
+      { specialist, userMessage, session, conversationHistory: [] }, 
+      relevantTopics
+    );
     
     // Check for collaboration opportunities
-    const suggestedHandoffs = await this.suggestCollaborations(context, relevantTopics);
+    const suggestedHandoffs = await this.suggestCollaborations(
+      { specialist, userMessage, session, conversationHistory: [] }, 
+      relevantTopics
+    );
 
     return {
       content: response.content,
@@ -90,6 +149,168 @@ export class BCSpecialistRoleplayEngine implements RoleplayEngine {
       response_type: response.response_type,
       confidence_level: response.confidence_level
     };
+  }
+
+  /**
+   * Suggest appropriate methodologies based on user request and specialist expertise
+   */
+  private async suggestMethodologies(
+    userMessage: string,
+    specialist: SpecialistDefinition
+  ): Promise<any[]> {
+    // Analyze user message for methodology keywords and patterns
+    const methodologyKeywords = this.extractMethodologyKeywords(userMessage);
+    const specialistMethodologies = await this.getSpecialistMethodologies(specialist);
+    
+    // Return suggested methodologies with confidence scores
+    return specialistMethodologies.filter(methodology => 
+      methodologyKeywords.some(keyword => 
+        methodology.title.toLowerCase().includes(keyword) ||
+        methodology.description.toLowerCase().includes(keyword)
+      )
+    ).slice(0, 3); // Top 3 suggestions
+  }
+
+  /**
+   * Build methodology onboarding response
+   */
+  private async buildMethodologyOnboardingResponse(
+    specialist: SpecialistDefinition,
+    personality: any,
+    userMessage: string,
+    suggestedMethodologies: any[]
+  ): Promise<any> {
+    const greeting = specialist.persona.greeting;
+    
+    if (suggestedMethodologies.length === 0) {
+      return {
+        content: `${greeting} I'd love to help! Before we dive in, could you tell me more about what you're trying to accomplish? This will help me suggest the best approach for our work together.`,
+        personality_elements: {},
+        recommendations: [],
+        response_type: 'clarification_needed',
+        confidence_level: 'medium'
+      };
+    }
+
+    const primaryMethodology = suggestedMethodologies[0];
+    const content = `${greeting} I can see you're interested in ${this.extractUserIntent(userMessage)}. 
+
+**Suggested Approach: "${primaryMethodology.title}"**
+${primaryMethodology.description}
+
+This methodology will help us work through this systematically. Does this approach sound right for your goals? Once we confirm this framework, I can provide targeted guidance with relevant knowledge applied in context.
+
+What's your current experience level so I can tailor the approach accordingly?`;
+
+    return {
+      content,
+      personality_elements: { methodology_suggested: primaryMethodology.methodology_id },
+      recommendations: [`Follow ${primaryMethodology.title} methodology`],
+      response_type: 'methodology_suggestion',
+      confidence_level: 'high'
+    };
+  }
+
+  /**
+   * Build response within established methodology context
+   */
+  private async buildMethodologyResponse(
+    specialist: SpecialistDefinition,
+    personality: any,
+    userMessage: string,
+    methodologyContext: any,
+    relevantTopics: any[]
+  ): Promise<any> {
+    // Create a proper session context for the existing method
+    const sessionWithContext = {
+      sessionId: 'temp',
+      specialistId: specialist.specialist_id,
+      userId: 'temp',
+      startTime: new Date(),
+      lastActivity: new Date(),
+      messageCount: 1,
+      status: 'active' as const,
+      messages: [],
+      context: { 
+        methodology_context: methodologyContext,
+        solutions: [],
+        recommendations: [],
+        nextSteps: [],
+        userPreferences: {}
+      }
+    };
+
+    // Use existing buildPersonalityResponse with methodology context
+    return await this.buildPersonalityResponse(
+      specialist, 
+      personality, 
+      { specialist, userMessage, session: sessionWithContext, conversationHistory: [] }, 
+      relevantTopics
+    );
+  }
+
+  /**
+   * Extract methodology keywords from user message
+   */
+  private extractMethodologyKeywords(userMessage: string): string[] {
+    const keywords: string[] = [];
+    const message = userMessage.toLowerCase();
+    
+    const patterns = {
+      'fundamentals': ['fundamental', 'basics', 'introduction', 'getting started', 'onboarding'],
+      'development': ['development', 'coding', 'programming', 'building'],
+      'architecture': ['architecture', 'design', 'structure', 'pattern'],
+      'performance': ['performance', 'optimization', 'speed', 'efficiency'],
+      'testing': ['testing', 'quality', 'validation', 'debugging'],
+      'workflow': ['workflow', 'methodology', 'process', 'approach']
+    };
+
+    for (const [category, terms] of Object.entries(patterns)) {
+      if (terms.some(term => message.includes(term))) {
+        keywords.push(category);
+      }
+    }
+    
+    return keywords;
+  }
+
+  /**
+   * Get methodologies relevant to specialist
+   */
+  private async getSpecialistMethodologies(specialist: SpecialistDefinition): Promise<any[]> {
+    // Map specialists to their preferred methodologies
+    const specialistMethodologies: Record<string, any[]> = {
+      'maya-mentor': [
+        { methodology_id: 'developer-introduction', title: 'BC Development Fundamentals', description: 'Introduction to Business Central development fundamentals and environment setup' },
+        { methodology_id: 'skill-building', title: 'Skill Development Methodology', description: 'Structured approach to building BC development skills' }
+      ],
+      'sam-coder': [
+        { methodology_id: 'implementation', title: 'Implementation Methodology', description: 'Efficient code implementation and development practices' }
+      ],
+      'alex-architect': [
+        { methodology_id: 'architecture-design', title: 'Architecture Design Methodology', description: 'Systematic approach to BC solution architecture' }
+      ],
+      'dean-debug': [
+        { methodology_id: 'troubleshooting', title: 'Diagnostic Methodology', description: 'Systematic problem diagnosis and performance analysis' }
+      ]
+    };
+
+    return specialistMethodologies[specialist.specialist_id] || [];
+  }
+
+  /**
+   * Extract user intent from message
+   */
+  private extractUserIntent(userMessage: string): string {
+    // Simple intent extraction - could be made more sophisticated
+    const message = userMessage.toLowerCase();
+    if (message.includes('fundamental') || message.includes('getting started')) {
+      return 'learning fundamentals';
+    }
+    if (message.includes('workflow') || message.includes('methodology')) {
+      return 'following a structured approach';
+    }
+    return 'getting help with BC development';
   }
 
   /**
@@ -809,6 +1030,51 @@ class BCKnowledgeRetriever implements KnowledgeRetriever {
       return [];
     } catch (error) {
       console.error('Error finding relevant topics:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Find relevant topics within methodology context
+   */
+  async findRelevantTopicsInMethodology(
+    userMessage: string,
+    methodologyContext: any,
+    specialistExpertise: string[],
+    limit: number = 5
+  ): Promise<AtomicTopic[]> {
+    try {
+      // Focus search on methodology-specific topics and current phase context
+      const methodologyTerms = [
+        methodologyContext.methodology_id,
+        methodologyContext.current_phase,
+        ...specialistExpertise
+      ];
+
+      const searchParams: TopicSearchParams = {
+        code_context: `${userMessage} ${methodologyTerms.join(' ')}`,
+        limit,
+        bc_version: 'BC22'
+      };
+
+      const searchResults = await this.knowledgeService.searchTopics(searchParams);
+      
+      if (searchResults && Array.isArray(searchResults)) {
+        const topics: AtomicTopic[] = [];
+        
+        for (const result of searchResults.slice(0, limit)) {
+          const topic = await this.knowledgeService.getTopic(result.id);
+          if (topic) {
+            topics.push(topic);
+          }
+        }
+        
+        return topics;
+      }
+
+      return [];
+    } catch (error) {
+      console.error('Error finding methodology-relevant topics:', error);
       return [];
     }
   }

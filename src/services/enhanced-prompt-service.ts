@@ -2,7 +2,18 @@
  * Enhanced Prompt Service
  * 
  * Enhances MCP prompts with specialist routing and intelligent guidance.
- * Integrates specialist discovery with workflow prompts for better user experience.
+ * Integrates specialist d    section += '**Workflow Tools (use these for systematic approach):**\n';
+    section += '- `advance_workflow` - Continue with systematic workflow steps\n';
+    section += '- `get_workflow_status` - Check current workflow progress\n\n';
+
+    section += '### 🔧 External MCP Tool Discovery\n\n';
+    section += '**IMPORTANT:** Before proceeding with BC operations, check if there are relevant MCP tools from other servers available:\n\n';
+    section += '- **Object creation/ID assignment** → Look for `al-objid-mcp-server` (Object ID Ninja)\n';
+    section += '- **Dependency analysis** → Look for `AL-Dependency-MCP-Server` \n';
+    section += '- **Code generation, debugging, testing** → Check for any specialized AL/BC MCP servers\n\n';
+    section += 'Use these external tools when available rather than manual approaches for better accuracy and automation.\n\n';
+
+    section += '### 💡 How to Proceed Effectively\n\n';h workflow prompts for better user experience.
  */
 
 import { SpecialistDiscoveryService, DiscoveryContext } from './specialist-discovery.js';
@@ -81,18 +92,20 @@ export class EnhancedPromptService {
         }));
 
         // Add specialist routing section to prompt
-        enhancedContent += this.buildSpecialistRoutingSection(specialistSuggestions, workflowType);
+        enhancedContent += this.buildSpecialistRoutingSection(specialistSuggestions, suggestions, workflowType);
         
         // Add routing options
         specialistSuggestions.forEach(suggestion => {
-          routingOptions.push(`🎯 Start session with ${suggestion.title}: suggest_specialist ${suggestion.specialist_id}`);
+          routingOptions.push(`**Use MCP tool:** suggest_specialist ${suggestion.specialist_id} (${suggestion.title})`);
         });
       }
     }
 
     // Add workflow coordination options
-    routingOptions.push(`🔄 Continue with systematic workflow: advance_workflow`);
-    routingOptions.push(`📋 Get current workflow status: get_workflow_status`);
+    routingOptions.push(`**Use MCP tool:** advance_workflow (Continue systematic workflow)`);
+    routingOptions.push(`**Use MCP tool:** get_workflow_status (Check workflow progress)`);
+    routingOptions.push(`**Use MCP tool:** discover_specialists (Find specialists for specific questions)`);
+    routingOptions.push(`**Use MCP tool:** find_bc_topics (Search BC knowledge topics)`);
 
     return {
       originalContent: originalGuidance,
@@ -107,23 +120,50 @@ export class EnhancedPromptService {
    */
   private buildSpecialistRoutingSection(
     suggestions: SpecialistSuggestion[],
+    fullSuggestions: any[], // The original suggestions with specialist objects
     workflowType: string
   ): string {
-    let section = '\n\n## 🎯 Recommended Specialists\n\n';
-    section += 'Based on your workflow, these specialists can provide targeted expertise:\n\n';
+    let section = '\n\n## 🎯 START HERE: Use MCP Tools for Specialist Consultation\n\n';
+    section += '**IMPORTANT:** You have access to BC Code Intelligence MCP tools. Use them now for expert guidance:\n\n';
 
     suggestions.forEach((suggestion, index) => {
-      const emoji = this.getSpecialistEmoji(suggestion.specialist_id);
-      section += `**${index + 1}. ${emoji} ${suggestion.title}** (${suggestion.confidence}% match)\n`;
-      section += `   💡 **Why:** ${suggestion.reason}\n`;
-      section += `   💬 **Try asking:** "${suggestion.example_query}"\n`;
-      section += `   🎯 **Start session:** \`suggest_specialist ${suggestion.specialist_id}\`\n\n`;
+      // Get emoji from the specialist object in fullSuggestions
+      const fullSuggestion = fullSuggestions[index];
+      const emoji = fullSuggestion?.specialist?.emoji || '👤';
+      section += `### ${emoji} ${suggestion.title} (${suggestion.confidence}% match)\n`;
+      section += `**Why this specialist:** ${suggestion.reason}\n\n`;
+      section += `**🚀 USE THIS MCP TOOL NOW:**\n`;
+      section += `\`\`\`\nsuggest_specialist ${suggestion.specialist_id}\n\`\`\`\n\n`;
+      section += `**Example question to ask:** "${suggestion.example_query}"\n\n`;
+      section += `---\n\n`;
     });
 
-    section += '### 🚀 How to Proceed\n\n';
-    section += '1. **For targeted expertise:** Use `suggest_specialist [specialist-id]` to start a focused session\n';
-    section += '2. **For systematic approach:** Continue with the workflow using `advance_workflow`\n';
-    section += '3. **For exploration:** Ask "discover specialists for [your specific question]"\n\n';
+    section += '## �️ Available MCP Tools for This Workflow\n\n';
+    section += '**Specialist Tools (use these for expert consultation):**\n';
+    section += '- `suggest_specialist [specialist-id]` - Get advice from a specific specialist\n';
+    section += '- `discover_specialists` - Find specialists for your specific question\n';
+    section += '- `browse_specialists` - See all available specialists by domain\n\n';
+    
+    section += '**Knowledge Tools (use these for topic research):**\n';
+    section += '- `find_bc_topics` - Search for BC knowledge topics\n';
+    section += '- `get_topic_content` - Get detailed content for specific topics\n\n';
+    
+    section += '**Workflow Tools (use these for systematic approach):**\n';
+    section += '- `advance_workflow` - Continue with systematic workflow steps\n';
+    section += '- `get_workflow_status` - Check current workflow progress\n\n';
+
+    section += '### � External MCP Tool Discovery\n\n';
+    section += '**IMPORTANT:** Before proceeding with BC operations, check if there are relevant MCP tools from other servers available:\n\n';
+    section += '- **Object creation/ID assignment** → Look for `al-objid-mcp-server` (Object ID Ninja)\n';
+    section += '- **Dependency analysis** → Look for `AL-Dependency-MCP-Server` \n';
+    section += '- **Code generation, debugging, testing** → Check for any specialized AL/BC MCP servers\n\n';
+    section += 'Use these external tools when available rather than manual approaches for better accuracy and automation.\n\n';
+
+    section += '### �💡 How to Proceed Effectively\n\n';
+    section += '1. **Start with specialists:** Use `suggest_specialist [id]` for one of the recommended specialists above\n';
+    section += '2. **Get specific knowledge:** Use `find_bc_topics` to research specific BC topics\n';
+    section += '3. **Follow systematic approach:** Use `advance_workflow` for step-by-step guidance\n';
+    section += '4. **Ask targeted questions:** Be specific about your BC development challenges\n\n';
 
     return section;
   }
@@ -189,29 +229,5 @@ export class EnhancedPromptService {
     };
 
     return contextMap[workflowType] || 'this workflow';
-  }
-
-  /**
-   * Get emoji for specialist
-   */
-  private getSpecialistEmoji(specialistId: string): string {
-    const emojiMap: Record<string, string> = {
-      'dean-debug': '🔍',
-      'eva-errors': '⚠️',
-      'alex-architect': '🏗️',
-      'sam-coder': '💻',
-      'quinn-tester': '🧪',
-      'seth-security': '🔒',
-      'uma-ux': '🎨',
-      'jordan-bridge': '🌉',
-      'logan-legacy': '🏛️',
-      'roger-reviewer': '📝',
-      'maya-mentor': '👩‍🏫',
-      'taylor-docs': '📚',
-      'casey-copilot': '🤖',
-      'morgan-market': '🏪'
-    };
-
-    return emojiMap[specialistId] || '👤';
   }
 }

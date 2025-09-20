@@ -5,7 +5,8 @@
 
 import { KnowledgeService } from './knowledge-service.js';
 import { MethodologyService } from './methodology-service.js';
-import { PersonaRegistry } from '../types/persona-types.js';
+import { SpecialistDiscoveryService } from './specialist-discovery.js';
+import { SpecialistDefinition } from './specialist-loader.js';
 
 export type WorkflowType = 
   | 'new-bc-app'
@@ -127,7 +128,7 @@ export class WorkflowService {
   constructor(
     private knowledgeService: KnowledgeService,
     private methodologyService: MethodologyService,
-    private personaRegistry: PersonaRegistry
+    private specialistDiscoveryService: SpecialistDiscoveryService
   ) {
     this.pipelineDefinitions = this.initializePipelineDefinitions();
   }
@@ -143,11 +144,14 @@ export class WorkflowService {
       throw new Error(`Unknown workflow type: ${request.workflow_type}`);
     }
 
+    // Discover specialists dynamically based on workflow type
+    const workflowSpecialists = await this.discoverWorkflowSpecialists(request.workflow_type);
+
     const session: BCWorkflowSession = {
       id: sessionId,
       type: request.workflow_type,
       current_phase: 0,
-      specialist_pipeline: pipeline.specialists,
+      specialist_pipeline: workflowSpecialists,
       project_context: request.project_context,
       bc_version: request.bc_version,
       phase_results: [],
@@ -180,12 +184,12 @@ export class WorkflowService {
     // Record current phase results if provided
     if (request.phase_results) {
       const currentSpecialistId = session.specialist_pipeline[session.current_phase];
-      const specialist = this.personaRegistry.getSpecialist(currentSpecialistId);
+      const specialist = await this.specialistDiscoveryService.getSpecialistById(currentSpecialistId);
       
       const phaseResult: PhaseResult = {
         phase_number: session.current_phase,
         specialist_id: currentSpecialistId,
-        specialist_name: specialist?.name || 'Unknown',
+        specialist_name: specialist?.title || 'Unknown',
         guidance_provided: request.phase_results,
         decisions_made: [], // Could be extracted from phase_results
         next_steps: [],
@@ -221,12 +225,12 @@ export class WorkflowService {
     }
 
     const currentSpecialistId = session.specialist_pipeline[session.current_phase];
-    const currentSpecialist = this.personaRegistry.getSpecialist(currentSpecialistId);
+    const currentSpecialist = await this.specialistDiscoveryService.getSpecialistById(currentSpecialistId);
     
     const nextSpecialistId = session.current_phase + 1 < session.specialist_pipeline.length 
       ? session.specialist_pipeline[session.current_phase + 1] 
       : undefined;
-    const nextSpecialist = nextSpecialistId ? this.personaRegistry.getSpecialist(nextSpecialistId) : undefined;
+    const nextSpecialist = nextSpecialistId ? await this.specialistDiscoveryService.getSpecialistById(nextSpecialistId) : undefined;
 
     const progressPercentage = (session.current_phase / session.specialist_pipeline.length) * 100;
 
@@ -301,12 +305,112 @@ Phase ${status.session.current_phase + 1} of ${status.session.specialist_pipelin
   }
 
   /**
+   * Dynamically discover specialists relevant to a workflow type
+   * This replaces hard-coded specialist lists with dynamic discovery based on specialist metadata
+   */
+  private async discoverWorkflowSpecialists(workflowType: WorkflowType): Promise<string[]> {
+    try {
+      // Get all available specialists from the knowledge service
+      const allSpecialists = await this.knowledgeService.getAllSpecialists();
+      const relevantSpecialists: string[] = [];
+
+      // Define workflow expertise mappings for the current BCSpecialist structure
+      const workflowExpertiseMap: Record<WorkflowType, string[]> = {
+        'new-bc-app': ['architecture', 'implementation', 'security', 'testing', 'ui-ux', 'documentation'],
+        'enhance-bc-app': ['architecture', 'performance', 'implementation', 'error-handling', 'testing'],
+        'review-bc-code': ['code-review', 'performance', 'security', 'error-handling', 'testing', 'ui-ux', 'architecture'],
+        'debug-bc-issues': ['performance', 'troubleshooting', 'error-handling'],
+        'modernize-bc-code': ['architecture', 'performance', 'security', 'best-practices'],
+        'onboard-developer': ['mentoring', 'best-practices', 'education'],
+        'upgrade-bc-version': ['architecture', 'performance', 'error-handling', 'testing'],
+        'add-ecosystem-features': ['integration', 'api-design', 'security'],
+        'document-bc-solution': ['documentation', 'architecture']
+      };
+
+      const targetExpertise = workflowExpertiseMap[workflowType] || [];
+
+      // Score each specialist based on expertise area overlap
+      const specialistScores = allSpecialists.map(specialist => {
+        let score = 0;
+        
+        // Score based on expertise overlap
+        if (specialist.expertise?.primary || specialist.expertise?.secondary) {
+          const allExpertise = [...(specialist.expertise.primary || []), ...(specialist.expertise.secondary || [])];
+          const expertiseMatches = allExpertise.filter(area => 
+            targetExpertise.some(targetExp => 
+              area.toLowerCase().includes(targetExp.toLowerCase()) || 
+              targetExp.toLowerCase().includes(area.toLowerCase())
+            )
+          ).length;
+          score += expertiseMatches * 2; // Each expertise match is worth 2 points
+        }
+
+        // Score based on domains
+        if (specialist.domains) {
+          const domainMatches = specialist.domains.filter(domain => 
+            targetExpertise.some(targetExp => 
+              domain.toLowerCase().includes(targetExp.toLowerCase()) ||
+              targetExp.toLowerCase().includes(domain.toLowerCase())
+            )
+          ).length;
+          score += domainMatches;
+        }
+
+        // Boost score for certain specialists based on role
+        if (specialist.role) {
+          const roleBoosts: Record<string, string[]> = {
+            'architecture': ['Planning & Design', 'Solution Design'],
+            'performance': ['Troubleshooting', 'Performance'],
+            'security': ['Security'],
+            'testing': ['Quality & Testing', 'Testing'],
+            'documentation': ['Documentation'],
+            'mentoring': ['Teaching', 'Learning'],
+            'error-handling': ['Error Handling', 'Exception Management']
+          };
+
+          targetExpertise.forEach(expertise => {
+            const relevantRoles = roleBoosts[expertise] || [];
+            if (relevantRoles.some(role => specialist.role.includes(role))) {
+              score += 1; // Role match bonus
+            }
+          });
+        }
+
+        return { specialist_id: specialist.specialist_id, score };
+      });
+
+      // Sort by score and take top specialists
+      const sortedSpecialists = specialistScores
+        .filter(item => item.score > 0)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 8) // Take top 8 specialists max
+        .map(item => item.specialist_id);
+
+      // Ensure we have some specialists even if scoring fails
+      if (sortedSpecialists.length === 0) {
+        // Fallback to core specialists - but check they exist first
+        const coreSpecialists = allSpecialists
+          .slice(0, 6)
+          .map(s => s.specialist_id);
+        return coreSpecialists;
+      }
+
+      return sortedSpecialists;
+    } catch (error) {
+      console.error('Error discovering workflow specialists:', error);
+      // Fallback to basic set that should exist
+      return ['alex-architect', 'sam-coder', 'dean-debug', 'eva-errors', 'roger-reviewer', 'quinn-tester'];
+    }
+  }
+
+  /**
    * Initialize pipeline definitions for all workflow types
+   * Now uses dynamic specialist discovery instead of hard-coded lists
    */
   private initializePipelineDefinitions(): Record<WorkflowType, PipelineDefinition> {
     return {
       'new-bc-app': {
-        specialists: ['alex-architect', 'sam-coder', 'eva-errors', 'uma-ux', 'roger-reviewer', 'quinn-tester', 'seth-security', 'taylor-docs'],
+        specialists: [], // Will be populated dynamically
         phases: [
           { methodology_id: 'analysis-architecture', title: 'Architecture Specification', description: 'Business requirements to BC data model design' },
           { methodology_id: 'coding-implementation', title: 'Implementation Planning', description: 'AL code structure and development approach' },
@@ -319,7 +423,7 @@ Phase ${status.session.current_phase + 1} of ${status.session.specialist_pipelin
         ]
       },
       'enhance-bc-app': {
-        specialists: ['alex-architect', 'dean-debug', 'sam-coder', 'eva-errors', 'roger-reviewer', 'quinn-tester'],
+        specialists: [], // Will be populated dynamically
         phases: [
           { methodology_id: 'analysis-impact', title: 'Impact Analysis', description: 'Architectural impact and integration considerations' },
           { methodology_id: 'performance-assessment', title: 'Performance Assessment', description: 'Performance impact and optimization opportunities' },
@@ -329,9 +433,8 @@ Phase ${status.session.current_phase + 1} of ${status.session.specialist_pipelin
           { methodology_id: 'testing-feature', title: 'Feature Validation', description: 'Feature testing and integration validation' }
         ]
       },
-      // Additional pipeline definitions...
       'review-bc-code': {
-        specialists: ['logan-legacy', 'roger-reviewer', 'dean-debug', 'seth-security', 'eva-errors', 'quinn-tester', 'uma-ux', 'alex-architect'],
+        specialists: [], // Will be populated dynamically
         phases: [
           { methodology_id: 'analysis-legacy', title: 'Legacy Pattern Assessment', description: 'Outdated pattern identification and technical debt analysis' },
           { methodology_id: 'verification-quality', title: 'Code Quality Audit', description: 'Quality metrics and maintainability assessment' },
@@ -347,7 +450,7 @@ Phase ${status.session.current_phase + 1} of ${status.session.specialist_pipelin
       'debug-bc-issues': { specialists: [], phases: [] },
       'modernize-bc-code': { specialists: [], phases: [] },
       'onboard-developer': {
-        specialists: ['maya-mentor', 'sam-coder', 'alex-architect', 'dean-debug', 'quinn-tester', 'roger-reviewer'],
+        specialists: [], // Will be populated dynamically
         phases: [
           { methodology_id: 'developer-introduction', title: 'BC Development Fundamentals', description: 'Introduction to Business Central development fundamentals and environment setup' },
           { methodology_id: 'coding-basics', title: 'AL Language Fundamentals', description: 'Core AL language concepts, syntax, and coding standards' },

@@ -103,10 +103,7 @@ export class MethodologyService {
       // Log detailed information about loaded methodology
       console.error(`Loaded methodology index with ${Object.keys(indexData.intents || {}).length} intents`);
       if (indexData.intents) {
-        for (const [intentName, intentData] of Object.entries(indexData.intents)) {
-          const phases = (intentData as any).phases || [];
-          console.error(`  Intent '${intentName}': ${phases.length} phases (${phases.join(', ')})`);
-        }
+        // Silently load intents without verbose logging
       }
       
       const availablePhases = new Set<string>();

@@ -3,7 +3,7 @@
  * Run with: npm run dev -- --test-mcp-server
  */
 
-import { BCKBServer } from './index.js';
+import { BCCodeIntelligenceServer } from './index.js';
 import { LayerSourceType, AuthType } from './types/index.js';
 
 async function testEnhancedMCPServer() {
@@ -12,7 +12,7 @@ async function testEnhancedMCPServer() {
   try {
     // Create server instance
     console.log('\n🏗️  Creating MCP server instance...');
-    const server = new BCKBServer();
+    const server = new BCCodeIntelligenceServer();
 
     // Simulate MCP tool calls for testing
     console.log('\n🧪 Testing enhanced MCP tools...');
@@ -45,7 +45,7 @@ async function testEnhancedMCPServer() {
   }
 }
 
-async function testConfigurationStatus(server: BCKBServer) {
+async function testConfigurationStatus(server: BCCodeIntelligenceServer) {
   try {
     // Initialize server first to load configuration
     await initializeServerForTesting(server);
@@ -70,7 +70,7 @@ async function testConfigurationStatus(server: BCKBServer) {
   }
 }
 
-async function testLayerInfo(server: BCKBServer) {
+async function testLayerInfo(server: BCCodeIntelligenceServer) {
   try {
     console.log('   🔍 Testing layer information with statistics...');
 
@@ -90,7 +90,7 @@ async function testLayerInfo(server: BCKBServer) {
   }
 }
 
-async function testTopicLayerResolution(server: BCKBServer) {
+async function testTopicLayerResolution(server: BCCodeIntelligenceServer) {
   try {
     console.log('   🎯 Testing topic resolution across layers...');
 
@@ -113,7 +113,7 @@ async function testTopicLayerResolution(server: BCKBServer) {
   }
 }
 
-async function testLayeredSearch(server: BCKBServer) {
+async function testLayeredSearch(server: BCCodeIntelligenceServer) {
   try {
     console.log('   🔎 Testing layered topic search...');
 
@@ -136,7 +136,7 @@ async function testLayeredSearch(server: BCKBServer) {
   }
 }
 
-async function testConfigurationReload(server: BCKBServer) {
+async function testConfigurationReload(server: BCCodeIntelligenceServer) {
   try {
     console.log('   🔄 Testing configuration reload (validation only)...');
 
@@ -160,7 +160,7 @@ async function testConfigurationReload(server: BCKBServer) {
 /**
  * Initialize server for testing (simulates what happens in run())
  */
-async function initializeServerForTesting(server: BCKBServer) {
+async function initializeServerForTesting(server: BCCodeIntelligenceServer) {
   try {
     // Access private configLoader through type assertion for testing
     const configLoader = (server as any).configLoader;
@@ -179,7 +179,7 @@ async function initializeServerForTesting(server: BCKBServer) {
 /**
  * Simulate MCP tool call for testing
  */
-async function simulateToolCall(server: BCKBServer, toolName: string, args: any) {
+async function simulateToolCall(server: BCCodeIntelligenceServer, toolName: string, args: any) {
   try {
     // Access private server instance for testing
     const mcpServer = (server as any).server;

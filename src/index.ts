@@ -37,7 +37,7 @@ import {
   OptimizationWorkflowParams,
   BCKBConfig
 } from './types/bc-knowledge.js';
-import { BCSpecialist, PersonaRegistry } from './types/persona-types.js';
+import { SpecialistDefinition } from './services/specialist-loader.js';
 import { WorkflowType, WorkflowStartRequest, WorkflowAdvanceRequest } from './services/workflow-service.js';
 import {
   BCCodeIntelConfiguration,
@@ -45,13 +45,13 @@ import {
 } from './types/index.js';
 
 /**
- * BCKB MCP Server
+ * BC Code Intelligence MCP Server
  * 
- * Business Central Knowledge Base Model Context Protocol Server
+ * Business Central Code Intelligence Model Context Protocol Server
  * Surfaces atomic BC knowledge topics for intelligent AI consumption
  * via GitHub Copilot, Claude, and other LLM tools.
  */
-class BCKBServer {
+class BCCodeIntelligenceServer {
   private server: Server;
   private knowledgeService!: KnowledgeService;
   private codeAnalysisService!: CodeAnalysisService;
@@ -85,7 +85,7 @@ class BCKBServer {
     // Initialize MCP server
     this.server = new Server(
       {
-        name: 'bckb-server',
+        name: 'bc-code-intelligence-mcp',
         version: this.getPackageVersion(),
       }
     );
@@ -185,95 +185,95 @@ class BCKBServer {
     // Define workflow prompts that guide users through structured pipelines
     const workflowPrompts = [
       {
-        name: 'workflow_code_optimization',
+        name: 'code_optimization',
         description: 'Optimize existing Business Central code using systematic analysis phases',
         arguments: [
           {
             name: 'code_location',
             description: 'Path to the code file or description of the code to optimize',
-            required: true
+            required: false // No more required fields - specialist will ask conversationally
           }
         ]
       },
       {
-        name: 'workflow_architecture_review',
+        name: 'architecture_review',
         description: 'Conduct comprehensive architecture review of Business Central solution',
         arguments: [
           {
             name: 'scope',
             description: 'Scope of review (module, solution, or specific components)',
-            required: true
+            required: false // Specialist will ask about scope naturally
           }
         ]
       },
       {
-        name: 'workflow_security_audit',
+        name: 'security_audit',
         description: 'Perform security analysis and compliance check for Business Central implementation',
         arguments: [
           {
             name: 'audit_scope',
             description: 'Security audit scope (permissions, data access, API security, etc.)',
-            required: true
+            required: false // Specialist will gather this in conversation
           }
         ]
       },
       {
-        name: 'workflow_performance_analysis',
+        name: 'perf_review',
         description: 'Analyze and optimize Business Central performance issues',
         arguments: [
           {
             name: 'performance_concern',
             description: 'Description of performance issue or area to analyze',
-            required: true
+            required: false
           }
         ]
       },
       {
-        name: 'workflow_integration_design',
+        name: 'integration_design',
         description: 'Design robust integration patterns for Business Central',
         arguments: [
           {
             name: 'integration_type',
             description: 'Type of integration (API, data sync, external service, etc.)',
-            required: true
+            required: false
           }
         ]
       },
       {
-        name: 'workflow_upgrade_planning',
+        name: 'upgrade_planning',
         description: 'Plan Business Central version upgrade with risk assessment',
         arguments: [
           {
             name: 'current_version',
             description: 'Current Business Central version',
-            required: true
+            required: false
           },
           {
             name: 'target_version',
             description: 'Target Business Central version',
-            required: true
+            required: false
           }
         ]
       },
       {
-        name: 'workflow_testing_strategy',
+        name: 'testing_strategy',
         description: 'Develop comprehensive testing strategy for Business Central solutions',
         arguments: [
           {
             name: 'testing_scope',
             description: 'Scope of testing (unit, integration, user acceptance, etc.)',
-            required: true
+            required: false
           }
         ]
       },
       {
-        name: 'workflow_new_developer_onboarding',
+        name: 'dev_onboarding',
         description: 'Guide new developer through Business Central development onboarding',
         arguments: [
           {
             name: 'experience_level',
             description: 'Developer experience level (beginner, intermediate, expert)',
-            required: true
+            required: false
           },
           {
             name: 'focus_area',
@@ -283,13 +283,93 @@ class BCKBServer {
         ]
       },
       {
-        name: 'workflow_pure_review',
-        description: 'Conduct pure review and analysis without implementation changes',
+        name: 'app_takeover',
+        description: 'Analyze and orient developer taking over an unfamiliar Business Central app',
+        arguments: [
+          {
+            name: 'app_source',
+            description: 'Source of the app (path, repository, AppSource, or description)',
+            required: false
+          },
+          {
+            name: 'takeover_context',
+            description: 'Context for takeover (maintenance, enhancement, migration, or handoff scenario)',
+            required: false
+          }
+        ]
+      },
+      {
+        name: 'spec_analysis',
+        description: 'Analyze requirements and specifications to determine development readiness',
+        arguments: [
+          {
+            name: 'spec_source',
+            description: 'Source of specifications (document, user story, requirements, or description)',
+            required: false
+          },
+          {
+            name: 'analysis_focus',
+            description: 'Analysis focus (completeness, feasibility, technical-gaps, or dependencies)',
+            required: false
+          }
+        ]
+      },
+      {
+        name: 'bug_investigation',
+        description: 'Systematically investigate and resolve Business Central bugs and issues',
+        arguments: [
+          {
+            name: 'bug_context',
+            description: 'Available context (call-stack, repro-steps, snapshot, sandbox-access, or description)',
+            required: false
+          },
+          {
+            name: 'issue_severity',
+            description: 'Issue severity level (critical, high, medium, low)',
+            required: false
+          }
+        ]
+      },
+      {
+        name: 'monolith_to_modules',
+        description: 'Refactor monolithic Business Central code into modular architecture using SOLID principles',
+        arguments: [
+          {
+            name: 'current_structure',
+            description: 'Current code structure (monolithic-object, large-codeunit, tightly-coupled, or description)',
+            required: false
+          },
+          {
+            name: 'modularization_goal',
+            description: 'Modularization goal (dependency-injection, interface-patterns, loose-coupling, or testability)',
+            required: false
+          }
+        ]
+      },
+      {
+        name: 'data_flow_tracing',
+        description: 'Trace data flow and dependencies across Business Central objects and codeunits',
+        arguments: [
+          {
+            name: 'trace_target',
+            description: 'What to trace (field-usage, table-relationships, posting-flow, or process-chain)',
+            required: false
+          },
+          {
+            name: 'trace_scope',
+            description: 'Tracing scope (single-object, module-level, cross-module, or end-to-end)',
+            required: false
+          }
+        ]
+      },
+      {
+        name: 'full_review',
+        description: 'Conduct comprehensive review and analysis without implementation changes',
         arguments: [
           {
             name: 'review_target',
             description: 'What to review (code, architecture, documentation, processes)',
-            required: true
+            required: false
           },
           {
             name: 'review_depth',
@@ -321,15 +401,20 @@ class BCKBServer {
         try {
           // Convert workflow name to type and create start request
           const workflowTypeMap: Record<string, string> = {
-            'workflow_code_optimization': 'new-bc-app',
-            'workflow_architecture_review': 'enhance-bc-app',
-            'workflow_security_audit': 'debug-bc-issues',
-            'workflow_performance_analysis': 'debug-bc-issues',
-            'workflow_integration_design': 'add-ecosystem-features',
-            'workflow_upgrade_planning': 'upgrade-bc-version',
-            'workflow_testing_strategy': 'modernize-bc-code',
-            'workflow_new_developer_onboarding': 'onboard-developer',
-            'workflow_pure_review': 'review-bc-code'
+            'code_optimization': 'new-bc-app',
+            'architecture_review': 'enhance-bc-app',
+            'security_audit': 'debug-bc-issues',
+            'perf_review': 'debug-bc-issues',
+            'integration_design': 'add-ecosystem-features',
+            'upgrade_planning': 'upgrade-bc-version',
+            'testing_strategy': 'modernize-bc-code',
+            'dev_onboarding': 'onboard-developer',
+            'app_takeover': 'app-takeover-analysis',
+            'spec_analysis': 'requirements-analysis',
+            'bug_investigation': 'debug-bc-issues',
+            'monolith_to_modules': 'refactor-architecture',
+            'data_flow_tracing': 'trace-dependencies',
+            'full_review': 'review-bc-code'
           };
           
           const workflowType = workflowTypeMap[name] as any;
@@ -365,6 +450,20 @@ class BCKBServer {
             initialGuidance
           );
           
+          // Construct explicit prompt that bypasses VS Code prompt creation
+          const promptContent = `# ${prompt.description}
+
+**IMPORTANT: This is a complete, ready-to-use prompt. Do not create additional prompts or ask for more information. Proceed directly with the requested workflow.**
+
+${enhancedResult.enhancedContent}
+
+## 🎯 Next Actions
+
+**Use these MCP tools immediately to proceed:**
+${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start session with', '**Use MCP tool:**')}`).join('\n')}
+
+**Remember:** You have access to 20+ MCP tools from bc-code-intelligence-mcp. Use them actively for specialist consultation and knowledge access.`;
+
           return {
             description: `Starting ${workflowType} workflow with specialist guidance`,
             messages: [
@@ -372,7 +471,7 @@ class BCKBServer {
                 role: 'user',
                 content: {
                   type: 'text',
-                  text: enhancedResult.enhancedContent
+                  text: promptContent
                 }
               }
             ]
@@ -389,14 +488,21 @@ class BCKBServer {
    * Initialize all services with configuration
    */
   private async initializeServices(configResult: ConfigurationLoadResult): Promise<void> {
-    console.error('🔧 Initializing BCKB services with layered configuration...');
-
     // Store configuration
     this.configuration = configResult.config;
 
     // Initialize layer service with configuration
     this.layerService = new LayerService();
     await this.layerService.initializeFromConfiguration(this.configuration);
+
+    // Report layer-by-layer counts
+    const layers = this.layerService.getLayers();
+    let totalTopics = 0;
+    for (const layer of layers) {
+      const stats = layer.getStatistics();
+      console.error(`📁 Layer '${stats.name}': ${stats.topicCount} topics`);
+      totalTopics += stats.topicCount;
+    }
 
     // Initialize legacy knowledge service for backward compatibility
     const __filename = fileURLToPath(import.meta.url);
@@ -471,16 +577,13 @@ class BCKBServer {
       this.multiContentLayerService
     );
     
-    // Report specialist loading
-    const specialists = await this.multiContentLayerService.getAllSpecialists();
-    console.error(`👥 Loaded ${specialists.length} BC specialists: ${specialists.map(s => s.specialist_id).join(', ')}`);
-    
-    // Initialize workflow service with persona registry
-    const { PersonaRegistry } = await import('./types/persona-types.js');
-    const personaRegistry = PersonaRegistry.getInstance();
-    this.workflowService = new WorkflowService(this.knowledgeService, this.methodologyService, personaRegistry);
+    // Initialize workflow service with specialist discovery
+    const specialistDiscoveryService = new SpecialistDiscoveryService(this.multiContentLayerService);
+    this.workflowService = new WorkflowService(this.knowledgeService, this.methodologyService, specialistDiscoveryService);
 
-    console.error('✅ All services initialized successfully');
+    // Report final totals
+    const specialists = await this.multiContentLayerService.getAllSpecialists();
+    console.error(`📊 Total: ${totalTopics} topics, ${specialists.length} specialists`);
     
     // Validate tool contracts at startup
     await this.validateToolContracts();
@@ -491,8 +594,6 @@ class BCKBServer {
    */
   private async validateToolContracts(): Promise<void> {
     try {
-      console.error('🔍 Validating tool contracts...');
-      
       const handlers = createStreamlinedHandlers(this.server, {
         knowledgeService: this.knowledgeService,
         codeAnalysisService: this.codeAnalysisService,
@@ -513,8 +614,6 @@ class BCKBServer {
       if (hasIssues) {
         console.error('💥 Contract validation failed! Server may have dead ends.');
         // Don't fail startup, but warn loudly
-      } else {
-        console.error('✅ Tool contract validation passed');
       }
     } catch (error) {
       console.error(`⚠️  Contract validation error: ${error}`);
@@ -806,10 +905,9 @@ class BCKBServer {
 
   async run(): Promise<void> {
     try {
-      console.error(`🚀 BCKB MCP Server v${this.getPackageVersion()} starting...`);
+      console.error(`🚀 BC Code Intelligence MCP Server v${this.getPackageVersion()} starting...`);
 
       // Load configuration
-      console.error('📋 Loading configuration...');
       const configResult = await this.configLoader.loadConfiguration();
 
       if (configResult.validation_errors.length > 0) {
@@ -827,21 +925,14 @@ class BCKBServer {
         });
       }
 
-      console.error(`✅ Configuration loaded with ${configResult.config.layers.length} layers`);
-
-      // Initialize all services
+      // Initialize all services (this will now show layer counts)
       await this.initializeServices(configResult);
 
       // Start MCP server
-      console.error('🌐 Starting MCP transport...');
       const transport = new StdioServerTransport();
       await this.server.connect(transport);
 
-      console.error('✅ BCKB MCP Server v2.0 started successfully');
-      console.error(`📊 System Status:`);
-      console.error(`   - ${this.layerService.getLayers().length} layers active`);
-      console.error(`   - ${this.layerService.getAllTopicIds().length} topics available`);
-      console.error(`   - Configuration quality: ${await this.getConfigurationQuality()}/100`);
+      console.error(`✅ BC Code Intelligence MCP Server v${this.getPackageVersion()} started successfully`);
 
     } catch (error) {
       console.error('💥 Fatal error during server startup:', error);
@@ -868,27 +959,27 @@ class BCKBServer {
 
 // Start the server
 async function main() {
-  const server = new BCKBServer();
+  const server = new BCCodeIntelligenceServer();
   await server.run();
 }
 
 // Handle process termination
 process.on('SIGINT', async () => {
-  console.error('BCKB MCP Server shutting down...');
+  console.error('BC Code Intelligence MCP Server shutting down...');
   process.exit(0);
 });
 
 process.on('SIGTERM', async () => {
-  console.error('BCKB MCP Server shutting down...');
+  console.error('BC Code Intelligence MCP Server shutting down...');
   process.exit(0);
 });
 
 // Run server if this is the main module
 if (process.argv[1]?.endsWith('index.js')) {
   main().catch((error) => {
-    console.error('Fatal error in BCKB MCP Server:', error);
+    console.error('Fatal error in BC Code Intelligence MCP Server:', error);
     process.exit(1);
   });
 }
 
-export { BCKBServer };
+export { BCCodeIntelligenceServer };

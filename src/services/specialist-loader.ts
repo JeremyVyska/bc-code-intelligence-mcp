@@ -76,7 +76,6 @@ export class SpecialistLoader {
         
         if (specialist) {
           this.specialistCache.set(specialist.specialist_id, specialist);
-          console.error(`✅ Loaded specialist: ${specialist.specialist_id} (${specialist.title})`);
         }
       }
 

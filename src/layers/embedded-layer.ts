@@ -315,7 +315,6 @@ export class EmbeddedKnowledgeLayer extends BaseKnowledgeLayer {
         if (specialist && this.validateSpecialist(specialist)) {
           this.specialists.set(specialist.specialist_id, specialist);
           loadedCount++;
-          console.error(`✅ Loaded specialist: ${specialist.specialist_id} (${specialist.title})`);
         } else {
           console.error(`Invalid specialist structure in ${filePath}`);
         }
