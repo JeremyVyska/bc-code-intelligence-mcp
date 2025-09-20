@@ -15,9 +15,13 @@ import { AtomicTopic, AtomicTopicFrontmatterSchema } from '../types/bc-knowledge
 import { LayerPriority, LayerLoadResult } from '../types/layer-types.js';
 import { BaseKnowledgeLayer } from './base-layer.js';
 import { SpecialistDefinition } from '../services/specialist-loader.js';
+import { LayerContentType, EnhancedLayerLoadResult } from '../types/enhanced-layer-types.js';
 
 export class EmbeddedKnowledgeLayer extends BaseKnowledgeLayer {
   private specialists = new Map<string, SpecialistDefinition>();
+  
+  // Support for MultiContentKnowledgeLayer interface
+  readonly supported_content_types: LayerContentType[] = ['topics', 'specialists'];
 
   constructor(
     private readonly embeddedPath: string = (() => {
@@ -54,6 +58,7 @@ export class EmbeddedKnowledgeLayer extends BaseKnowledgeLayer {
       this.loadResult = this.createLoadResult(topicsLoaded, indexesLoaded, loadTimeMs);
 
       console.error(`✅ ${this.name} layer loaded: ${topicsLoaded} topics, ${specialistsLoaded} specialists, ${indexesLoaded} indexes (${loadTimeMs}ms)`);
+      
       return this.loadResult;
 
     } catch (error) {
@@ -498,6 +503,113 @@ export class EmbeddedKnowledgeLayer extends BaseKnowledgeLayer {
       total_specialists: specialists.length,
       teams,
       domains
+    };
+  }
+
+  // MultiContentKnowledgeLayer interface implementation
+  
+  /**
+   * Check if content exists by type and ID
+   */
+  hasContent<T extends LayerContentType>(type: T, id: string): boolean {
+    switch (type) {
+      case 'topics':
+        return this.topics.has(id);
+      case 'specialists':
+        return this.specialists.has(id);
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * Get content by type and ID
+   */
+  async getContent<T extends LayerContentType>(
+    type: T, 
+    id: string
+  ): Promise<any> {
+    switch (type) {
+      case 'topics':
+        return this.topics.get(id) || null;
+      case 'specialists':
+        return this.specialists.get(id) || null;
+      default:
+        return null;
+    }
+  }
+
+  /**
+   * Get all content IDs for a specific type
+   */
+  getContentIds<T extends LayerContentType>(type: T): string[] {
+    switch (type) {
+      case 'topics':
+        return Array.from(this.topics.keys());
+      case 'specialists':
+        return Array.from(this.specialists.keys());
+      default:
+        return [];
+    }
+  }
+
+  /**
+   * Search content within this layer by type
+   */
+  searchContent<T extends LayerContentType>(
+    type: T, 
+    query: string, 
+    limit: number = 10
+  ): any[] {
+    switch (type) {
+      case 'topics':
+        return this.searchTopics(query, limit);
+      case 'specialists':
+        return this.searchSpecialists(query, limit);
+      default:
+        return [];
+    }
+  }
+
+  /**
+   * Get enhanced statistics with content type breakdown
+   */
+  getEnhancedStatistics(): {
+    name: string;
+    priority: number;
+    content_counts: Record<LayerContentType, number>;
+    load_time_ms?: number;
+    initialized: boolean;
+  } {
+    return {
+      name: this.name,
+      priority: this.priority,
+      content_counts: {
+        topics: this.topics.size,
+        specialists: this.specialists.size,
+        methodologies: 0 // Not supported yet
+      },
+      load_time_ms: this.loadResult?.loadTimeMs,
+      initialized: this.initialized
+    };
+  }
+
+  /**
+   * Convert LayerLoadResult to EnhancedLayerLoadResult
+   */
+  private convertToEnhancedResult(result: LayerLoadResult): EnhancedLayerLoadResult {
+    return {
+      success: result.success,
+      layer_name: result.layerName,
+      load_time_ms: result.loadTimeMs,
+      content_counts: {
+        topics: this.topics.size,
+        specialists: this.specialists.size,
+        methodologies: 0
+      },
+      topics_loaded: result.topicsLoaded || 0,
+      indexes_loaded: result.indexesLoaded || 0,
+      error: result.success ? undefined : 'Layer load failed'
     };
   }
 }

@@ -1,17 +1,107 @@
-# BC Code Intelligence MCP Server
+# BC Code Intelligence MCP Server v1.2.0
 
 [![Install with NPX in VS Code](https://img.shields.io/badge/Install%20with%20NPX-VS%20Code-blue?style=for-the-badge&logo=visual-studio-code)](https://vscode.dev/redirect/mcp/install?name=bc-code-intel&config=%7B%22type%22%3A%22stdio%22%2C%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22bc-code-intelligence-mcp%22%5D%7D)
 
-Model Context Protocol server providing intelligent access to Business Central knowledge through a layered architecture system.
+Model Context Protocol server providing intelligent access to Business Central knowledge through a complete specialist consultation system.
 
-## Features
-- **🔄 Workflow Orchestration**: 9 persona-driven development pipelines with structured guidance
+## ✨ v1.2.0 - Complete Specialist Bundle
+
+### 🎯 Core Features
+- **🤖 Smart Specialist Discovery**: Intelligent routing to 14 BC domain experts based on query analysis
+- **🔄 Seamless Handoffs**: Context-preserving transitions between specialists with full conversation history
+- **🚀 Agent-Friendly Onboarding**: Natural specialist team introduction optimized for coding agents
+- **💬 Persistent Sessions**: Long-running conversations with accumulated context and recommendations
+- **🧠 Multi-Specialist Collaboration**: Bring multiple experts into the same conversation for complex challenges
+
+### 🛠️ Development Infrastructure  
+- **📋 20+ MCP Tools**: Complete toolkit for knowledge discovery, specialist engagement, and workflow management
+- **🔄 9 Workflow Orchestration**: Persona-driven development pipelines with structured guidance
 - **🎯 MCP Prompts**: Discoverable workflow initiation through standardized prompts
-- **👥 Specialist System**: 14 AI personas with domain expertise and consultation styles
-- **📚 Layered Knowledge**: Embedded → Company → Team → Project overrides
-- **🛠️ 16+ MCP Tools**: Knowledge discovery, workflow management, and methodology guidance
+- **� Layered Knowledge**: Embedded → Company → Team → Project override system
 - **⚙️ Zero Configuration**: Works immediately with embedded knowledge
-- **🔧 Extensible**: Support for git repositories, company standards, project overrides
+- **🔧 Extensible Architecture**: Support for git repositories, company standards, and project overrides
+
+## � BC Specialist Team (14 Experts)
+
+**Core Development Specialists:**
+- **🏗️ Alex Architect** - Solution Design & Requirements Expert
+- **💻 Sam Coder** - Expert Development Accelerator  
+- **🔍 Dean Debug** - Performance & Troubleshooting Specialist
+- **⚠️ Eva Errors** - Error Handling & Exception Management
+
+**Quality & Security Specialists:**
+- **🧪 Quinn Tester** - Testing Strategy & Validation Expert
+- **📝 Roger Reviewer** - Code Quality & Standards Guardian
+- **🔒 Seth Security** - Security & Permission Management
+
+**Integration & Architecture Specialists:**
+- **🌉 Jordan Bridge** - Integration & Extensibility Architect
+- **🏛️ Logan Legacy** - Code Archaeology & System Analysis
+
+**User Experience & Business Specialists:**
+- **🎨 Uma UX** - User Experience & Interface Design
+- **🏪 Morgan Market** - AppSource & ISV Business Expert
+
+**Knowledge & Learning Specialists:**
+- **📚 Taylor Docs** - Documentation & Knowledge Management
+- **👩‍🏫 Maya Mentor** - Teaching-Focused Development Guide
+- **🤖 Casey Copilot** - AI-Enhanced Development Coach
+
+## 🤖 Specialist Bundle Experience
+
+Experience collaborative BC development with intelligent specialist routing and seamless handoffs:
+
+### Quick Start - Agent Integration
+```javascript
+// 1. Discover the specialist team (agents do this automatically)
+const team = await mcp.call('introduce_bc_specialists', {
+  context: 'Business Central development',
+  focus_areas: ['performance', 'security', 'architecture']
+});
+
+// 2. Smart routing based on your challenge
+const suggestions = await mcp.call('discover_specialists', {
+  query: 'My AL extension has performance issues with database queries'
+});
+
+// 3. Engage with the recommended specialist
+const session = await mcp.call('suggest_specialist', {
+  specialist_id: 'dean-debug',
+  user_query: 'Performance optimization needed',
+  context: 'Business Central extension development'
+});
+
+// 4. Seamless handoffs when different expertise is needed
+await mcp.call('handoff_to_specialist', {
+  target_specialist_id: 'alex-architect',
+  handoff_type: 'transfer',
+  handoff_reason: 'Need architectural review after performance fixes',
+  work_completed: ['Optimized queries', 'Added caching'],
+  continuation_points: ['Review overall architecture', 'Design scalability']
+});
+```
+
+### Specialist Bundle Tools
+
+**Discovery & Routing:**
+- `discover_specialists` - Intelligent specialist suggestions based on query analysis
+- `browse_specialists` - Browse by domain or expertise area
+- `get_specialist_info` - Detailed information about any specialist
+
+**Engagement & Sessions:**
+- `suggest_specialist` - Start/continue specialist conversations
+- `get_specialist_advice` - Get expert guidance on specific topics
+- `list_specialists` - See all available specialists
+
+**Onboarding & Navigation:**
+- `introduce_bc_specialists` - Agent-friendly team introduction
+- `get_specialist_introduction` - Individual specialist details
+- `suggest_next_specialist` - Intelligent next-step recommendations
+
+**Handoffs & Collaboration:**
+- `handoff_to_specialist` - Context-preserving specialist transitions
+- `bring_in_specialist` - Multi-specialist consultation
+- `get_handoff_summary` - Session history and analytics
 
 ## 🚀 Workflow Orchestration
 

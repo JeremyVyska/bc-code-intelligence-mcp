@@ -1,0 +1,73 @@
+# Company Enterprise Configuration
+# Enterprise-level session storage with compliance and governance
+
+sessionStorage:
+  type: "file"
+  config:
+    # Centralized company storage with proper access controls
+    directory: "/company/bc-code-intel/sessions"
+    
+    # Ensure directory has proper permissions:
+    # - Read/Write for BC Code Intel service account
+    # - Read access for compliance/audit team
+    # - No access for general users (privacy)
+  
+  # Enterprise retention policies
+  retention:
+    maxAge: 365             # Keep sessions for 1 year
+    maxSessions: 1000       # Enterprise scale limit
+    autoCleanup: true       # Essential for storage management
+  
+  # Compliance-focused privacy settings
+  privacy:
+    includeMessages: true   # Full conversation history for audit trails
+    includeCode: false      # Security: never store code in shared storage
+    includeFiles: false     # Security: never store internal file paths
+    anonymizeContent: true  # Privacy compliance (GDPR, etc.)
+
+# Enterprise layer configuration
+layers:
+  - name: "embedded"
+    priority: 0
+    source:
+      type: "embedded"
+    enabled: true
+  
+  # Company-wide BC standards and patterns
+  - name: "company-standards"
+    priority: 50
+    source:
+      type: "git"
+      url: "https://github.com/yourcompany/bc-enterprise-knowledge"
+      branch: "main"
+      # Authentication via environment variables:
+      # GIT_TOKEN or SSH keys for private repositories
+    enabled: true
+  
+  # Division/team specific overrides
+  - name: "division-overrides"
+    priority: 100
+    source:
+      type: "git"
+      url: "https://github.com/yourcompany/bc-division-standards"
+      branch: "main"
+    enabled: true
+  
+  # Project-specific local overrides
+  - name: "project-overrides"
+    priority: 200
+    source:
+      type: "local"
+      path: "./bc-code-intel-overrides"
+    enabled: true
+
+# Enterprise monitoring and compliance
+monitoring:
+  # Enable audit logging (if supported)
+  auditLog: true
+  
+  # Performance monitoring
+  performanceMetrics: true
+  
+  # Usage analytics for optimization
+  usageAnalytics: true

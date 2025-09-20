@@ -1,43 +1,52 @@
-# BCKB MCP Server - Distribution Guide
+# BC Code Intelligence MCP Server v1.2.0 - Distribution Guide
 
-## Quick Installation for Alpha Testers
+## ✨ What's New in v1.2.0 - Complete Specialist Bundle
 
-### Option 1: NPM Install (Easiest)
+The v1.2.0 release introduces a revolutionary **Specialist Bundle** that transforms BC/AL development into a collaborative, expert-driven experience:
+
+- **🤖 14 BC Domain Specialists**: From Alex Architect to Uma UX, each with specialized expertise
+- **🔍 Smart Discovery**: AI-powered specialist routing based on your specific challenges  
+- **🔄 Seamless Handoffs**: Context-preserving transitions between specialists
+- **💬 Persistent Sessions**: Long-running conversations with accumulated knowledge
+- **🛠️ 20+ MCP Tools**: Complete toolkit for specialist consultation and workflow management
+
+## Quick Installation
+
+### Option 1: NPX (Recommended - No Installation Required)
 
 ```bash
-# Install globally for CLI access
-npm install -g @bckb/mcp-server
+# Run the latest version instantly
+npx bc-code-intelligence-mcp
+
+# Test specialist discovery
+npx bc-code-intelligence-mcp introduce_bc_specialists
+```
+
+### Option 2: NPM Install (For CLI Access)
+
+```bash
+# Install globally
+npm install -g bc-code-intelligence-mcp
 
 # Test the installation
-bckb status
-bckb search "table relationships"
+bc-code-intel status
+bc-code-intel search "table relationships"
 ```
 
-### Option 2: NPX (No Installation)
-
-```bash
-# Run without installing
-npx @bckb/mcp-server
-
-# Use CLI commands
-npx bckb search "posting procedures"
-npx bckb analyze --code "your AL code here"
-```
-
-## Integration Setup
+## 🤖 Agent Integration Setup
 
 ### Claude Desktop Integration
 
-1. **Add to Claude Desktop config** (auto-detects NPM installation):
+Add to your Claude Desktop config for full specialist consultation:
 
 ```json
 {
   "mcpServers": {
-    "bckb": {
+    "bc-code-intel": {
       "command": "npx",
-      "args": ["@bckb/mcp-server"],
+      "args": ["bc-code-intelligence-mcp"],
       "env": {
-        "BCKB_LOG_LEVEL": "info"
+        "BC_LOG_LEVEL": "info"
       }
     }
   }
@@ -49,66 +58,118 @@ npx bckb analyze --code "your AL code here"
 - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - Linux: `~/.config/claude/claude_desktop_config.json`
 
-2. **Restart Claude Desktop**
-
-3. **Test the integration:**
-   - Ask: "How do I implement posting routines in Business Central?"
-   - You should see enhanced responses with BC knowledge supplements
-
-### VS Code Extension (Coming Soon)
-
-The VS Code extension will be available on the marketplace:
-
-```bash
-# Install from marketplace (when published)
-code --install-extension bckb.knowledge-assistant
-
-# Or install VSIX for alpha testing
-code --install-extension bckb-knowledge-assistant-0.1.0.vsix
-```
-
 ### GitHub Copilot Integration
 
-Add to your VS Code `settings.json`:
+The specialist system works seamlessly with GitHub Copilot. No additional configuration needed - Copilot will automatically discover and engage specialists when working in BC/AL contexts.
 
-```json
-{
-  "github.copilot.chat.participants": ["@bckb"]
-}
+### VS Code MCP Extension
+
+Install the MCP extension for VS Code:
+
+```bash
+# Install the MCP extension
+code --install-extension modelcontextprotocol.mcp
 ```
 
-Then use in Copilot Chat:
+Then configure your VS Code settings to include the BC specialist server.
+
+## 🎯 Quick Start - Specialist Experience
+
+### 1. Discover Your Specialist Team
+
+```javascript
+// Ask Claude or any MCP client:
+"Introduce me to the BC specialist team"
+
+// Or use the tool directly:
+introduce_bc_specialists({
+  context: "Business Central development",
+  focus_areas: ["performance", "security", "architecture"]
+})
 ```
-@bckb search posting procedures
-@bckb analyze [paste AL code]
+
+### 2. Get Smart Specialist Suggestions
+
+```javascript
+// Describe your challenge:
+discover_specialists({
+  query: "My AL extension has performance issues with database queries",
+  include_reasoning: true
+})
+
+// Get recommendations with explanations
 ```
 
-## Alpha Testing Feedback
+### 3. Engage with Specialists
 
-### What to Test
+```javascript
+// Start a session with the recommended specialist:
+suggest_specialist({
+  specialist_id: "dean-debug",
+  user_query: "Performance optimization needed",
+  context: "Business Central extension development"
+})
+```
 
-1. **Basic Functionality:**
+### 4. Seamless Handoffs
+
+```javascript
+// When you need different expertise:
+handoff_to_specialist({
+  target_specialist_id: "alex-architect",
+  handoff_type: "transfer", 
+  handoff_reason: "Need architectural review",
+  work_completed: ["Fixed queries", "Added caching"]
+})
+```
+
+## 🧪 Testing the v1.2.0 Specialist Bundle
+
+### Core Functionality Tests
+
+1. **Specialist Discovery:**
    ```bash
-   bckb status
-   bckb search "purchase orders"
-   bckb search "performance optimization"
+   # Test agent onboarding
+   npx bc-code-intelligence-mcp introduce_bc_specialists
+   
+   # Test smart routing
+   npx bc-code-intelligence-mcp discover_specialists "performance issues"
    ```
 
-2. **Claude Desktop Integration:**
-   - Ask BC-related questions
-   - Paste AL code for review
-   - Look for knowledge supplements in responses
-
-3. **Code Analysis:**
+2. **Specialist Engagement:**
    ```bash
-   bckb analyze --code "your AL codeunit here"
+   # Start a specialist session
+   npx bc-code-intelligence-mcp suggest_specialist dean-debug "AL performance problems"
+   
+   # Browse available specialists
+   npx bc-code-intelligence-mcp browse_specialists
    ```
 
-### Report Issues
+3. **Context Preservation:**
+   ```bash
+   # Test handoff capabilities
+   npx bc-code-intelligence-mcp handoff_to_specialist alex-architect transfer
+   
+   # Get session summary
+   npx bc-code-intelligence-mcp get_handoff_summary
+   ```
 
-- **GitHub Issues**: https://github.com/bc-knowledge-base/bckb-mcp-server/issues
-- **Email**: your-email@example.com
-- **Discord/Slack**: [Your community channel]
+### Integration Testing
+
+1. **Claude Desktop Integration:**
+   - Ask: "Introduce me to the BC specialist team"
+   - Follow up: "I need help with AL performance optimization"
+   - Test specialist handoffs and context preservation
+
+2. **GitHub Copilot Integration:**
+   - Open BC/AL code in VS Code
+   - Copilot should naturally suggest specialist consultation
+   - Test multi-specialist collaboration workflows
+
+3. **Workflow Integration:**
+   - Use MCP prompts to discover available workflows
+   - Start specialist-guided development pipelines
+   - Validate specialist routing within workflows
 
 ### Feedback Categories
 

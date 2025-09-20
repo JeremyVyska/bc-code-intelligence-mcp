@@ -6,8 +6,8 @@ This is the **MCP server implementation** for the BC Code Intelligence (bc-code-
 ## What This Repo Contains
 - **TypeScript MCP Server**: Full Model Context Protocol implementation
 - **Layer Resolution System**: Multi-source knowledge with intelligent override system
-- **MCP Tools**: 7+ tools providing BC knowledge access (find_bc_topics, get_bc_knowledge, etc.)
-- **Service Architecture**: Modular services for knowledge, methodologies, code analysis
+- **MCP Tools**: 20+ tools providing BC knowledge access, specialist discovery, and handoff management
+- **Service Architecture**: Modular services for knowledge, methodologies, code analysis, and specialist management
 - **Build System**: Complete TypeScript build pipeline with testing
 
 ## What This Repo Does NOT Contain

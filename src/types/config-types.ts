@@ -3,6 +3,8 @@
  * Supports multi-source configuration with layer-based knowledge management
  */
 
+import { SessionStorageConfig } from './session-types.js';
+
 export interface BCCodeIntelConfiguration {
   layers: LayerConfiguration[];
   resolution: ResolutionSettings;
@@ -10,6 +12,9 @@ export interface BCCodeIntelConfiguration {
   security: SecuritySettings;
   performance: PerformanceSettings;
   developer: DeveloperSettings;
+  
+  // Session storage configuration - optional, defaults to in-memory
+  sessionStorage?: SessionStorageConfig;
 }
 
 export interface LayerConfiguration {

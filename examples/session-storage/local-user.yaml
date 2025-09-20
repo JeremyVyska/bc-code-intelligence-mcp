@@ -1,0 +1,29 @@
+# Local User Configuration
+# Enables file-based session persistence for individual development
+
+sessionStorage:
+  type: "file"
+  config:
+    # Store sessions in user home directory
+    directory: "~/.bc-code-intel/sessions"
+  
+  # Personal retention settings
+  retention:
+    maxAge: 30              # Keep sessions for 30 days
+    maxSessions: 50         # Reasonable limit for personal use
+    autoCleanup: true       # Clean up expired sessions automatically
+  
+  # Privacy settings for local development
+  privacy:
+    includeMessages: true   # Store full conversation history
+    includeCode: true       # Safe to store code snippets locally
+    includeFiles: true      # Store file references for context
+    anonymizeContent: false # No need to anonymize personal sessions
+
+# Standard embedded layer
+layers:
+  - name: "embedded"
+    priority: 0
+    source:
+      type: "embedded"
+    enabled: true

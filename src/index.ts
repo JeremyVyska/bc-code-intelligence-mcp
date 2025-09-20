@@ -20,6 +20,14 @@ import { CodeAnalysisService } from './services/code-analysis-service.js';
 import { MethodologyService } from './services/methodology-service.js';
 import { WorkflowService } from './services/workflow-service.js';
 import { LayerService } from './layers/layer-service.js';
+import { MultiContentLayerService } from './services/multi-content-layer-service.js';
+import { SpecialistSessionManager } from './services/specialist-session-manager.js';
+import { SpecialistTools } from './tools/specialist-tools.js';
+import { SpecialistDiscoveryService } from './services/specialist-discovery.js';
+import { SpecialistDiscoveryTools } from './tools/specialist-discovery-tools.js';
+import { EnhancedPromptService } from './services/enhanced-prompt-service.js';
+import { AgentOnboardingService } from './services/agent-onboarding-service.js';
+import { SpecialistHandoffService } from './services/specialist-handoff-service.js';
 import { ConfigurationLoader } from './config/config-loader.js';
 import { ConfigurationValidator } from './config/config-validator.js';
 import { domainWorkflows } from './workflows/domain-workflows.js';
@@ -50,6 +58,14 @@ class BCKBServer {
   private methodologyService!: MethodologyService;
   private workflowService!: WorkflowService;
   private layerService!: LayerService;
+  private multiContentLayerService!: MultiContentLayerService;
+  private specialistSessionManager!: SpecialistSessionManager;
+  private specialistTools!: SpecialistTools;
+  private specialistDiscoveryService!: SpecialistDiscoveryService;
+  private specialistDiscoveryTools!: SpecialistDiscoveryTools;
+  private enhancedPromptService!: EnhancedPromptService;
+  private agentOnboardingService!: AgentOnboardingService;
+  private specialistHandoffService!: SpecialistHandoffService;
   private configuration!: BCCodeIntelConfiguration;
   private configLoader: ConfigurationLoader;
 
@@ -85,15 +101,56 @@ class BCKBServer {
   private setupToolHandlers(): void {
     // List available tools
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
-      return {
-        tools: streamlinedTools
-      };
+      const tools = [...streamlinedTools];
+      
+      // Add specialist tools if available
+      if (this.specialistTools) {
+        tools.push(...this.specialistTools.getToolDefinitions() as any);
+      }
+      
+      // Add specialist discovery tools if available
+      if (this.specialistDiscoveryTools) {
+        tools.push(...this.specialistDiscoveryTools.getToolDefinitions() as any);
+      }
+      
+      // Add agent onboarding tools if available
+      if (this.agentOnboardingService) {
+        tools.push(...this.agentOnboardingService.getToolDefinitions() as any);
+      }
+      
+      // Add specialist handoff tools if available
+      if (this.specialistHandoffService) {
+        tools.push(...this.specialistHandoffService.getToolDefinitions() as any);
+      }
+      
+      return { tools };
     });
+
     // Handle tool calls
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const { name, arguments: args } = request.params;
 
       try {
+        // Check if it's a specialist tool
+        if (this.specialistTools && ['suggest_specialist', 'get_specialist_advice', 'list_specialists'].includes(name)) {
+          return await this.specialistTools.handleToolCall(request);
+        }
+
+        // Check if it's a specialist discovery tool
+        if (this.specialistDiscoveryTools && ['discover_specialists', 'browse_specialists', 'get_specialist_info'].includes(name)) {
+          return await this.specialistDiscoveryTools.handleToolCall(request);
+        }
+
+        // Check if it's an agent onboarding tool  
+        if (this.agentOnboardingService && ['introduce_bc_specialists', 'get_specialist_introduction', 'suggest_next_specialist'].includes(name)) {
+          return await this.agentOnboardingService.handleToolCall(request);
+        }
+
+        // Check if it's a specialist handoff tool
+        if (this.specialistHandoffService && ['handoff_to_specialist', 'bring_in_specialist', 'get_handoff_summary'].includes(name)) {
+          return await this.specialistHandoffService.handleToolCall(request);
+        }
+
         // Create streamlined handlers with all services
         const handlers = createStreamlinedHandlers(this.server, {
           knowledgeService: this.knowledgeService,
@@ -296,14 +353,26 @@ class BCKBServer {
           // Get the initial guidance for this workflow
           const initialGuidance = await this.workflowService.getPhaseGuidance(session.id);
           
+          // Enhance with specialist routing
+          const userContext = args?.code_location || args?.scope || args?.audit_scope || 
+                             args?.performance_concern || args?.integration_type || 
+                             args?.testing_scope || args?.review_target || 
+                             'General workflow request';
+          
+          const enhancedResult = await this.enhancedPromptService.enhanceWorkflowPrompt(
+            name,
+            userContext,
+            initialGuidance
+          );
+          
           return {
-            description: `Starting ${workflowType} workflow`,
+            description: `Starting ${workflowType} workflow with specialist guidance`,
             messages: [
               {
                 role: 'user',
                 content: {
                   type: 'text',
-                  text: initialGuidance
+                  text: enhancedResult.enhancedContent
                 }
               }
             ]
@@ -349,6 +418,62 @@ class BCKBServer {
 
     this.codeAnalysisService = new CodeAnalysisService(this.knowledgeService);
     this.methodologyService = new MethodologyService(this.knowledgeService, legacyConfig.methodologies_path);
+    
+    // Initialize specialist services using a dedicated MultiContentLayerService
+    this.multiContentLayerService = new MultiContentLayerService();
+    
+    // Add embedded layer for specialists
+    const embeddedPath = join(__dirname, '../embedded-knowledge');
+    const { EmbeddedKnowledgeLayer } = await import('./layers/embedded-layer.js');
+    const embeddedLayer = new EmbeddedKnowledgeLayer(embeddedPath);
+    
+    this.multiContentLayerService.addLayer(embeddedLayer as any); // Cast to avoid type issues
+    await this.multiContentLayerService.initialize();
+    
+    // Get session storage configuration from layer service
+    const sessionStorageConfig = this.layerService.getSessionStorageConfig();
+    
+    this.specialistSessionManager = new SpecialistSessionManager(
+      this.multiContentLayerService, 
+      sessionStorageConfig
+    );
+    this.specialistTools = new SpecialistTools(
+      this.multiContentLayerService, 
+      this.specialistSessionManager,
+      this.knowledgeService
+    );
+    
+    // Initialize specialist discovery service and tools
+    this.specialistDiscoveryService = new SpecialistDiscoveryService(this.multiContentLayerService);
+    this.specialistDiscoveryTools = new SpecialistDiscoveryTools(
+      this.specialistDiscoveryService,
+      this.specialistSessionManager,
+      this.multiContentLayerService
+    );
+    
+    // Initialize enhanced prompt service for specialist routing
+    this.enhancedPromptService = new EnhancedPromptService(
+      this.specialistDiscoveryService,
+      this.specialistSessionManager,
+      this.workflowService
+    );
+    
+    // Initialize agent onboarding service for natural specialist introduction
+    this.agentOnboardingService = new AgentOnboardingService(
+      this.specialistDiscoveryService,
+      this.multiContentLayerService
+    );
+    
+    // Initialize specialist handoff service for seamless transitions
+    this.specialistHandoffService = new SpecialistHandoffService(
+      this.specialistSessionManager,
+      this.specialistDiscoveryService,
+      this.multiContentLayerService
+    );
+    
+    // Report specialist loading
+    const specialists = await this.multiContentLayerService.getAllSpecialists();
+    console.error(`👥 Loaded ${specialists.length} BC specialists: ${specialists.map(s => s.specialist_id).join(', ')}`);
     
     // Initialize workflow service with persona registry
     const { PersonaRegistry } = await import('./types/persona-types.js');

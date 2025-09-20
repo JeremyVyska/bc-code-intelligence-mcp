@@ -6,6 +6,7 @@
  */
 
 import { AtomicTopic } from './bc-knowledge.js';
+import { SessionStorageConfig } from './session-types.js';
 
 /**
  * Layer priorities - lower numbers = higher priority (override earlier layers)
@@ -170,6 +171,9 @@ export interface LayerSystemConfig {
   cacheTtlMs: number;
   enableParallelLoading: boolean;
   loadTimeoutMs: number;
+  
+  // Session storage configuration - optional, defaults to in-memory
+  sessionStorage?: SessionStorageConfig;
 }
 
 /**

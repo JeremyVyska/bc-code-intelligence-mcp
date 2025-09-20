@@ -32,6 +32,7 @@ import {
   AuthConfiguration,
   ConfigLayerLoadResult
 } from '../types/index.js';
+import { SessionStorageConfig } from '../types/session-types.js';
 
 import { EmbeddedKnowledgeLayer } from './embedded-layer.js';
 import { ProjectKnowledgeLayer } from './project-layer.js';
@@ -320,6 +321,21 @@ export class LayerService {
     this.buildUnifiedSearchIndex();
 
     console.log(`📚 Built resolution index for ${this.layers.length} layers`);
+  }
+
+  /**
+   * Get session storage configuration from layers
+   * Higher priority layers override lower priority ones
+   */
+  getSessionStorageConfig(): SessionStorageConfig | undefined {
+    // Check if we have configuration from initialization
+    if (this.config.sessionStorage) {
+      return this.config.sessionStorage;
+    }
+
+    // For now, return undefined to use default (memory storage)
+    // In the future, this could read from layer configuration files
+    return undefined;
   }
 
   /**

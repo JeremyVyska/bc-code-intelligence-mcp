@@ -57,7 +57,8 @@ export class MultiContentLayerService {
         results.set(name, result);
         
         if (result.success) {
-          console.error(`✅ Layer ${name}: ${Object.entries(result.content_counts)
+          const contentCounts = result.content_counts || {};
+          console.error(`✅ Layer ${name}: ${Object.entries(contentCounts)
             .map(([type, count]) => `${count} ${type}`)
             .join(', ')}`);
         } else {
@@ -100,7 +101,7 @@ export class MultiContentLayerService {
     // Search layers in priority order (highest priority first)
     for (const layerName of this.layerPriorities) {
       const layer = this.layers.get(layerName);
-      if (!layer || !layer.supported_content_types.includes('specialists')) {
+      if (!layer || !(layer.supported_content_types?.includes('specialists'))) {
         continue;
       }
 
@@ -130,7 +131,7 @@ export class MultiContentLayerService {
     
     for (const layerName of reversePriorities) {
       const layer = this.layers.get(layerName);
-      if (!layer || !layer.supported_content_types.includes('specialists')) {
+      if (!layer || !(layer.supported_content_types?.includes('specialists'))) {
         continue;
       }
 
