@@ -1,5 +1,5 @@
 {
-  "$schema": "./src/config/bckb-config-schema.json",
+  "$schema": "./src/config/bc-code-intel-config-schema.json",
   "layers": [
     {
       "name": "embedded",
@@ -14,7 +14,7 @@
       "priority": 100,
       "source": {
         "type": "local",
-        "path": "./bckb-overrides"
+        "path": "./bc-code-intel-overrides"
       },
       "enabled": true
     }

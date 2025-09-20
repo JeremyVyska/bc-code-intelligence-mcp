@@ -1,7 +1,7 @@
 {
-  "name": "bckb-mcp-server",
+  "name": "bc-code-intelligence-mcp",
   "version": "1.1.1",
-  "description": "Business Central Knowledge Base MCP Server - Persona-driven workflow orchestration and intelligent BC knowledge discovery",
+  "description": "BC Code Intelligence MCP Server - Persona-driven workflow orchestration and intelligent BC knowledge discovery",
   "main": "dist/index.js",
   "type": "module",
   "files": [
@@ -9,9 +9,9 @@
     "embedded-knowledge/"
   ],
   "bin": {
-    "bckb": "dist/cli/bckb-cli.js",
-    "bckb-server": "dist/index.js",
-    "bckb-mcp-server": "dist/index.js"
+    "bc-code-intel": "dist/cli/bc-code-intel-cli.js",
+    "bc-code-intel-server": "dist/index.js",
+    "bc-code-intelligence-mcp": "dist/index.js"
   },
   "scripts": {
     "build": "tsc",
@@ -33,9 +33,10 @@
     "model-context-protocol",
     "ai-tools",
     "github-copilot",
-    "knowledge-base"
+    "knowledge-base",
+    "bc-code-intelligence"
   ],
-  "author": "BC Knowledge Base",
+  "author": "BC Code Intelligence",
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^0.4.0",
@@ -64,10 +65,10 @@
   "preferGlobal": false,
   "repository": {
     "type": "git",
-    "url": "https://github.com/JeremyVyska/bc-knowledgebase-mcp.git"
+    "url": "https://github.com/JeremyVyska/bc-code-intelligence-mcp.git"
   },
   "bugs": {
-    "url": "https://github.com/JeremyVyska/bc-knowledgebase-mcp/issues"
+    "url": "https://github.com/JeremyVyska/bc-code-intelligence-mcp/issues"
   },
-  "homepage": "https://github.com/JeremyVyska/bc-knowledgebase-mcp"
+  "homepage": "https://github.com/JeremyVyska/bc-code-intelligence-mcp"
 }

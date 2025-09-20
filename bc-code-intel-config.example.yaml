@@ -1,5 +1,5 @@
-# BCKB Configuration Example (YAML format)
-# Copy to bckb-config.yaml and customize for your needs
+# BC Code Intelligence Configuration Example (YAML format)
+# Copy to bc-code-intel-config.yaml and customize for your needs
 
 layers:
   - name: embedded

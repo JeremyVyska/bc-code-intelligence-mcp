@@ -1,7 +1,7 @@
 # AGENTS.md - Repository Context for AI Assistants
 
 ## Repository Purpose
-This is the **MCP server implementation** for the Business Central Knowledge Base (BCKB) system.
+This is the **MCP server implementation** for the BC Code Intelligence (bc-code-intel) system.
 
 ## What This Repo Contains
 - **TypeScript MCP Server**: Full Model Context Protocol implementation
@@ -11,7 +11,7 @@ This is the **MCP server implementation** for the Business Central Knowledge Bas
 - **Build System**: Complete TypeScript build pipeline with testing
 
 ## What This Repo Does NOT Contain
-- **Knowledge Content**: Actual BC knowledge is in bc-knowledgebase repo (linked via submodule)
+- **Knowledge Content**: Actual BC knowledge is in bc-code-intelligence repo (linked via submodule)
 - **Markdown Files**: No knowledge content directly in this repository
 - **Domain Expertise**: Business logic focuses on layer resolution, not BC domain knowledge
 
@@ -21,7 +21,7 @@ src/
 ├── layers/                 # Layer resolution system
 │   ├── layer-service.ts   # Core layer management and resolution
 │   ├── embedded-layer.ts  # Reads from embedded-knowledge/ submodule
-│   ├── project-layer.ts   # Local ./bckb-overrides/ detection
+│   ├── project-layer.ts   # Local ./bc-code-intel-overrides/ detection
 │   └── git-layer.ts       # Future: Git repository layers
 ├── services/              # MCP tools and business logic
 │   ├── knowledge-service.ts    # Knowledge discovery and retrieval
