@@ -1,37 +1,37 @@
 /**
- * BCKB Knowledge Assistant VS Code Extension
- *
- * Provides seamless integration with BCKB MCP server for Business Central developers,
+ * BC Code Intelligence Knowledge Assistant VS Code Extension
+ * 
+ * Provides seamless integration with BC Code Intelligence MCP server for Business Central developers,
  * including intelligent search, code analysis, and contextual recommendations.
  */
 
 import * as vscode from 'vscode';
-import { BCKBClient, BCKBClientDefaults, BCKBTopic } from '../../src/sdk/bckb-client.js';
+import { BCCodeIntelClient, BCCodeIntelClientDefaults, BCCodeIntelTopic } from '../../src/sdk/bc-code-intel-client.js';
 import { KnowledgeTreeProvider } from './providers/knowledge-tree-provider.js';
 import { SearchResultsProvider } from './providers/search-results-provider.js';
 import { RecommendationsProvider } from './providers/recommendations-provider.js';
 import { LayerInfoProvider } from './providers/layer-info-provider.js';
 
-export class BCKBExtension {
-  private client: BCKBClient;
+export class BCCodeIntelExtension {
+  private client: BCCodeIntelClient;
   private knowledgeProvider: KnowledgeTreeProvider;
   private searchResultsProvider: SearchResultsProvider;
   private recommendationsProvider: RecommendationsProvider;
   private layerInfoProvider: LayerInfoProvider;
   private statusBarItem: vscode.StatusBarItem;
   private outputChannel: vscode.OutputChannel;
-  private currentTopicCache = new Map<string, BCKBTopic>();
+  private currentTopicCache = new Map<string, BCCodeIntelTopic>();
 
   constructor(private context: vscode.ExtensionContext) {
-    this.outputChannel = vscode.window.createOutputChannel('BCKB Knowledge Assistant');
+    this.outputChannel = vscode.window.createOutputChannel('BC Code Intelligence Knowledge Assistant');
 
     // Initialize client with configuration
-    const config = vscode.workspace.getConfiguration('bckb');
-    const clientConfig = BCKBClientDefaults.local(config.get('serverPath'));
+    const config = vscode.workspace.getConfiguration('bc-code-intel');
+    const clientConfig = BCCodeIntelClientDefaults.local(config.get('serverPath'));
     clientConfig.server_args = config.get('serverArgs') || ['dist/index.js'];
     clientConfig.debug_logging = config.get('debugLogging') || false;
 
-    this.client = new BCKBClient(clientConfig);
+    this.client = new BCCodeIntelClient(clientConfig);
 
     // Initialize providers
     this.knowledgeProvider = new KnowledgeTreeProvider(this.client);
@@ -41,8 +41,8 @@ export class BCKBExtension {
 
     // Initialize status bar
     this.statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-    this.statusBarItem.command = 'bckb.showStatus';
-    this.statusBarItem.text = '$(book) BCKB: Disconnected';
+    this.statusBarItem.command = 'bc-code-intel.showStatus';
+    this.statusBarItem.text = '$(book) BC Code Intelligence: Disconnected';
     this.statusBarItem.show();
 
     this.initialize();

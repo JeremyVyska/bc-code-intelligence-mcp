@@ -1,7 +1,7 @@
 /**
- * BCKB MCP Client SDK
- *
- * TypeScript/JavaScript SDK for connecting to BCKB MCP servers
+ * BC Code Intelligence MCP Client SDK
+ * 
+ * TypeScript/JavaScript SDK for connecting to BC Code Intelligence MCP servers
  * with full type safety, intelligent caching, and developer-friendly APIs.
  */
 
@@ -10,7 +10,7 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { EventEmitter } from 'events';
 
-export interface BCKBClientConfig {
+export interface BCCodeIntelClientConfig {
   server_command: string;
   server_args?: string[];
   auto_reconnect?: boolean;
@@ -40,7 +40,7 @@ export interface SmartSearchOptions extends TopicSearchOptions {
   layer_filter?: string[];
 }
 
-export interface BCKBTopic {
+export interface BCCodeIntelTopic {
   id: string;
   title: string;
   domain: string;
@@ -84,32 +84,32 @@ export interface SystemStatus {
   uptime_seconds: number;
 }
 
-export class BCKBClient extends EventEmitter {
+export class BCCodeIntelClient extends EventEmitter {
   private client: Client;
   private transport: StdioClientTransport | null = null;
   private connected = false;
   private cache = new Map<string, { data: any; expires: number }>();
   private reconnectTimer?: NodeJS.Timeout;
 
-  constructor(private readonly config: BCKBClientConfig) {
+  constructor(private readonly config: BCCodeIntelClientConfig) {
     super();
 
     this.client = new Client(
-      { name: 'bckb-client', version: '1.0.0', capabilities: {} }
+      { name: 'bc-code-intel-client', version: '1.0.0', capabilities: {} }
     );
 
     if (this.config.debug_logging) {
-      console.log('🔌 BCKB Client initialized with config:', this.config);
+      console.log('🔌 BC Code Intelligence Client initialized with config:', this.config);
     }
   }
 
   /**
-   * Connect to the BCKB MCP server
+   * Connect to the BC Code Intelligence MCP server
    */
   async connect(): Promise<void> {
     try {
       if (this.connected) {
-        console.warn('🔌 Already connected to BCKB server');
+        console.warn('🔌 Already connected to BC Code Intelligence server');
         return;
       }
 
@@ -124,12 +124,12 @@ export class BCKBClient extends EventEmitter {
       this.emit('connected');
 
       if (this.config.debug_logging) {
-        console.log('✅ Connected to BCKB MCP server');
+        console.log('✅ Connected to BC Code Intelligence MCP server');
       }
 
     } catch (error) {
       this.emit('error', error);
-      throw new Error(`Failed to connect to BCKB server: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(`Failed to connect to BC Code Intelligence server: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -157,7 +157,7 @@ export class BCKBClient extends EventEmitter {
       this.emit('disconnected');
 
       if (this.config.debug_logging) {
-        console.log('🔌 Disconnected from BCKB server');
+        console.log('🔌 Disconnected from BC Code Intelligence server');
       }
 
     } catch (error) {
@@ -168,7 +168,7 @@ export class BCKBClient extends EventEmitter {
   /**
    * Search for BC knowledge topics
    */
-  async searchTopics(query: string, options: TopicSearchOptions = {}): Promise<BCKBTopic[]> {
+  async searchTopics(query: string, options: TopicSearchOptions = {}): Promise<BCCodeIntelTopic[]> {
     const toolArgs = {
       tags: options.tags,
       domain: options.domain,
@@ -185,7 +185,7 @@ export class BCKBClient extends EventEmitter {
   /**
    * Advanced layered search with AI-powered recommendations
    */
-  async smartSearch(query: string, options: SmartSearchOptions = {}): Promise<BCKBTopic[]> {
+  async smartSearch(query: string, options: SmartSearchOptions = {}): Promise<BCCodeIntelTopic[]> {
     const toolArgs = {
       query,
       layer_filter: options.layer_filter,
@@ -201,7 +201,7 @@ export class BCKBClient extends EventEmitter {
   /**
    * Get a specific topic by ID
    */
-  async getTopic(topicId: string, includeSamples: boolean = true): Promise<BCKBTopic | null> {
+  async getTopic(topicId: string, includeSamples: boolean = true): Promise<BCCodeIntelTopic | null> {
     try {
       const result = await this.callTool('get_topic_content', {
         topic_id: topicId,
@@ -347,7 +347,7 @@ export class BCKBClient extends EventEmitter {
   /**
    * Batch operations for efficiency
    */
-  async batchGetTopics(topicIds: string[]): Promise<(BCKBTopic | null)[]> {
+  async batchGetTopics(topicIds: string[]): Promise<(BCCodeIntelTopic | null)[]> {
     const promises = topicIds.map(id => this.getTopic(id));
     return Promise.all(promises);
   }
@@ -376,7 +376,7 @@ export class BCKBClient extends EventEmitter {
   /**
    * Export client configuration (sanitized)
    */
-  getClientConfig(): Omit<BCKBClientConfig, 'debug_logging'> {
+  getClientConfig(): Omit<BCCodeIntelClientConfig, 'debug_logging'> {
     const { debug_logging, ...config } = this.config;
     return config;
   }
@@ -444,7 +444,7 @@ export class BCKBClient extends EventEmitter {
 
   private ensureConnected(): void {
     if (!this.connected) {
-      throw new Error('Not connected to BCKB server. Call connect() first.');
+      throw new Error('Not connected to BC Code Intelligence server. Call connect() first.');
     }
   }
 
@@ -454,7 +454,7 @@ export class BCKBClient extends EventEmitter {
     this.reconnectTimer = setTimeout(async () => {
       try {
         if (this.config.debug_logging) {
-          console.log('🔄 Attempting to reconnect to BCKB server...');
+          console.log('🔄 Attempting to reconnect to BC Code Intelligence server...');
         }
 
         await this.disconnect();
@@ -463,7 +463,7 @@ export class BCKBClient extends EventEmitter {
         this.reconnectTimer = undefined;
 
         if (this.config.debug_logging) {
-          console.log('✅ Reconnected to BCKB server');
+          console.log('✅ Reconnected to BC Code Intelligence server');
         }
 
       } catch (error) {
@@ -482,15 +482,15 @@ export class BCKBClient extends EventEmitter {
 /**
  * Convenience factory function for creating BCKB clients
  */
-export function createBCKBClient(config: BCKBClientConfig): BCKBClient {
-  return new BCKBClient(config);
+export function createBCCodeIntelClient(config: BCCodeIntelClientConfig): BCCodeIntelClient {
+  return new BCCodeIntelClient(config);
 }
 
 /**
  * Default configuration for common scenarios
  */
-export const BCKBClientDefaults = {
-  local: (serverPath?: string): BCKBClientConfig => ({
+export const BCCodeIntelClientDefaults = {
+  local: (serverPath?: string): BCCodeIntelClientConfig => ({
     server_command: serverPath || 'node',
     server_args: ['dist/index.js'],
     auto_reconnect: true,
@@ -500,7 +500,7 @@ export const BCKBClientDefaults = {
     debug_logging: false
   }),
 
-  development: (serverPath?: string): BCKBClientConfig => ({
+  development: (serverPath?: string): BCCodeIntelClientConfig => ({
     server_command: serverPath || 'npm',
     server_args: ['run', 'dev'],
     auto_reconnect: true,
@@ -510,7 +510,7 @@ export const BCKBClientDefaults = {
     debug_logging: true
   }),
 
-  production: (serverPath: string): BCKBClientConfig => ({
+  production: (serverPath: string): BCCodeIntelClientConfig => ({
     server_command: serverPath,
     server_args: [],
     auto_reconnect: true,

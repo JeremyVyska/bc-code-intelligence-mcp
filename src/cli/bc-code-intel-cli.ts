@@ -1,27 +1,27 @@
 #!/usr/bin/env node
 
 /**
- * BCKB CLI - Command Line Interface for BCKB MCP Server
+ * BC Code Intelligence CLI - Command Line Interface for BC Code Intelligence MCP Server
  *
- * Developer-friendly CLI for interacting with BCKB servers,
+ * Developer-friendly CLI for interacting with BC Code Intelligence servers,
  * testing configurations, and managing knowledge content.
  */
 
 import { Command } from 'commander';
-import { BCKBClient, BCKBClientDefaults } from '../sdk/bckb-client.js';
+import { BCCodeIntelClient, BCCodeIntelClientDefaults } from '../sdk/bc-code-intel-client.js';
 import { readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
 
 const program = new Command();
 
 program
-  .name('bckb')
-  .description('BCKB MCP Server CLI - Business Central Knowledge Base tools')
+  .name('bc-code-intel')
+  .description('BC Code Intelligence MCP Server CLI - Business Central Code Intelligence tools')
   .version('2.0.0');
 
 // Global options
 program
-  .option('--server <path>', 'Path to BCKB server executable', 'node dist/index.js')
+  .option('--server <path>', 'Path to BC Code Intelligence server executable', 'node dist/index.js')
   .option('--debug', 'Enable debug logging')
   .option('--timeout <ms>', 'Request timeout in milliseconds', '10000');
 
@@ -481,14 +481,14 @@ program
   });
 
 // Helper function to create client with global options
-function createClient(options: any): BCKBClient {
+function createClient(options: any): BCCodeIntelClient {
   const globalOpts = program.opts();
 
-  const config = BCKBClientDefaults.local(globalOpts.server);
+  const config = BCCodeIntelClientDefaults.local(globalOpts.server);
   config.debug_logging = globalOpts.debug || options.debug || false;
   config.request_timeout_ms = parseInt(globalOpts.timeout);
 
-  return new BCKBClient(config);
+  return new BCCodeIntelClient(config);
 }
 
 // Error handling
