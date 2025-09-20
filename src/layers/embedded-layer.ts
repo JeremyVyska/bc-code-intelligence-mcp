@@ -14,8 +14,11 @@ import glob from 'fast-glob';
 import { AtomicTopic, AtomicTopicFrontmatterSchema } from '../types/bc-knowledge.js';
 import { LayerPriority, LayerLoadResult } from '../types/layer-types.js';
 import { BaseKnowledgeLayer } from './base-layer.js';
+import { SpecialistDefinition } from '../services/specialist-loader.js';
 
 export class EmbeddedKnowledgeLayer extends BaseKnowledgeLayer {
+  private specialists = new Map<string, SpecialistDefinition>();
+
   constructor(
     private readonly embeddedPath: string = (() => {
       const __filename = fileURLToPath(import.meta.url);
@@ -39,9 +42,10 @@ export class EmbeddedKnowledgeLayer extends BaseKnowledgeLayer {
     try {
       console.error(`Initializing ${this.name} layer from ${this.embeddedPath}...`);
 
-      // Load topics and indexes in parallel
-      const [topicsLoaded, indexesLoaded] = await Promise.all([
+      // Load topics, specialists, and indexes in parallel
+      const [topicsLoaded, specialistsLoaded, indexesLoaded] = await Promise.all([
         this.loadTopics(),
+        this.loadSpecialists(),
         this.loadIndexes()
       ]);
 
@@ -49,7 +53,7 @@ export class EmbeddedKnowledgeLayer extends BaseKnowledgeLayer {
       this.initialized = true;
       this.loadResult = this.createLoadResult(topicsLoaded, indexesLoaded, loadTimeMs);
 
-      console.error(`✅ ${this.name} layer loaded: ${topicsLoaded} topics, ${indexesLoaded} indexes (${loadTimeMs}ms)`);
+      console.error(`✅ ${this.name} layer loaded: ${topicsLoaded} topics, ${specialistsLoaded} specialists, ${indexesLoaded} indexes (${loadTimeMs}ms)`);
       return this.loadResult;
 
     } catch (error) {
@@ -266,5 +270,234 @@ export class EmbeddedKnowledgeLayer extends BaseKnowledgeLayer {
    */
   getIndexNames(): string[] {
     return Array.from(this.indexes.keys());
+  }
+
+  /**
+   * Load all specialists from embedded knowledge specialists folder
+   */
+  protected async loadSpecialists(): Promise<number> {
+    const specialistsPath = join(this.embeddedPath, 'specialists');
+
+    try {
+      // Check if specialists directory exists
+      const specialistsStats = await stat(specialistsPath);
+      if (!specialistsStats.isDirectory()) {
+        console.error(`⚠️ Specialists path is not a directory: ${specialistsPath}`);
+        return 0;
+      }
+    } catch (error) {
+      console.error(`⚠️ Specialists directory not found: ${specialistsPath}`);
+      return 0;
+    }
+
+    // Use glob to find all markdown files in specialists
+    let pattern = join(specialistsPath, '*.md').replace(/\\/g, '/');
+
+    // Convert /c/path to C:/path on Windows
+    if (pattern.startsWith('/c/')) {
+      pattern = 'C:' + pattern.substring(2);
+    }
+
+    console.error(`🎭 Using specialists glob pattern: ${pattern}`);
+    const specialistFiles = await glob(pattern);
+
+    console.error(`Found ${specialistFiles.length} specialist files in ${specialistsPath}`);
+
+    let loadedCount = 0;
+    for (const filePath of specialistFiles) {
+      try {
+        const specialist = await this.loadSpecialist(filePath);
+        if (specialist && this.validateSpecialist(specialist)) {
+          this.specialists.set(specialist.specialist_id, specialist);
+          loadedCount++;
+          console.error(`✅ Loaded specialist: ${specialist.specialist_id} (${specialist.title})`);
+        } else {
+          console.error(`Invalid specialist structure in ${filePath}`);
+        }
+      } catch (error) {
+        console.error(`Failed to load specialist ${filePath}:`, error instanceof Error ? error.message : String(error));
+      }
+    }
+
+    console.error(`🎭 Loaded ${loadedCount} specialists from embedded layer`);
+    return loadedCount;
+  }
+
+  /**
+   * Load a single specialist from a markdown file
+   */
+  private async loadSpecialist(filePath: string): Promise<SpecialistDefinition | null> {
+    try {
+      const content = await readFile(filePath, 'utf-8');
+      const normalizedContent = content.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n');
+
+      // Extract YAML frontmatter
+      const frontmatterMatch = normalizedContent.match(/^---\s*\n([\s\S]*?)\n---\s*\n([\s\S]*)$/);
+      if (!frontmatterMatch) {
+        console.error(`⚠️ No frontmatter found in ${filePath}`);
+        return null;
+      }
+
+      const [, frontmatterContent, markdownContent] = frontmatterMatch;
+
+      // Parse and validate frontmatter
+      const frontmatterData = yaml.parse(frontmatterContent || '');
+      
+      // Validate required fields
+      if (!frontmatterData.specialist_id || !frontmatterData.title) {
+        console.error(`⚠️ Missing required fields in ${filePath}`);
+        return null;
+      }
+
+      // Create specialist definition
+      const specialist: SpecialistDefinition = {
+        title: frontmatterData.title,
+        specialist_id: frontmatterData.specialist_id,
+        emoji: frontmatterData.emoji || '🤖',
+        role: frontmatterData.role || 'Specialist',
+        team: frontmatterData.team || 'General',
+        persona: {
+          personality: frontmatterData.persona?.personality || [],
+          communication_style: frontmatterData.persona?.communication_style || '',
+          greeting: frontmatterData.persona?.greeting || `${frontmatterData.emoji || '🤖'} Hello!`
+        },
+        expertise: {
+          primary: frontmatterData.expertise?.primary || [],
+          secondary: frontmatterData.expertise?.secondary || []
+        },
+        domains: frontmatterData.domains || [],
+        when_to_use: frontmatterData.when_to_use || [],
+        collaboration: {
+          natural_handoffs: frontmatterData.collaboration?.natural_handoffs || [],
+          team_consultations: frontmatterData.collaboration?.team_consultations || []
+        },
+        related_specialists: frontmatterData.related_specialists || [],
+        content: markdownContent.trim()
+      };
+
+      return specialist;
+
+    } catch (error) {
+      console.error(`❌ Failed to parse specialist file ${filePath}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Validate specialist definition
+   */
+  private validateSpecialist(specialist: SpecialistDefinition): boolean {
+    return !!(
+      specialist.specialist_id &&
+      specialist.title &&
+      specialist.persona &&
+      specialist.expertise
+    );
+  }
+
+  /**
+   * Check if the layer has a specific specialist
+   */
+  hasSpecialist(specialistId: string): boolean {
+    return this.specialists.has(specialistId);
+  }
+
+  /**
+   * Get a specialist from this layer
+   */
+  getSpecialist(specialistId: string): SpecialistDefinition | null {
+    return this.specialists.get(specialistId) || null;
+  }
+
+  /**
+   * Get all specialist IDs available in this layer
+   */
+  getSpecialistIds(): string[] {
+    return Array.from(this.specialists.keys());
+  }
+
+  /**
+   * Get all specialists from this layer
+   */
+  getAllSpecialists(): SpecialistDefinition[] {
+    return Array.from(this.specialists.values());
+  }
+
+  /**
+   * Search for specialists within this layer
+   */
+  searchSpecialists(query: string, limit?: number): SpecialistDefinition[] {
+    const queryLower = query.toLowerCase();
+    const matches: { specialist: SpecialistDefinition; score: number }[] = [];
+
+    for (const specialist of this.specialists.values()) {
+      let score = 0;
+
+      // Check title
+      if (specialist.title.toLowerCase().includes(queryLower)) {
+        score += 10;
+      }
+
+      // Check expertise
+      for (const expertise of [...specialist.expertise.primary, ...specialist.expertise.secondary]) {
+        if (expertise.toLowerCase().includes(queryLower)) {
+          score += specialist.expertise.primary.includes(expertise) ? 8 : 5;
+        }
+      }
+
+      // Check domains
+      for (const domain of specialist.domains) {
+        if (domain.toLowerCase().includes(queryLower)) {
+          score += 6;
+        }
+      }
+
+      // Check when_to_use scenarios
+      for (const scenario of specialist.when_to_use) {
+        if (scenario.toLowerCase().includes(queryLower)) {
+          score += 7;
+        }
+      }
+
+      if (score > 0) {
+        matches.push({ specialist, score });
+      }
+    }
+
+    // Sort by score and apply limit
+    const sortedMatches = matches
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit || matches.length);
+
+    return sortedMatches.map(m => m.specialist);
+  }
+
+  /**
+   * Get specialist statistics for this layer
+   */
+  getSpecialistStatistics(): {
+    total_specialists: number;
+    teams: Record<string, number>;
+    domains: Record<string, number>;
+  } {
+    const specialists = Array.from(this.specialists.values());
+    const teams: Record<string, number> = {};
+    const domains: Record<string, number> = {};
+
+    for (const specialist of specialists) {
+      // Count teams
+      teams[specialist.team] = (teams[specialist.team] || 0) + 1;
+
+      // Count domains
+      for (const domain of specialist.domains) {
+        domains[domain] = (domains[domain] || 0) + 1;
+      }
+    }
+
+    return {
+      total_specialists: specialists.length,
+      teams,
+      domains
+    };
   }
 }
