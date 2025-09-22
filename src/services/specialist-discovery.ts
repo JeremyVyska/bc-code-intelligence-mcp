@@ -122,6 +122,45 @@ export class SpecialistDiscoveryService {
   }
 
   /**
+   * Find specialist by partial/fuzzy name matching
+   * Handles cases like "Sam" -> "sam-coder", "Dean" -> "dean-debug", etc.
+   */
+  async findSpecialistByName(partialName: string): Promise<SpecialistDefinition | null> {
+    await this.ensureInitialized();
+    
+    const searchTerm = partialName.toLowerCase().trim();
+    
+    // First try exact specialist_id match (case insensitive)
+    let match = this.specialists.find(specialist => 
+      specialist.specialist_id.toLowerCase() === searchTerm
+    );
+    
+    if (match) return match;
+    
+    // Try partial match in specialist_id
+    match = this.specialists.find(specialist => 
+      specialist.specialist_id.toLowerCase().includes(searchTerm)
+    );
+    
+    if (match) return match;
+    
+    // Try matching first part of specialist_id (before the dash)
+    match = this.specialists.find(specialist => {
+      const firstName = specialist.specialist_id.split('-')[0].toLowerCase();
+      return firstName === searchTerm;
+    });
+    
+    if (match) return match;
+    
+    // Try matching in title
+    match = this.specialists.find(specialist => 
+      specialist.title?.toLowerCase().includes(searchTerm)
+    );
+    
+    return match || null;
+  }
+
+  /**
    * Analyze how well a specialist matches the given context
    */
   private analyzeSpecialistMatch(

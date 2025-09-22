@@ -82,7 +82,7 @@ export interface SpecialistResponse {
   recommendations_added?: string[];
   
   // Response type and intent
-  response_type: 'guidance' | 'solution' | 'question' | 'handoff' | 'encouragement' | 'methodology_onboarding' | 'methodology_suggestion';
+  response_type: 'guidance' | 'solution' | 'question' | 'handoff' | 'encouragement' | 'methodology_onboarding' | 'methodology_suggestion' | 'direct_specialist_response';
   confidence_level: 'high' | 'medium' | 'low';
 }
 

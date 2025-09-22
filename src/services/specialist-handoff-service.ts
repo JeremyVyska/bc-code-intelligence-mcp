@@ -70,7 +70,13 @@ export const HANDOFF_TOOLS: Tool[] = [
     • Problem complexity requires architectural, security, testing, or other specialized input
     • You've completed your analysis and next steps need different skills
     
-    Creates seamless transition with full context transfer so user doesn't repeat information.`,
+    Creates seamless transition with full context transfer so user doesn't repeat information.
+    
+🔧 **AL/BC Platform Constraints**: Specialists follow Business Central and AL Language limitations:
+• Security: AL permissions, BC security framework only
+• UX: AL page/report constraints, not custom rendering
+• Performance: AL optimization patterns, BC server constraints
+• API: BC web services, AL integration patterns only`,
     inputSchema: {
       type: 'object',
       properties: {
@@ -117,7 +123,13 @@ export const HANDOFF_TOOLS: Tool[] = [
   },
   {
     name: 'bring_in_specialist',
-    description: `Bring in another specialist for consultation or collaboration while maintaining current session. Use for quick expert input, code reviews, or joint problem-solving without full handoff.`,
+    description: `Bring in another specialist for consultation or collaboration while maintaining current session. Use for quick expert input, code reviews, or joint problem-solving without full handoff.
+
+🔧 **AL/BC Platform Constraints**: Specialists follow Business Central limitations:
+• Security: AL permissions, BC security framework only
+• UX: AL page/report constraints, not custom rendering  
+• Performance: AL optimization patterns, BC server constraints
+• API: BC web services, AL integration patterns only`,
     inputSchema: {
       type: 'object',
       properties: {
@@ -194,6 +206,23 @@ export class SpecialistHandoffService {
     return await this.sessionManager.getSession(this.currentSessionId);
   }
 
+  /**
+   * Create an emergency session when handoff is attempted without existing session
+   */
+  private async createEmergencySession(args: any): Promise<SpecialistSession> {
+    // Create a session with generic context from handoff arguments
+    const emergencySession = await this.sessionManager.startSession(
+      'casey-copilot', // Default to Casey for emergency sessions
+      'default-user',
+      `Emergency session created for handoff to ${args.target_specialist_id}. Context: ${args.problem_summary || 'No context provided'}`
+    );
+    
+    // Set this as the current session
+    this.currentSessionId = emergencySession.sessionId;
+    
+    return emergencySession;
+  }
+
   async handleToolCall(request: CallToolRequest): Promise<CallToolResult> {
     try {
       switch (request.params.name) {
@@ -225,30 +254,27 @@ export class SpecialistHandoffService {
   private async handoffToSpecialist(request: CallToolRequest): Promise<CallToolResult> {
     const args = HandoffToSpecialistArgsSchema.parse(request.params.arguments);
     
-    // Get current session context
-    const currentSession = await this.getCurrentSession();
+    // Get current session context or create emergency session
+    let currentSession = await this.getCurrentSession();
     if (!currentSession) {
-      return {
-        content: [
-          {
-            type: 'text',
-            text: 'No active session found. Start a session first with suggest_specialist.'
-          }
-        ],
-        isError: true
-      };
+      // Auto-create emergency session to enable handoff
+      currentSession = await this.createEmergencySession(args);
     }
 
-    // Get target specialist info
-    const specialists = await this.layerService.getAllSpecialists();
-    const targetSpecialist = specialists.find(s => s.specialist_id === args.target_specialist_id);
+    // Get target specialist info with fuzzy matching
+    let targetSpecialist = await this.discoveryService.getSpecialistById(args.target_specialist_id);
+    
+    if (!targetSpecialist) {
+      // Try fuzzy name matching if exact ID fails
+      targetSpecialist = await this.discoveryService.findSpecialistByName(args.target_specialist_id);
+    }
     
     if (!targetSpecialist) {
       return {
         content: [
           {
             type: 'text',
-            text: `Specialist ${args.target_specialist_id} not found. Use 'browse_specialists' to see available specialists.`
+            text: `Specialist "${args.target_specialist_id}" not found. Tried exact ID match and fuzzy name matching. Use 'browse_specialists' to see available specialists.`
           }
         ],
         isError: true
@@ -311,15 +337,19 @@ export class SpecialistHandoffService {
   private async bringInSpecialist(request: CallToolRequest): Promise<CallToolResult> {
     const args = BringInSpecialistArgsSchema.parse(request.params.arguments);
     
-    const specialists = await this.layerService.getAllSpecialists();
-    const specialist = specialists.find(s => s.specialist_id === args.specialist_id);
+    // Try exact ID match first, then fuzzy matching
+    let specialist = await this.discoveryService.getSpecialistById(args.specialist_id);
+    
+    if (!specialist) {
+      specialist = await this.discoveryService.findSpecialistByName(args.specialist_id);
+    }
     
     if (!specialist) {
       return {
         content: [
           {
             type: 'text',
-            text: `Specialist ${args.specialist_id} not found.`
+            text: `Specialist "${args.specialist_id}" not found. Tried exact ID match and fuzzy name matching. Use 'browse_specialists' to see available specialists.`
           }
         ],
         isError: true

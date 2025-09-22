@@ -17,6 +17,60 @@ function mapWorkflowType(streamlinedType: string): string {
   return workflowMapping[streamlinedType] || streamlinedType;
 }
 
+// Detect if a workflow request is actually a specialist conversation request
+function detectSpecialistConversationRequest(workflowType: string, context?: string): 
+  { intent: string; specialist: string } | null {
+  
+  const fullText = `${workflowType} ${context || ''}`.toLowerCase();
+  
+  // Common conversation patterns
+  const conversationPatterns = [
+    { pattern: /talk.*to.*sam|sam.*talk/i, specialist: 'sam-coder', intent: 'conversation' },
+    { pattern: /talk.*to.*dean|dean.*talk/i, specialist: 'dean-debug', intent: 'conversation' },
+    { pattern: /talk.*to.*alex|alex.*talk/i, specialist: 'alex-architect', intent: 'conversation' },
+    { pattern: /talk.*to.*eva|eva.*talk/i, specialist: 'eva-errors', intent: 'conversation' },
+    { pattern: /talk.*to.*quinn|quinn.*talk/i, specialist: 'quinn-tester', intent: 'conversation' },
+    { pattern: /talk.*to.*roger|roger.*talk/i, specialist: 'roger-reviewer', intent: 'conversation' },
+    { pattern: /talk.*to.*seth|seth.*talk/i, specialist: 'seth-security', intent: 'conversation' },
+    { pattern: /talk.*to.*jordan|jordan.*talk/i, specialist: 'jordan-bridge', intent: 'conversation' },
+    { pattern: /talk.*to.*logan|logan.*talk/i, specialist: 'logan-legacy', intent: 'conversation' },
+    { pattern: /talk.*to.*uma|uma.*talk/i, specialist: 'uma-ux', intent: 'conversation' },
+    { pattern: /talk.*to.*morgan|morgan.*talk/i, specialist: 'morgan-market', intent: 'conversation' },
+    { pattern: /talk.*to.*taylor|taylor.*talk/i, specialist: 'taylor-docs', intent: 'conversation' },
+    { pattern: /talk.*to.*maya|maya.*talk/i, specialist: 'maya-mentor', intent: 'conversation' },
+    { pattern: /talk.*to.*casey|casey.*talk/i, specialist: 'casey-copilot', intent: 'conversation' },
+    
+    // Ask patterns
+    { pattern: /ask.*sam|sam.*question/i, specialist: 'sam-coder', intent: 'question' },
+    { pattern: /ask.*dean|dean.*question/i, specialist: 'dean-debug', intent: 'question' },
+    { pattern: /ask.*alex|alex.*question/i, specialist: 'alex-architect', intent: 'question' },
+    
+    // Specialist names in workflow type
+    { pattern: /^sam/i, specialist: 'sam-coder', intent: 'direct-reference' },
+    { pattern: /^dean/i, specialist: 'dean-debug', intent: 'direct-reference' },
+    { pattern: /^alex/i, specialist: 'alex-architect', intent: 'direct-reference' },
+    { pattern: /^eva/i, specialist: 'eva-errors', intent: 'direct-reference' },
+    { pattern: /^quinn/i, specialist: 'quinn-tester', intent: 'direct-reference' },
+    { pattern: /^roger/i, specialist: 'roger-reviewer', intent: 'direct-reference' },
+    { pattern: /^seth/i, specialist: 'seth-security', intent: 'direct-reference' },
+    { pattern: /^jordan/i, specialist: 'jordan-bridge', intent: 'direct-reference' },
+    { pattern: /^logan/i, specialist: 'logan-legacy', intent: 'direct-reference' },
+    { pattern: /^uma/i, specialist: 'uma-ux', intent: 'direct-reference' },
+    { pattern: /^morgan/i, specialist: 'morgan-market', intent: 'direct-reference' },
+    { pattern: /^taylor/i, specialist: 'taylor-docs', intent: 'direct-reference' },
+    { pattern: /^maya/i, specialist: 'maya-mentor', intent: 'direct-reference' },
+    { pattern: /^casey/i, specialist: 'casey-copilot', intent: 'direct-reference' }
+  ];
+  
+  for (const { pattern, specialist, intent } of conversationPatterns) {
+    if (pattern.test(fullText)) {
+      return { intent, specialist };
+    }
+  }
+  
+  return null;
+}
+
 export function createStreamlinedHandlers(server: any, services: any) {
   const {
     knowledgeService,
@@ -182,6 +236,24 @@ export function createStreamlinedHandlers(server: any, services: any) {
     'start_bc_workflow': async (args: any) => {
       const { workflow_type, context, bc_version, additional_info } = args;
       
+      // Detect if this looks like a specialist conversation request
+      const isSpecialistRequest = detectSpecialistConversationRequest(workflow_type, context);
+      if (isSpecialistRequest) {
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              error: 'Workflow type appears to be a specialist conversation request',
+              suggestion: 'Use ask_bc_expert tool instead for direct specialist conversations',
+              detected_intent: isSpecialistRequest.intent,
+              recommended_specialist: isSpecialistRequest.specialist,
+              correct_usage: `ask_bc_expert({ question: "${context || workflow_type}", preferred_specialist: "${isSpecialistRequest.specialist}" })`
+            }, null, 2)
+          }],
+          isError: true
+        };
+      }
+      
       // Map streamlined workflow type to existing workflow type
       const mappedWorkflowType = mapWorkflowType(workflow_type);
       
@@ -192,40 +264,104 @@ export function createStreamlinedHandlers(server: any, services: any) {
         additional_context: additional_info
       };
       
-      const session = await workflowService.startWorkflow(startRequest);
-      const guidance = await workflowService.getPhaseGuidance(session.id);
-      
-      return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            workflow_id: session.id,
-            workflow_type: workflow_type, // Return original type for clarity
-            mapped_to: mappedWorkflowType,
-            status: 'started',
-            current_phase: session.current_phase,
-            specialist: session.current_specialist,
-            guidance
-          }, null, 2)
-        }]
-      };
+      try {
+        const session = await workflowService.startWorkflow(startRequest);
+        const guidance = await workflowService.getPhaseGuidance(session.id);
+        
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              workflow_id: session.id,
+              workflow_type: workflow_type, // Return original type for clarity
+              mapped_to: mappedWorkflowType,
+              status: 'started',
+              current_phase: session.current_phase,
+              specialist: session.current_specialist,
+              guidance
+            }, null, 2)
+          }]
+        };
+      } catch (error) {
+        // Enhanced error handling with suggestions
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        
+        if (errorMessage.includes('Unknown workflow type')) {
+          return {
+            content: [{
+              type: 'text',
+              text: JSON.stringify({
+                error: 'Invalid workflow type',
+                workflow_type_provided: workflow_type,
+                mapped_to: mappedWorkflowType,
+                suggestion: 'Use ask_bc_expert for specialist conversations or check valid workflow types',
+                valid_workflow_types: ['new-bc-app', 'enhance-bc-app', 'review-bc-code', 'debug-bc-issues', 'modernize-bc-code', 'onboard-developer', 'upgrade-bc-version', 'add-ecosystem-features', 'document-bc-solution'],
+                alternative_tool: `ask_bc_expert({ question: "${context || workflow_type}" })`
+              }, null, 2)
+            }],
+            isError: true
+          };
+        }
+        
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              error: errorMessage,
+              suggestion: 'Consider using ask_bc_expert for direct specialist consultation'
+            }, null, 2)
+          }],
+          isError: true
+        };
+      }
     },
 
     'advance_workflow': async (args: any) => {
       const { workflow_id, phase_results, next_focus } = args;
       
-      const result = await workflowService.advancePhase({
-        workflow_id,
-        phase_results,
-        specialist_notes: next_focus
-      });
-      
-      return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify(result, null, 2)
-        }]
-      };
+      try {
+        const result = await workflowService.advancePhase({
+          workflow_id,
+          phase_results,
+          specialist_notes: next_focus
+        });
+        
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify(result, null, 2)
+          }]
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        
+        if (errorMessage.includes('Workflow session not found')) {
+          return {
+            content: [{
+              type: 'text',
+              text: JSON.stringify({
+                error: 'Workflow session not found',
+                workflow_id: workflow_id,
+                suggestion: 'Start a new workflow with start_bc_workflow or use ask_bc_expert for direct consultation',
+                alternative: `start_bc_workflow({ workflow_type: "enhance-bc-app", context: "${phase_results || 'Continue previous work'}" })`
+              }, null, 2)
+            }],
+            isError: true
+          };
+        }
+        
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              error: errorMessage,
+              workflow_id: workflow_id,
+              suggestion: 'Check workflow status with get_workflow_help or start new workflow'
+            }, null, 2)
+          }],
+          isError: true
+        };
+      }
     },
 
     'get_workflow_help': async (args: any) => {

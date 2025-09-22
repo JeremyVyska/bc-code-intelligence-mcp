@@ -86,14 +86,23 @@ await mcp.call('handoff_to_specialist', {
 
 ### Specialist Bundle Tools
 
+**🎯 When to Use Each Tool Type:**
+
+**For Direct Conversations & Questions:**
+- `ask_bc_expert` - **USE FOR**: "Talk to Sam", "Ask Dean about debugging", "I took over this BC app" 
+  - ✅ **Direct questions get immediate specialist responses** (no methodology setup required)
+  - ✅ **Broader requests** get structured methodology onboarding for systematic guidance
+- `suggest_specialist` - Start/continue specialist conversations  
+- `get_specialist_advice` - Get expert guidance on specific topics
+  - ✅ **Smart name matching**: "Sam" automatically finds "sam-coder", "Dean" finds "dean-debug"
+
+**For Structured Development Processes:**
+- `start_bc_workflow` - **USE FOR**: "Optimize my code systematically", "Conduct architecture review", "Security audit"
+
 **Discovery & Routing:**
 - `discover_specialists` - Intelligent specialist suggestions based on query analysis
 - `browse_specialists` - Browse by domain or expertise area
 - `get_specialist_info` - Detailed information about any specialist
-
-**Engagement & Sessions:**
-- `suggest_specialist` - Start/continue specialist conversations
-- `get_specialist_advice` - Get expert guidance on specific topics
 - `list_specialists` - See all available specialists
 
 **Onboarding & Navigation:**
@@ -102,7 +111,7 @@ await mcp.call('handoff_to_specialist', {
 - `suggest_next_specialist` - Intelligent next-step recommendations
 
 **Handoffs & Collaboration:**
-- `handoff_to_specialist` - Context-preserving specialist transitions
+- `handoff_to_specialist` - Context-preserving specialist transitions (auto-creates sessions)
 - `bring_in_specialist` - Multi-specialist consultation
 - `get_handoff_summary` - Session history and analytics
 

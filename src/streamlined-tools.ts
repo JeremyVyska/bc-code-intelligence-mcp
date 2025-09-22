@@ -31,7 +31,14 @@ export const streamlinedTools = [
   },
   {
     name: 'ask_bc_expert',
-    description: 'Ask any BC question and get expert consultation. Auto-selects the right specialist and suggests workflows. Use this for "I took over this BC app" or any BC development question.',
+    description: `DIRECT SPECIALIST CONSULTATION: Connect with BC specialists who respond immediately as themselves, not as AI assistants describing roleplay. When user says "Talk to Sam" or "Ask Dean about debugging", you get authentic specialist expertise directly. CRITICAL: Do not explain roleplay or offer menus - respond AS the specialist would respond. USE FOR: "Talk to Sam", "Ask Dean about debugging", "I took over this BC app", "Help with performance issues". DO NOT USE FOR WORKFLOWS.
+
+🔧 **AL/BC Platform Constraints**: All specialist responses MUST respect Business Central and AL language limitations:
+• Security: AL permission objects, user groups, BC security framework - NOT external auth systems
+• UX: AL page/report constraints - BC controls rendering, NOT custom CSS/HTML  
+• Performance: AL optimization, table design, BC server constraints - NOT generic frameworks
+• API: BC API pages, web services, AL integration - NOT generic REST frameworks
+• Always prioritize AL language capabilities and BC platform limitations over generic programming approaches`,
     inputSchema: {
       type: 'object',
       properties: {
@@ -101,7 +108,7 @@ export const streamlinedTools = [
   },
   {
     name: 'start_bc_workflow',
-    description: 'Start any BC development workflow (code optimization, architecture review, security audit, etc.). Replaces individual workflow prompts.',
+    description: 'STRUCTURED WORKFLOWS: Start systematic BC development workflows for complex, multi-phase processes. USE FOR STRUCTURED PROCESSES like "optimize my code systematically", "conduct architecture review", "security audit", "performance analysis". DO NOT USE FOR SIMPLE CONVERSATIONS - if user wants to "talk to" or "ask" a specialist, use ask_bc_expert instead.',
     inputSchema: {
       type: 'object',
       properties: {

@@ -48,7 +48,7 @@ export class SpecialistTools {
     return [
       {
         name: 'suggest_specialist',
-        description: 'Find the most appropriate BC specialist for your question or problem. Returns ranked suggestions with reasoning.',
+        description: 'Find the most appropriate BC specialist for your question. IMPORTANT: When user wants to "talk to" or "chat with" a specific specialist, use get_specialist_advice directly instead. This tool is for discovering which specialist to use when unsure.',
         inputSchema: {
           type: 'object',
           properties: {
@@ -67,7 +67,14 @@ export class SpecialistTools {
       },
       {
         name: 'get_specialist_advice',
-        description: 'Get personality-driven advice from a BC specialist. Automatically handles session creation for multi-turn conversations.',
+        description: `Connect directly with a BC specialist who responds authentically as themselves. CRITICAL FOR AGENTS: Respond AS the specialist, not as an AI describing roleplay. No menus, no explanations - dive straight into the specialist persona and expertise. Perfect for "Talk to Sam", "Chat with Dean", etc.
+
+🔧 **AL/BC Platform Constraints**: All specialist advice MUST respect Business Central and AL language limitations:
+• Security specialists: Focus on AL permission objects, user groups, BC security framework - NOT external auth systems
+• UX specialists: Work within AL page/report constraints - BC controls rendering, NOT custom CSS/HTML  
+• Performance specialists: AL optimization patterns, table design, BC server constraints - NOT generic frameworks
+• API specialists: BC API pages, web services, AL integration - NOT generic REST frameworks
+• All specialists: Prioritize AL language capabilities and BC platform limitations over generic programming`,
         inputSchema: {
           type: 'object',
           properties: {
@@ -204,13 +211,19 @@ export class SpecialistTools {
   private async handleGetSpecialistAdvice(request: CallToolRequest): Promise<CallToolResult> {
     const validated = GetSpecialistAdviceSchema.parse(request.params.arguments);
     
-    // Get specialist
-    const specialist = await this.layerService.getSpecialist(validated.specialist_id);
+    // Try exact ID match first
+    let specialist = await this.layerService.getSpecialist(validated.specialist_id);
+    
+    // If not found, try fuzzy matching
+    if (!specialist) {
+      specialist = await this.findSpecialistByFuzzyName(validated.specialist_id);
+    }
+    
     if (!specialist) {
       return {
         content: [{
           type: 'text',
-          text: `❌ Specialist '${validated.specialist_id}' not found. Use 'list_specialists' to see available experts.`
+          text: `❌ Specialist '${validated.specialist_id}' not found. Tried exact ID match and fuzzy name matching. Use 'list_specialists' to see available experts.`
         }],
         isError: true
       };
@@ -221,16 +234,17 @@ export class SpecialistTools {
     let session;
 
     if (sessionId) {
-      // Get existing session
+      // Get existing session with auto-recovery
       session = await this.sessionManager.getSession(sessionId);
       if (!session) {
-        return {
-          content: [{
-            type: 'text',
-            text: `❌ Session '${sessionId}' not found. Starting new conversation with ${specialist.title}.`
-          }],
-          isError: true
-        };
+        // Auto-recover: create new session instead of failing
+        console.warn(`Session '${sessionId}' not found. Creating recovery session.`);
+        session = await this.sessionManager.startSession(
+          validated.specialist_id,
+          'default-user',
+          `Recovery session. Original session ${sessionId} was lost. Context: ${validated.problem_context || validated.message}`
+        );
+        sessionId = session.sessionId;
       }
     } else {
       // Create new session
@@ -373,5 +387,43 @@ export class SpecialistTools {
     return {
       content: [{ type: 'text', text: response }]
     };
+  }
+
+  /**
+   * Find specialist by partial/fuzzy name matching
+   * Handles cases like "Sam" -> "sam-coder", "Dean" -> "dean-debug", etc.
+   */
+  private async findSpecialistByFuzzyName(partialName: string): Promise<any> {
+    const allSpecialists = await this.layerService.getAllSpecialists();
+    const searchTerm = partialName.toLowerCase().trim();
+    
+    // First try exact specialist_id match (case insensitive)
+    let match = allSpecialists.find(specialist => 
+      specialist.specialist_id.toLowerCase() === searchTerm
+    );
+    
+    if (match) return match;
+    
+    // Try partial match in specialist_id
+    match = allSpecialists.find(specialist => 
+      specialist.specialist_id.toLowerCase().includes(searchTerm)
+    );
+    
+    if (match) return match;
+    
+    // Try matching first part of specialist_id (before the dash)
+    match = allSpecialists.find(specialist => {
+      const firstName = specialist.specialist_id.split('-')[0].toLowerCase();
+      return firstName === searchTerm;
+    });
+    
+    if (match) return match;
+    
+    // Try matching in title
+    match = allSpecialists.find(specialist => 
+      specialist.title?.toLowerCase().includes(searchTerm)
+    );
+    
+    return match || null;
   }
 }

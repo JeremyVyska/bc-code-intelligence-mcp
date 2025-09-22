@@ -282,9 +282,19 @@ Phase ${status.session.current_phase + 1} of ${status.session.specialist_pipelin
    * Get all active workflows
    */
   async getActiveWorkflows(): Promise<any[]> {
-    // TODO: In a real implementation, this would query a database or session store
-    // For now, return empty array as workflows are not persisted between sessions
-    return [];
+    // Return current in-memory active sessions
+    const activeSessions = Array.from(this.activeSessions.values()).filter(session => session.status === 'active');
+    
+    return activeSessions.map(session => ({
+      workflow_id: session.id,
+      workflow_type: session.type,
+      current_phase: session.current_phase,
+      total_phases: session.specialist_pipeline.length,
+      progress_percentage: (session.current_phase / session.specialist_pipeline.length) * 100,
+      created_at: session.created_at,
+      last_updated: session.last_updated,
+      project_context: session.project_context
+    }));
   }
 
   /**

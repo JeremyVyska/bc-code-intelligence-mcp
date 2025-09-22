@@ -160,6 +160,7 @@ export class SpecialistDiscoveryTools {
       
       result += `**${i + 1}. ${emoji} ${title}** (${confidence}% match)\n`;
       result += `   📋 **Role:** ${suggestion.specialist.role}\n`;
+      result += `   🆔 **ID:** \`${suggestion.specialist.specialist_id}\`\n`;
       
       if (suggestion.reasons.length > 0) {
         result += `   ✅ **Why:** ${suggestion.reasons.join(', ')}\n`;
@@ -179,7 +180,8 @@ export class SpecialistDiscoveryTools {
 
     result += '💡 **Next Steps:**\n';
     result += '1. Use `suggest_specialist` tool to start a session with your chosen specialist\n';
-    result += '2. Or ask: "Start a session with [specialist-id]"\n';
+    result += '2. Or use `bring_in_specialist` with the specialist ID shown above\n';
+    result += '3. **Pro tip:** You can use informal names too - "Sam", "Dean", "Alex" all work!\n';
 
     return {
       content: [
@@ -250,14 +252,19 @@ export class SpecialistDiscoveryTools {
   private async getSpecialistInfo(request: CallToolRequest): Promise<CallToolResult> {
     const args = GetSpecialistArgsSchema.parse(request.params.arguments);
     
-    const specialist = await this.layerService.getSpecialist(args.specialist_id);
+    // Try exact ID match first, then fuzzy matching
+    let specialist = await this.layerService.getSpecialist(args.specialist_id);
+    
+    if (!specialist) {
+      specialist = await this.discoveryService.findSpecialistByName(args.specialist_id);
+    }
     
     if (!specialist) {
       return {
         content: [
           {
             type: 'text',
-            text: `Specialist "${args.specialist_id}" not found. Use \`list_specialists\` to see available specialists.`
+            text: `Specialist "${args.specialist_id}" not found. Tried exact ID match and fuzzy name matching. Use \`list_specialists\` to see available specialists.`
           }
         ],
         isError: true

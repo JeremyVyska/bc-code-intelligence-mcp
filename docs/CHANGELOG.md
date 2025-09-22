@@ -5,6 +5,27 @@ All notable changes to the BC Code Intelligence MCP Server will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.1] - 2025-09-22
+
+### 🔧 Improvements - Enhanced Specialist Discovery & Safety
+
+#### Fixed - Specialist Discovery UX
+- **Specialist ID Output**: `discover_specialists` now includes specialist IDs in output for precise tool calls
+- **Fuzzy Name Matching**: Added robust case-insensitive and partial name matching for specialist lookup
+  - Support for informal names (e.g., 'Sam' → 'sam-coder', 'Alex' → 'alex-architect')
+  - Handles case variations and common abbreviations
+  - Applies to all specialist tools: `get_specialist_advice`, `handoff_to_specialist`, `bring_in_specialist`
+
+#### Added - Platform-Level AL/BC Constraints
+- **System-Level Safety Rails**: All specialist tools now enforce Business Central/AL platform constraints
+- **Weaker Model Protection**: Tool descriptions include explicit AL/BC best practice guidance
+- **Consistent Architecture**: Platform-level constraints without cluttering individual specialist personas
+
+#### Improved - Developer Experience
+- **Better Tool Discovery**: Agents can now reliably identify and use correct specialist IDs
+- **Flexible Naming**: More natural specialist interactions with fuzzy matching
+- **AL/BC Compliance**: All specialist responses automatically scoped for Business Central development
+
 ## [1.3.0] - 2025-09-20
 
 ### 🎯 Major Features - Enhanced Developer Workflows

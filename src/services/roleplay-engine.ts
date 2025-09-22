@@ -70,6 +70,14 @@ export class BCSpecialistRoleplayEngine implements RoleplayEngine {
   ): Promise<SpecialistResponse> {
     const personality = this.analyzePersonality(specialist);
     
+    // Check if user is asking a direct question or wants immediate help
+    const isDirectQuestion = this.isDirectQuestion(userMessage);
+    
+    if (isDirectQuestion) {
+      // Provide immediate specialist response without methodology onboarding
+      return await this.provideDirectSpecialistResponse(specialist, userMessage, session);
+    }
+    
     // Suggest appropriate methodologies based on user request and specialist expertise
     const suggestedMethodologies = await this.suggestMethodologies(userMessage, specialist);
     
@@ -92,6 +100,113 @@ export class BCSpecialistRoleplayEngine implements RoleplayEngine {
       recommendations_added: response.recommendations || [],
       response_type: 'methodology_onboarding',
       confidence_level: 'high'
+    };
+  }
+
+  /**
+   * Check if user message is a direct question that should get immediate response
+   */
+  private isDirectQuestion(userMessage: string): boolean {
+    const message = userMessage.toLowerCase().trim();
+    
+    // Patterns that indicate broader learning/guidance requests (should get methodology)
+    const methodologyPatterns = [
+      /^(i want to learn|i'd like to learn|teach me|i'm new to|can you guide me|guide me through|walk me through)/i,
+      /^(i need help with my.*project|i need guidance|i need training)/i,
+      /learn about.*in general/i,
+      /get started with/i,
+      /introduction to/i
+    ];
+    
+    // If it matches methodology patterns, it's not a direct question
+    if (methodologyPatterns.some(pattern => pattern.test(message))) {
+      return false;
+    }
+    
+    // Patterns that indicate direct questions (should get immediate response)
+    const directPatterns = [
+      /^(how|what|when|where|why|which|can|could|should|would|is|are|do|does|did)/i,
+      /\?/,
+      /tell me about.*specific/i,
+      /explain.*this/i,
+      /help me with.*\b(debug|fix|solve|resolve|optimize|review|analyze|check)\b/i,
+      /I need to (fix|debug|solve|resolve|optimize|review|analyze|check)/i,
+      /show me/i,
+      /review/i,
+      /analyze/i,
+      /check/i,
+      /look at/i,
+      /fix/i,
+      /debug/i
+    ];
+
+    return directPatterns.some(pattern => pattern.test(message));
+  }
+
+  /**
+   * Provide immediate specialist response without methodology onboarding
+   */
+  private async provideDirectSpecialistResponse(
+    specialist: SpecialistDefinition,
+    userMessage: string,
+    session: any
+  ): Promise<SpecialistResponse> {
+    const personality = this.analyzePersonality(specialist);
+    
+    // Find relevant knowledge for direct response
+    const relevantTopics = await this.knowledgeRetriever.findRelevantTopics(
+      userMessage,
+      specialist.expertise.primary.concat(specialist.expertise.secondary),
+      5
+    );
+
+    // Create a minimal methodology context for the direct response
+    const directMethodologyContext = {
+      confirmed_by_user: true,
+      methodology_id: 'direct_consultation',
+      title: 'Direct Specialist Consultation',
+      current_phase: 'analysis',
+      next_steps: []
+    };
+
+    // Update session with direct context
+    session.methodology_context = directMethodologyContext;
+
+    // Generate direct response using existing machinery
+    const response = await this.buildMethodologyResponse(
+      specialist,
+      personality,
+      userMessage,
+      directMethodologyContext,
+      relevantTopics
+    );
+
+    // Apply session context updates
+    const contextUpdates = this.generateContextUpdates(
+      { specialist, userMessage, session, conversationHistory: [] }, 
+      relevantTopics
+    );
+    
+    // Check for collaboration opportunities
+    const suggestedHandoffs = await this.suggestCollaborations(
+      { specialist, userMessage, session, conversationHistory: [] }, 
+      relevantTopics
+    );
+
+    return {
+      content: response.content,
+      specialist_id: specialist.specialist_id,
+      personality_elements: response.personality_elements,
+      topics_referenced: relevantTopics.map(t => t.id),
+      knowledge_applied: relevantTopics.map(topic => ({
+        topic_id: topic.id,
+        application_context: this.getApplicationContext(topic, userMessage)
+      })),
+      suggested_handoffs: suggestedHandoffs,
+      context_updates: contextUpdates,
+      recommendations_added: response.recommendations,
+      response_type: 'direct_specialist_response',
+      confidence_level: response.confidence_level
     };
   }
 
