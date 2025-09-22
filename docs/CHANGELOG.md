@@ -5,6 +5,25 @@ All notable changes to the BC Code Intelligence MCP Server will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.2] - 2025-09-22
+
+### 🔧 Major Discovery Improvements - Enhanced Specialist Discovery
+
+#### Fixed - Specialist Discovery Core Issues
+- **Name-First Matching Logic**: Queries like "Sam the BC specialist" now prioritize name extraction over content matching
+- **Structured JSON Output**: Replaced markdown text with parseable JSON structure for reliable AI agent integration
+- **Direct Name Resolution**: 95% confidence for direct name matches vs. previous weak content matching
+
+#### Added - Complete Specialist Context
+- **Full Specialist Roster**: Every discovery response includes complete `all_specialists` array with ID, title, and role
+- **Match Type Classification**: Clear indicators for `name_match`, `content_match`, `keyword_match`
+- **Enhanced Debugging**: Detailed match reasons and keywords for transparency
+
+#### Improved - Developer Experience
+- **Reliable Name Matching**: Fuzzy search now correctly identifies specialists by informal names
+- **Structured Data Response**: AI agents can programmatically parse and use discovery results
+- **Complete Context**: Full specialist roster available for informed decision-making
+
 ## [1.3.1] - 2025-09-22
 
 ### 🔧 Improvements - Enhanced Specialist Discovery & Safety

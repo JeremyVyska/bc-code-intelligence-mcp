@@ -14,6 +14,7 @@ export interface SpecialistSuggestion {
   reasons: string[];
   keywords_matched: string[];
   domain_match?: string;
+  match_type?: 'name_match' | 'content_match' | 'keyword_match';
 }
 
 export interface DiscoveryContext {
@@ -55,6 +56,19 @@ export class SpecialistDiscoveryService {
       return this.getDefaultSpecialists();
     }
 
+    // First, try name-based matching
+    const nameMatch = await this.findSpecialistByName(context.query);
+    if (nameMatch) {
+      return [{
+        specialist: nameMatch,
+        confidence: 0.95,
+        reasons: ['Direct name match'],
+        keywords_matched: [this.extractNameFromQuery(context.query)],
+        match_type: 'name_match'
+      }];
+    }
+
+    // Fall back to content-based matching
     const suggestions: SpecialistSuggestion[] = [];
 
     for (const specialist of this.specialists) {
@@ -261,7 +275,8 @@ export class SpecialistDiscoveryService {
       confidence,
       reasons,
       keywords_matched,
-      domain_match
+      domain_match,
+      match_type: 'content_match'
     };
   }
 
@@ -394,5 +409,34 @@ export class SpecialistDiscoveryService {
     }
     
     return `I need help with ${specialist.role?.toLowerCase() || 'development'}`;
+  }
+
+  /**
+   * Extract the specialist name from a query string
+   */
+  private extractNameFromQuery(query: string): string {
+    const words = query.toLowerCase().split(/\s+/);
+    const commonNames = ['sam', 'alex', 'dean', 'eva', 'jordan', 'logan', 'maya', 'morgan', 'quinn', 'roger', 'seth', 'taylor', 'uma', 'casey', 'chris'];
+    
+    for (const word of words) {
+      if (commonNames.includes(word)) {
+        return word;
+      }
+    }
+    
+    return query.split(/\s+/)[0]; // Return first word as fallback
+  }
+
+  /**
+   * Get all available specialists with basic info
+   */
+  async getAllSpecialistsInfo(): Promise<Array<{id: string, title: string, role: string}>> {
+    await this.ensureInitialized();
+    
+    return this.specialists.map(specialist => ({
+      id: specialist.specialist_id,
+      title: specialist.title || specialist.specialist_id,
+      role: specialist.role || 'Specialist'
+    }));
   }
 }

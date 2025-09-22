@@ -139,55 +139,30 @@ export class SpecialistDiscoveryTools {
       query: args.query
     }, args.max_suggestions);
 
-    if (suggestions.length === 0) {
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `No specific specialists found for "${args.query}". Try asking Casey Copilot for general guidance!`
-          }
-        ]
-      };
-    }
+    // Get complete specialist roster
+    const allSpecialists = await this.discoveryService.getAllSpecialistsInfo();
 
-    let result = `🎯 **Specialist Recommendations for:** "${args.query}"\n\n`;
-    
-    for (let i = 0; i < suggestions.length; i++) {
-      const suggestion = suggestions[i];
-      const emoji = suggestion.specialist.emoji || '👤';
-      const title = suggestion.specialist.title;
-      const confidence = Math.round(suggestion.confidence * 100);
-      
-      result += `**${i + 1}. ${emoji} ${title}** (${confidence}% match)\n`;
-      result += `   📋 **Role:** ${suggestion.specialist.role}\n`;
-      result += `   🆔 **ID:** \`${suggestion.specialist.specialist_id}\`\n`;
-      
-      if (suggestion.reasons.length > 0) {
-        result += `   ✅ **Why:** ${suggestion.reasons.join(', ')}\n`;
-      }
-      
-      if (suggestion.keywords_matched.length > 0) {
-        result += `   🔍 **Keywords:** ${suggestion.keywords_matched.join(', ')}\n`;
-      }
-
-      if (args.include_examples) {
-        const example = this.generateExampleQuery(suggestion.specialist);
-        result += `   💬 **Try asking:** "${example}"\n`;
-      }
-      
-      result += '\n';
-    }
-
-    result += '💡 **Next Steps:**\n';
-    result += '1. Use `suggest_specialist` tool to start a session with your chosen specialist\n';
-    result += '2. Or use `bring_in_specialist` with the specialist ID shown above\n';
-    result += '3. **Pro tip:** You can use informal names too - "Sam", "Dean", "Alex" all work!\n';
+    const result = {
+      query: args.query,
+      matches: suggestions.map(suggestion => ({
+        specialist_id: suggestion.specialist.specialist_id,
+        title: suggestion.specialist.title || suggestion.specialist.specialist_id,
+        role: suggestion.specialist.role || 'Specialist',
+        confidence: Math.round(suggestion.confidence * 100),
+        match_type: suggestion.match_type || 'content_match',
+        reasons: suggestion.reasons,
+        keywords_matched: suggestion.keywords_matched,
+        emoji: suggestion.specialist.emoji || '�'
+      })),
+      all_specialists: allSpecialists,
+      total_available: allSpecialists.length
+    };
 
     return {
       content: [
         {
           type: 'text',
-          text: result
+          text: JSON.stringify(result, null, 2)
         }
       ]
     };
