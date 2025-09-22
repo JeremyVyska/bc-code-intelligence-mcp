@@ -2,6 +2,7 @@
 
 [![NPM Version](https://img.shields.io/npm/v/bc-code-intelligence-mcp)](https://www.npmjs.com/package/bc-code-intelligence-mcp)
 [![Install with NPX in VS Code](https://img.shields.io/badge/Install%20with%20NPX-VS%20Code-blue?style=for-the-badge&logo=visual-studio-code)](https://vscode.dev/redirect/mcp/install?name=bc-code-intel&config=%7B%22type%22%3A%22stdio%22%2C%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22bc-code-intelligence-mcp%22%5D%7D)
+[![Installation Guide](https://img.shields.io/badge/Installation%20Guide-All%20Platforms-green?style=for-the-badge&logo=github)](https://github.com/JeremyVyska/bc-code-intelligence-mcp/wiki/Installation-Guide)
 
 **Transform your Business Central development** with intelligent specialist consultation, seamless handoffs, smart discovery, and context-preserving workflows.
 
