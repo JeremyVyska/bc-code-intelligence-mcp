@@ -168,6 +168,21 @@ src/
 - ❌ **Synchronous Operations**: Avoid blocking operations in tools
 - ❌ **Direct File Access**: Use layer system instead of direct file reads
 - ❌ **Memory Leaks**: Always implement proper cleanup and disposal
+- ❌ **Version Proliferation**: Avoid scattering version numbers across documentation
+- ❌ **File Proliferation**: Resist creating redundant/overlapping documentation files
+
+## Hard-Learned Lessons
+
+### Documentation Maintenance
+- **Version-Agnostic Docs**: Keep version numbers ONLY in package.json and CHANGELOG.md
+- **Single Source of Truth**: Avoid duplicating installation/feature info across multiple files
+- **File Discipline**: Regularly audit and remove outdated/redundant documentation
+- **Evergreen Content**: Write documentation that doesn't need version updates
+
+### Repository Hygiene
+- **Agent Oversight**: AI agents may create unwanted directories (like vscode-extension/) - regularly audit
+- **Submodule Clarity**: Keep the boundary between MCP server and knowledge content crystal clear
+- **Cleanup Discipline**: Delete temporary files, migration guides, and alpha docs when no longer needed
 
 ## Common Development Tasks
 - Implementing new MCP tools for BC knowledge access
