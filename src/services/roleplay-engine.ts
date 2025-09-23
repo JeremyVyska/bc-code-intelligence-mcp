@@ -623,31 +623,67 @@ What's your current experience level so I can tailor the approach accordingly?`;
     }
 
     // Fallback to basic personality-driven response
-    return this.generateBasicPersonalityResponse(specialist, userMessage, relevantTopics);
+    return this.generateBasicPersonalityResponse(specialist, userMessage, relevantTopics, context);
   }
 
   /**
-   * Generate a basic personality-driven response
+   * Generate agent roleplay instructions (NOT direct user response)
    */
   private generateBasicPersonalityResponse(
     specialist: SpecialistDefinition,
     userMessage: string,
-    relevantTopics: AtomicTopic[]
+    relevantTopics: AtomicTopic[],
+    context: RoleplayContext
   ): string {
-    // Apply specialist's communication style and expertise focus
-    const styleApproach = this.getStyleApproach(specialist);
-    
-    let response = `${styleApproach} `;
-    
-    if (relevantTopics.length > 0) {
-      response += `I can see this relates to ${relevantTopics[0].title}. `;
-      response += this.generateKnowledgeBasedGuidance(specialist, relevantTopics[0], userMessage);
-    } else {
-      response += `While this might be outside my primary expertise in ${specialist.expertise.primary.join(', ')}, `;
-      response += this.generateGeneralGuidance(specialist, userMessage);
+    // Generate AGENT INSTRUCTIONS for roleplaying the specialist
+    let instructions = `ROLEPLAY AS: ${specialist.title} (${specialist.specialist_id})\n\n`;
+
+    instructions += `SPECIALIST CONTEXT:\n`;
+    instructions += `- Name: ${specialist.title}\n`;
+    instructions += `- Primary Expertise: ${specialist.expertise.primary.join(', ')}\n`;
+    instructions += `- Communication Style: ${specialist.persona.communication_style}\n`;
+    instructions += `- Personality: ${specialist.persona.personality.join(', ')}\n\n`;
+
+    // Add introduction instructions if this is a new session or handoff
+    if (context.requiresIntroduction) {
+      instructions += `INTRODUCTION REQUIRED:\n`;
+      instructions += `- This is a new session or handoff - introduce yourself as ${specialist.title}\n`;
+      instructions += `- Use your greeting: "${specialist.persona.greeting}"\n`;
+      instructions += `- Briefly mention your primary expertise: ${specialist.expertise.primary.slice(0, 2).join(' and ')}\n`;
+      instructions += `- Set a welcoming, confident tone for the conversation\n\n`;
     }
 
-    return response;
+    instructions += `USER REQUEST ANALYSIS:\n`;
+    instructions += `- User Message: "${userMessage}"\n`;
+
+    if (relevantTopics.length > 0) {
+      instructions += `- Relevant Knowledge: ${relevantTopics[0].title}\n`;
+      instructions += `- Domain Match: STRONG - This is directly in your expertise area\n`;
+      instructions += `- Confidence Level: HIGH\n\n`;
+
+      instructions += `RESPOND AS ${specialist.title.toUpperCase()} WITH:\n`;
+      instructions += `1. Immediate confidence and expertise recognition\n`;
+      instructions += `2. BC-specific architectural/technical guidance based on: ${relevantTopics[0].title}\n`;
+      instructions += `3. Practical next steps for implementation\n`;
+      instructions += `4. Reference relevant BC patterns and best practices\n\n`;
+
+      instructions += `TONE: Confident, knowledgeable, immediately helpful. DO NOT suggest other specialists - you are the expert for this question.\n`;
+    } else {
+      instructions += `- Domain Match: PARTIAL - Outside core expertise but still valuable\n`;
+      instructions += `- Confidence Level: MODERATE\n\n`;
+
+      instructions += `RESPOND AS ${specialist.title.toUpperCase()} WITH:\n`;
+      instructions += `1. Acknowledge the question and provide what insight you can\n`;
+      instructions += `2. Apply your ${specialist.expertise.primary[0]} perspective to the problem\n`;
+      instructions += `3. Suggest appropriate specialist if needed (e.g., Sam Coder for implementation, Alex Architect for design)\n`;
+      instructions += `4. Bridge to relevant specialist with specific handoff reason\n\n`;
+
+      instructions += `TONE: Helpful but honest about expertise boundaries. Provide value while routing appropriately.\n`;
+    }
+
+    instructions += `IMPORTANT: Respond directly as the specialist character, not as an AI describing roleplay.`;
+
+    return instructions;
   }
 
   /**

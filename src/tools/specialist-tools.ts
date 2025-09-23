@@ -69,6 +69,8 @@ export class SpecialistTools {
         name: 'get_specialist_advice',
         description: `Connect directly with a BC specialist who responds authentically as themselves. CRITICAL FOR AGENTS: Respond AS the specialist, not as an AI describing roleplay. No menus, no explanations - dive straight into the specialist persona and expertise. Perfect for "Talk to Sam", "Chat with Dean", etc.
 
+⚠️ **MANDATORY KNOWLEDGE LOOKUP**: Before generating ANY BC development advice or code, ALWAYS search the knowledge base first using get_knowledge. The knowledge base contains authoritative BC standards, patterns, and conventions that override general AI training. Never rely solely on training data for BC development guidance.
+
 🔧 **AL/BC Platform Constraints**: All specialist advice MUST respect Business Central and AL language limitations:
 • Security specialists: Focus on AL permission objects, user groups, BC security framework - NOT external auth systems
 • UX specialists: Work within AL page/report constraints - BC controls rendering, NOT custom CSS/HTML  
@@ -256,6 +258,10 @@ export class SpecialistTools {
       sessionId = session.sessionId;
     }
 
+    // Determine if this is a new session or handoff requiring introduction
+    const isNewSession = !validated.session_id || session.messages.length === 0;
+    const isHandoff = validated.session_id && session.context.current_specialist !== validated.specialist_id;
+
     // Generate specialist response using conversation history
     const roleplayContext = {
       specialist,
@@ -265,7 +271,8 @@ export class SpecialistTools {
         role: m.type === 'user' ? 'user' : 'assistant',
         content: m.content,
         timestamp: m.timestamp
-      }))
+      })),
+      requiresIntroduction: isNewSession || isHandoff
     };
 
     const response = await this.roleplayEngine.generateResponse(roleplayContext);
@@ -281,36 +288,39 @@ export class SpecialistTools {
       await this.sessionManager.updateContext(sessionId, response.context_updates);
     }
 
-    // Format response
-    let formattedResponse = `💬 **${specialist.title}** (Session: ${sessionId})\n\n`;
-    formattedResponse += response.content;
+    // Return agent roleplay instructions (NOT formatted user response)
+    let agentInstructions = response.content;
 
-    // Add knowledge context if topics were referenced
+    // Add knowledge context for the agent
     if (response.topics_referenced.length > 0) {
-      formattedResponse += `\n\n📚 **Knowledge Applied:** ${response.topics_referenced.join(', ')}`;
+      agentInstructions += `\n\nKNOWLEDGE CONTEXT FOR RESPONSE:\n`;
+      agentInstructions += `- Referenced Topics: ${response.topics_referenced.join(', ')}\n`;
+      agentInstructions += `- Use this knowledge to provide specific, accurate guidance\n`;
     }
 
-    // Add handoff suggestions if any
+    // Add handoff guidance for the agent
     if (response.suggested_handoffs && response.suggested_handoffs.length > 0) {
-      formattedResponse += `\n\n🤝 **Consider consulting:** `;
+      agentInstructions += `\n\nHANDOFF GUIDANCE:\n`;
       for (const handoff of response.suggested_handoffs) {
         const handoffSpecialist = await this.layerService.getSpecialist(handoff.specialist_id);
         if (handoffSpecialist) {
-          formattedResponse += `${handoffSpecialist.title} (${handoff.specialist_id}) for ${handoff.reason}`;
+          agentInstructions += `- If user needs ${handoff.reason}, suggest consulting ${handoffSpecialist.title}\n`;
         }
       }
     }
 
-    // Add recommendations if any
+    agentInstructions += `\n\nRemember: You ARE ${specialist.title}. Respond directly as this character, not as an AI assistant.`;
+
+    // Add recommendations as agent guidance
     if (response.recommendations_added && response.recommendations_added.length > 0) {
-      formattedResponse += `\n\n💡 **Recommendations:**\n`;
+      agentInstructions += `\n\nRECOMMENDATIONS TO INCLUDE:\n`;
       response.recommendations_added.forEach((rec, i) => {
-        formattedResponse += `${i + 1}. ${rec}\n`;
+        agentInstructions += `${i + 1}. ${rec}\n`;
       });
     }
 
     return {
-      content: [{ type: 'text', text: formattedResponse }]
+      content: [{ type: 'text', text: agentInstructions }]
     };
   }
 

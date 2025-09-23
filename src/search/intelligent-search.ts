@@ -5,7 +5,7 @@
  * intelligent topic recommendations, and learning from user patterns.
  */
 
-import { AtomicTopic, TopicSearchParams, TopicSearchResult } from '../types/bc-knowledge.js';
+import { AtomicTopic, TopicSearchParams, TopicSearchResult, isDomainMatch, getDomainList } from '../types/bc-knowledge.js';
 import Fuse from 'fuse.js';
 
 export interface SearchContext {
@@ -333,7 +333,7 @@ export class IntelligentSearchEngine {
     let score = 0;
 
     // Domain match
-    if (context.current_domain && topic.frontmatter.domain === context.current_domain) {
+    if (context.current_domain && isDomainMatch(topic.frontmatter.domain, context.current_domain)) {
       score += 40;
     }
 
@@ -426,10 +426,13 @@ export class IntelligentSearchEngine {
       ? firstParagraph.substring(0, 200) + '...'
       : firstParagraph;
 
+    const domains = getDomainList(topic.frontmatter.domain);
+
     return {
       id: topic.id,
       title: topic.frontmatter.title,
-      domain: topic.frontmatter.domain,
+      domain: domains[0] || 'unknown',
+      domains: domains.length > 1 ? domains : undefined,
       difficulty: topic.frontmatter.difficulty,
       relevance_score: 1 - relevanceScore,
       summary,

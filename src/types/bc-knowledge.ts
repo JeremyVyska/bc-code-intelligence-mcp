@@ -10,7 +10,10 @@ import { z } from 'zod';
 // YAML Frontmatter Schema - Extended for structured knowledge types
 export const AtomicTopicFrontmatterSchema = z.object({
   title: z.string().optional().describe("Human-readable topic title"),
-  domain: z.string().optional().describe("Knowledge domain (performance, validation, etc.)"),
+  domain: z.union([
+    z.string(),
+    z.array(z.string())
+  ]).optional().describe("Knowledge domain(s) - single domain or array for shared topics"),
   difficulty: z.enum(["beginner", "intermediate", "advanced", "expert"]).optional().describe("Complexity level"),
   bc_versions: z.string().optional().describe("Supported BC versions (e.g., '14+', '18+')"),
   tags: z.array(z.string()).optional().describe("Searchable tags for topic discovery"),
@@ -180,7 +183,8 @@ export interface TopicSearchParams {
 export interface TopicSearchResult {
   id: string;
   title: string;
-  domain: string; // Will be specialist ID in persona-based system
+  domain: string; // Primary domain (first if multiple) - Will be specialist ID in persona-based system
+  domains?: string[]; // All domains for multi-domain topics
   specialist?: string; // Explicit specialist reference
   difficulty: string;
   relevance_score: number;
@@ -260,5 +264,26 @@ export interface BCKBConfig {
   default_bc_version: string;
   enable_fuzzy_search: boolean;
   search_threshold: number;
+}
+
+// Utility functions for domain handling
+export function isDomainMatch(topicDomain: string | string[] | undefined, targetDomain: string): boolean {
+  if (!topicDomain) return false;
+
+  if (typeof topicDomain === 'string') {
+    return topicDomain === targetDomain;
+  }
+
+  if (Array.isArray(topicDomain)) {
+    return topicDomain.includes(targetDomain);
+  }
+
+  return false;
+}
+
+export function getDomainList(domain: string | string[] | undefined): string[] {
+  if (!domain) return [];
+  if (typeof domain === 'string') return [domain];
+  return domain;
 }
 

@@ -2,7 +2,8 @@ import {
   CodeAnalysisParams,
   CodeAnalysisResult,
   TopicSearchResult,
-  ALCodePattern
+  ALCodePattern,
+  getDomainList
 } from '../types/bc-knowledge.js';
 import { KnowledgeService } from './knowledge-service.js';
 import { BCCodeIntelTopic } from '../sdk/bc-code-intel-client.js';
@@ -745,10 +746,12 @@ export class CodeAnalysisService {
       if (!allSuggestions.has(topicId)) {
         const topic = await this.knowledgeService.getTopic(topicId);
         if (topic) {
+          const domains = getDomainList(topic.frontmatter.domain);
           allSuggestions.set(topicId, {
             id: topic.id,
             title: topic.frontmatter.title,
-            domain: topic.frontmatter.domain,
+            domain: domains[0] || 'unknown',
+            domains: domains.length > 1 ? domains : undefined,
             difficulty: topic.frontmatter.difficulty,
             relevance_score: 0.9, // High relevance for explicitly related topics
             summary: topic.content.substring(0, 200) + '...',

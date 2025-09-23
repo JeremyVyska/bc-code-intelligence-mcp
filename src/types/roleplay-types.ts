@@ -20,7 +20,8 @@ export interface RoleplayContext {
   // Current conversation context
   userMessage: string;
   conversationHistory: string[];
-  
+  requiresIntroduction?: boolean;
+
   // Knowledge context
   relevantTopics?: AtomicTopic[];
   codeContext?: {

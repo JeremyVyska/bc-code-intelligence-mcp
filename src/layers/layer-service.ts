@@ -13,7 +13,8 @@ import { getEmbeddedKnowledgePath } from '../utils/path-utils.js';
 import {
   AtomicTopic,
   TopicSearchParams,
-  TopicSearchResult
+  TopicSearchResult,
+  getDomainList
 } from '../types/bc-knowledge.js';
 
 import {
@@ -608,10 +609,13 @@ export class LayerService {
       ? firstParagraph.substring(0, 200) + '...'
       : firstParagraph;
 
+    const domains = getDomainList(topic.frontmatter.domain);
+
     return {
       id: topic.id,
       title: topic.frontmatter.title,
-      domain: topic.frontmatter.domain,
+      domain: domains[0] || 'unknown',
+      domains: domains.length > 1 ? domains : undefined,
       difficulty: topic.frontmatter.difficulty,
       relevance_score: 1 - relevanceScore,
       summary,

@@ -20,6 +20,7 @@ import { CodeAnalysisService } from './services/code-analysis-service.js';
 import { MethodologyService } from './services/methodology-service.js';
 import { WorkflowService } from './services/workflow-service.js';
 import { LayerService } from './layers/layer-service.js';
+import { getDomainList } from './types/bc-knowledge.js';
 import { MultiContentLayerService } from './services/multi-content-layer-service.js';
 import { SpecialistSessionManager } from './services/specialist-session-manager.js';
 import { SpecialistTools } from './tools/specialist-tools.js';
@@ -670,11 +671,16 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
     for (const topicId of sampleTopics) {
       const resolution = await this.layerService.resolveTopic(topicId);
       if (resolution) {
-        const domain = resolution.topic.frontmatter.domain;
+        const domains = getDomainList(resolution.topic.frontmatter.domain);
         const difficulty = resolution.topic.frontmatter.difficulty;
 
-        domainDistribution[domain] = (domainDistribution[domain] || 0) + 1;
-        difficultyDistribution[difficulty] = (difficultyDistribution[difficulty] || 0) + 1;
+        // Count each domain the topic belongs to
+        for (const domain of domains) {
+          domainDistribution[domain] = (domainDistribution[domain] || 0) + 1;
+        }
+        if (difficulty) {
+          difficultyDistribution[difficulty] = (difficultyDistribution[difficulty] || 0) + 1;
+        }
       }
     }
 

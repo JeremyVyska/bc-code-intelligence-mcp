@@ -2,7 +2,9 @@ import {
   AtomicTopic,
   TopicSearchParams,
   TopicSearchResult,
-  BCKBConfig
+  BCKBConfig,
+  isDomainMatch,
+  getDomainList
 } from '../types/bc-knowledge.js';
 import { LayerService } from '../layers/layer-service.js';
 import { LayerResolutionResult } from '../types/layer-types.js';
@@ -172,7 +174,7 @@ export class KnowledgeService {
     const resolution = await this.layerService.resolveTopic(topicId);
     if (!resolution) return [];
 
-    const targetDomain = resolution.topic.frontmatter.domain;
+    const targetDomains = getDomainList(resolution.topic.frontmatter.domain);
     const allTopicIds = this.layerService.getAllTopicIds();
     const relatedTopics: string[] = [];
 
@@ -180,9 +182,16 @@ export class KnowledgeService {
     for (const otherTopicId of allTopicIds.slice(0, 50)) {
       if (otherTopicId !== topicId) {
         const otherResolution = await this.layerService.resolveTopic(otherTopicId);
-        if (otherResolution?.topic.frontmatter.domain === targetDomain) {
-          relatedTopics.push(otherTopicId);
-          if (relatedTopics.length >= 10) break; // Limit to 10
+        if (otherResolution) {
+          const otherDomains = getDomainList(otherResolution.topic.frontmatter.domain);
+          // Check if there's any domain overlap
+          const hasOverlap = targetDomains.some(targetDomain =>
+            otherDomains.includes(targetDomain)
+          );
+          if (hasOverlap) {
+            relatedTopics.push(otherTopicId);
+            if (relatedTopics.length >= 10) break; // Limit to 10
+          }
         }
       }
     }
