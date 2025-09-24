@@ -103,7 +103,7 @@ export function createStreamlinedHandlers(server: any, services: any) {
       }
 
       if (search_type === 'specialists' || search_type === 'all') {
-        const specialists = knowledgeService.findSpecialistsByQuery(query);
+        const specialists = await knowledgeService.findSpecialistsByQuery(query);
         results.results.push({
           type: 'specialists',
           items: specialists.slice(0, search_type === 'specialists' ? limit : Math.ceil(limit / 3))
@@ -424,7 +424,7 @@ export function createStreamlinedHandlers(server: any, services: any) {
         limit: 5 
       });
       
-      const specialists = knowledgeService.findSpecialistsByQuery(current_situation);
+      const specialists = await knowledgeService.findSpecialistsByQuery(current_situation);
       const workflows = await methodologyService.findWorkflowsByQuery(current_situation);
       
       // Basic analysis and suggestions

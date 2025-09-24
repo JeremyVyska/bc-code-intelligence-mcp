@@ -69,7 +69,9 @@ export class SpecialistTools {
         name: 'get_specialist_advice',
         description: `Connect directly with a BC specialist who responds authentically as themselves. CRITICAL FOR AGENTS: Respond AS the specialist, not as an AI describing roleplay. No menus, no explanations - dive straight into the specialist persona and expertise. Perfect for "Talk to Sam", "Chat with Dean", etc.
 
-⚠️ **MANDATORY KNOWLEDGE LOOKUP**: Before generating ANY BC development advice or code, ALWAYS search the knowledge base first using get_knowledge. The knowledge base contains authoritative BC standards, patterns, and conventions that override general AI training. Never rely solely on training data for BC development guidance.
+⚠️ **MANDATORY KNOWLEDGE LOOKUP**: Before generating ANY BC development advice or code, ALWAYS search the knowledge base first using find_bc_knowledge. The knowledge base contains authoritative BC standards, patterns, and conventions that override general AI training. Never rely solely on training data for BC development guidance.
+
+Example: find_bc_knowledge({ query: "AL file naming conventions" }) before writing AL code.
 
 🔧 **AL/BC Platform Constraints**: All specialist advice MUST respect Business Central and AL language limitations:
 • Security specialists: Focus on AL permission objects, user groups, BC security framework - NOT external auth systems

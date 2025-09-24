@@ -388,15 +388,16 @@ export class KnowledgeService {
     return this.personaRegistry.getCollaboratingSpecialists(primarySpecialist, question);
   }
 
-  findSpecialistsByQuery(query: string): BCSpecialist[] {
-    const allSpecialists = this.personaRegistry.getAllSpecialists();
+  async findSpecialistsByQuery(query: string): Promise<SpecialistDefinition[]> {
+    const allSpecialists = await this.layerService.getAllSpecialists();
     const queryLower = query.toLowerCase();
-    
+
     return allSpecialists.filter(specialist => {
-      return specialist.name.toLowerCase().includes(queryLower) ||
-             specialist.role.toLowerCase().includes(queryLower) ||
-             specialist.expertise_areas.some(area => area.toLowerCase().includes(queryLower)) ||
-             specialist.consultation_style.toLowerCase().includes(queryLower);
+      return specialist.title.toLowerCase().includes(queryLower) ||
+             specialist.specialist_id.toLowerCase().includes(queryLower) ||
+             specialist.expertise.primary.some(area => area.toLowerCase().includes(queryLower)) ||
+             specialist.expertise.secondary.some(area => area.toLowerCase().includes(queryLower)) ||
+             specialist.domains.some(domain => domain.toLowerCase().includes(queryLower));
     });
   }
 
