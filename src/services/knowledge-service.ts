@@ -10,6 +10,7 @@ import { LayerService } from '../layers/layer-service.js';
 import { LayerResolutionResult } from '../types/layer-types.js';
 import { SpecialistDefinition } from './specialist-loader.js';
 import { SpecialistDiscoveryService } from './specialist-discovery.js';
+import { SpecialistResponse } from '../types/roleplay-types.js';
 
 /**
  * Business Central Knowledge Service
@@ -305,46 +306,70 @@ export class KnowledgeService {
   */
 
   /**
-   * Natural language specialist consultation
-   * TODO: Refactor to use SpecialistDefinition
+   * Ask a specialist for consultation on a question
    */
-  /*
-  async askSpecialist(question: string, specialistId?: string): Promise<SpecialistResponse> {
+  async askSpecialist(question: string, preferred_specialist?: string): Promise<SpecialistResponse> {
     if (!this.initialized) {
       await this.initialize();
     }
 
-    let specialist: BCSpecialist;
+    let specialist: SpecialistDefinition;
 
-    if (specialistId) {
-      // Use specified specialist
-      const requestedSpecialist = this.personaRegistry.getSpecialist(specialistId);
-      if (!requestedSpecialist) {
-        throw new Error(`Unknown specialist: ${specialistId}`);
+    if (preferred_specialist) {
+      // Find the specified specialist
+      const allSpecialists = await this.getAllSpecialists();
+      const found = allSpecialists.find(s => 
+        s.specialist_id === preferred_specialist || 
+        s.title.toLowerCase().includes(preferred_specialist.toLowerCase())
+      );
+      
+      if (!found) {
+        throw new Error(`Unknown specialist: ${preferred_specialist}`);
       }
-      specialist = requestedSpecialist;
+      specialist = found;
     } else {
-      // Infer specialist from question
-      const inferredSpecialist = this.personaRegistry.inferSpecialistFromQuestion(question);
-      if (!inferredSpecialist) {
-        throw new Error('Could not determine appropriate specialist for question. Please specify a specialist ID.');
+      // Simple specialist selection based on question keywords
+      const allSpecialists = await this.getAllSpecialists();
+      
+      // Try to match question to specialist expertise
+      const queryLower = question.toLowerCase();
+      const bestMatch = allSpecialists.find(s => 
+        s.expertise.primary.some(area => queryLower.includes(area.toLowerCase())) ||
+        s.domains.some(domain => queryLower.includes(domain.toLowerCase())) ||
+        s.when_to_use.some(scenario => queryLower.includes(scenario.toLowerCase()))
+      );
+      
+      specialist = bestMatch || allSpecialists[0]; // Default to first if no match
+      
+      if (!specialist) {
+        throw new Error('No specialists available');
       }
-      specialist = inferredSpecialist;
     }
 
-    // Find relevant knowledge in specialist's domain
-    const relevantTopics = await this.searchTopicsBySpecialist(specialist.id, question, 8);
+    // Find relevant knowledge in specialist's domain  
+    const relevantTopics = await this.searchTopicsBySpecialist(specialist.specialist_id, question, 5);
 
+    // Generate consultation content
+    const consultationContent = this.generateConsultationContent(specialist, question, relevantTopics);
+    
     return {
-      specialist,
-      question,
-      relevant_knowledge: relevantTopics,
-      consultation_guidance: this.generateConsultationGuidance(specialist, question, relevantTopics),
-      follow_up_suggestions: this.generateFollowUpSuggestions(specialist, question, relevantTopics),
+      content: consultationContent,
+      specialist_id: specialist.specialist_id,
+      personality_elements: {
+        greeting_used: true,
+        characteristic_phrases: [specialist.persona.greeting],
+        expertise_demonstrated: specialist.expertise.primary,
+        communication_style_applied: specialist.persona.communication_style
+      },
+      topics_referenced: relevantTopics.map(t => t.id),
+      knowledge_applied: relevantTopics.map(t => ({
+        topic_id: t.id,
+        application_context: `Relevant to ${specialist.title}'s expertise in ${specialist.expertise.primary.join(', ')}`
+      })),
+      response_type: 'direct_specialist_response',
       confidence_level: relevantTopics.length > 0 ? 'high' : 'medium'
     };
   }
-  */
 
   /**
    * Get all available specialists
@@ -376,20 +401,15 @@ export class KnowledgeService {
   }
   */
 
-  /*
-  // TODO: The following methods need to be refactored to use SpecialistDefinition
-  // when specialist consultation features are needed again
-  
-  getCollaboratingSpecialists(primarySpecialistId: string, question: string): BCSpecialist[] {
-    const primarySpecialist = this.personaRegistry.getSpecialist(primarySpecialistId);
-    if (!primarySpecialist) {
-      return [];
-    }
-    return this.personaRegistry.getCollaboratingSpecialists(primarySpecialist, question);
-  }
-
+  /**
+   * Find specialists by search query
+   */
   async findSpecialistsByQuery(query: string): Promise<SpecialistDefinition[]> {
-    const allSpecialists = await this.layerService.getAllSpecialists();
+    if (!this.initialized) {
+      await this.initialize();
+    }
+
+    const allSpecialists = await this.getAllSpecialists();
     const queryLower = query.toLowerCase();
 
     return allSpecialists.filter(specialist => {
@@ -401,20 +421,44 @@ export class KnowledgeService {
     });
   }
 
-  private generateConsultationApproach(specialist: BCSpecialist, topic: AtomicTopic, question?: string): string {
-    // implementation details...
+  /**
+   * Generate consultation content from specialist
+   */
+  private generateConsultationContent(
+    specialist: SpecialistDefinition, 
+    question: string, 
+    relevantTopics: TopicSearchResult[]
+  ): string {
+    let content = `${specialist.persona.greeting}\n\n`;
+    
+    content += `As ${specialist.title}, I can help you with this question about "${question}".\n\n`;
+    
+    if (relevantTopics.length > 0) {
+      content += `Based on my expertise in ${specialist.expertise.primary.join(', ')}, here are some relevant insights:\n\n`;
+      
+      for (const topicResult of relevantTopics.slice(0, 3)) {
+        content += `**${topicResult.title}**\n`;
+        content += `${topicResult.summary || 'No description available'}\n\n`;
+      }
+      
+      content += `These topics should provide a good starting point for your ${question}.\n\n`;
+    } else {
+      content += `While I don't have specific knowledge articles directly matching your question, `;
+      content += `my expertise in ${specialist.expertise.primary.join(', ')} means I can help guide you `;
+      content += `through ${specialist.domains.join(', ')} related challenges.\n\n`;
+    }
+    
+    // Add specialist's characteristic approach
+    if (specialist.when_to_use.length > 0) {
+      content += `I'm particularly helpful when you need to:\n`;
+      for (const useCase of specialist.when_to_use.slice(0, 3)) {
+        content += `• ${useCase}\n`;
+      }
+      content += `\n`;
+    }
+    
+    content += `Feel free to ask me more specific questions about your BC development challenge!`;
+    
+    return content;
   }
-
-  private generateExpertiseContext(specialist: BCSpecialist, topic: AtomicTopic): string {
-    // implementation details...
-  }
-
-  private generateConsultationGuidance(specialist: BCSpecialist, question: string, relevantTopics: TopicSearchResult[]): string {
-    // implementation details...
-  }
-
-  private generateFollowUpSuggestions(specialist: BCSpecialist, question: string, relevantTopics: TopicSearchResult[]): string[] {
-    // implementation details...
-  }
-  */
 }
