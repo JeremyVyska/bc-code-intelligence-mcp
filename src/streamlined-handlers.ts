@@ -465,6 +465,184 @@ export function createStreamlinedHandlers(server: any, services: any) {
           }, null, 2)
         }]
       };
+    },
+
+    'get_layer_info': async (args: any) => {
+      const { include_statistics = true } = args;
+      
+      try {
+        const layers = layerService.getLayers();
+        const layerStats = layerService.getLayerStatistics();
+        
+        const layerInfo: any = {
+          layers: layers.map(layer => ({
+            name: layer.name,
+            priority: layer.priority,
+            enabled: layer.enabled,
+            type: layer.constructor.name,
+            statistics: include_statistics ? layer.getStatistics() : undefined
+          })),
+          configuration: {
+            layer_types: [...new Set(layers.map(layer => layer.constructor.name))],
+            total_layers: layers.length,
+            enabled_layers: layers.filter(layer => layer.enabled).length
+          }
+        };
+
+        if (include_statistics) {
+          layerInfo.total_statistics = layerStats;
+        }
+
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify(layerInfo, null, 2)
+          }]
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              error: 'Failed to get layer information',
+              message: errorMessage
+            }, null, 2)
+          }],
+          isError: true
+        };
+      }
+    },
+
+    'analyze_bc_code': async (args: any) => {
+      const { code_snippet, analysis_type = 'comprehensive' } = args;
+      
+      try {
+        const analysisResult = await codeAnalysisService.analyzeCode({
+          code_snippet,
+          analysis_type,
+          suggest_topics: true
+        });
+        
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify(analysisResult, null, 2)
+          }]
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              error: 'Code analysis failed',
+              message: errorMessage,
+              code_snippet: code_snippet,
+              analysis_type: analysis_type
+            }, null, 2)
+          }],
+          isError: true
+        };
+      }
+    },
+
+    'get_workflow_status': async (args: any) => {
+      const { workflow_id } = args;
+      
+      try {
+        const status = await workflowService.getWorkflowStatus(workflow_id);
+        
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify(status, null, 2)
+          }]
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        
+        if (errorMessage.includes('Workflow session not found')) {
+          return {
+            content: [{
+              type: 'text',
+              text: JSON.stringify({
+                error: 'Workflow session not found',
+                workflow_id: workflow_id,
+                suggestion: 'Start a new workflow with start_bc_workflow or use ask_bc_expert for direct consultation',
+                available_workflows: ['new-bc-app', 'enhance-bc-app', 'review-bc-code', 'debug-bc-issues', 'modernize-bc-code', 'onboard-developer', 'upgrade-bc-version', 'add-ecosystem-features', 'document-bc-solution']
+              }, null, 2)
+            }],
+            isError: true
+          };
+        }
+        
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              error: 'Failed to get workflow status',
+              message: errorMessage,
+              workflow_id: workflow_id
+            }, null, 2)
+          }],
+          isError: true
+        };
+      }
+    },
+
+    'resolve_topic_layers': async (args: any) => {
+      const { topic_id, show_overrides = true } = args;
+      
+      try {
+        const resolution = await layerService.resolveTopic(topic_id);
+        
+        if (!resolution) {
+          return {
+            content: [{
+              type: 'text',
+              text: JSON.stringify({
+                topic_id: topic_id,
+                found: false,
+                message: 'Topic not found in any layer'
+              }, null, 2)
+            }]
+          };
+        }
+
+        const responseData: any = {
+          topic_id: topic_id,
+          found: true,
+          resolved_from: resolution.resolvedLayer.name,
+          is_override: resolution.isOverride,
+          topic: resolution.topic
+        };
+
+        if (show_overrides) {
+          const overriddenTopics = layerService.getOverriddenTopics();
+          responseData.override_info = overriddenTopics[topic_id] || null;
+        }
+        
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify(responseData, null, 2)
+          }]
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              error: 'Failed to resolve topic layers',
+              message: errorMessage,
+              topic_id: topic_id
+            }, null, 2)
+          }],
+          isError: true
+        };
+      }
     }
   };
 }
