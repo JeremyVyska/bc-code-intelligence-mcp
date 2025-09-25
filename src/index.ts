@@ -410,11 +410,11 @@ class BCCodeIntelligenceServer {
             'upgrade_planning': 'upgrade-bc-version',
             'testing_strategy': 'modernize-bc-code',
             'dev_onboarding': 'onboard-developer',
-            'app_takeover': 'app-takeover-analysis',
-            'spec_analysis': 'requirements-analysis',
+            'app_takeover': 'enhance-bc-app',
+            'spec_analysis': 'review-bc-code',
             'bug_investigation': 'debug-bc-issues',
-            'monolith_to_modules': 'refactor-architecture',
-            'data_flow_tracing': 'trace-dependencies',
+            'monolith_to_modules': 'modernize-bc-code',
+            'data_flow_tracing': 'review-bc-code',
             'full_review': 'review-bc-code'
           };
           
