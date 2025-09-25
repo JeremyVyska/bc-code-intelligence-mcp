@@ -36,7 +36,11 @@ describe('Performance and Reliability Tests', () => {
           return { workflowId: 'test-id' };
         }),
         getWorkflowStatus: vi.fn().mockResolvedValue({ status: 'active' }),
-        advanceWorkflow: vi.fn().mockResolvedValue({ status: 'advanced' })
+        advanceWorkflow: vi.fn().mockResolvedValue({ status: 'advanced' }),
+        findWorkflowsByQuery: vi.fn().mockImplementation(async () => {
+          await new Promise(resolve => setTimeout(resolve, 10));
+          return [{ name: 'test-workflow', description: 'Test workflow' }];
+        })
       },
       codeAnalysisService: {
         analyzeCode: vi.fn().mockImplementation(async () => {

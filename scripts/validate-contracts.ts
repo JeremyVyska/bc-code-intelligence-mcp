@@ -106,7 +106,7 @@ async function validateWorkflowTypes(enumValues: string[], validation: Validatio
 
 async function validateAnalysisTypes(enumValues: string[], validation: ValidationResult) {
   // These should match the filterPatternsByAnalysisType method
-  const expectedTypes = ['performance', 'quality', 'security', 'patterns', 'comprehensive'];
+  const expectedTypes = ['performance', 'quality', 'security', 'patterns', 'optimization', 'general', 'comprehensive'];
   
   for (const enumValue of enumValues) {
     if (!expectedTypes.includes(enumValue)) {

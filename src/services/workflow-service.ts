@@ -105,6 +105,7 @@ export interface WorkflowAdvanceRequest {
   workflow_id: string;
   phase_results?: string;
   specialist_notes?: string;
+  check_status_only?: boolean;
 }
 
 export interface WorkflowStatusResponse {
@@ -202,12 +203,17 @@ export class WorkflowService {
   }
 
   /**
-   * Advance workflow to the next phase
+   * Advance workflow to the next phase or check status
    */
   async advancePhase(request: WorkflowAdvanceRequest): Promise<WorkflowStatusResponse> {
     const session = this.activeSessions.get(request.workflow_id);
     if (!session) {
       throw new Error(`Workflow session not found: ${request.workflow_id}`);
+    }
+
+    // If only checking status, return current status without advancing
+    if (request.check_status_only) {
+      return this.getWorkflowStatus(request.workflow_id);
     }
 
     // Record current phase results if provided
@@ -486,9 +492,22 @@ Phase ${status.session.current_phase + 1} of ${status.session.specialist_pipelin
           { methodology_id: 'architecture-review', title: 'Architectural Review', description: 'Architectural coherence and design pattern consistency' }
         ]
       },
-      // TODO: Add remaining pipeline definitions
-      'debug-bc-issues': { specialists: [], phases: [] },
-      'modernize-bc-code': { specialists: [], phases: [] },
+      'debug-bc-issues': {
+        specialists: [],
+        phases: [
+          { methodology_id: 'analysis-debugging', title: 'Issue Analysis', description: 'Analyze and reproduce the issue' },
+          { methodology_id: 'diagnosis-root-cause', title: 'Root Cause Analysis', description: 'Identify the underlying cause' },
+          { methodology_id: 'coding-fix', title: 'Solution Implementation', description: 'Implement and test the fix' }
+        ]
+      },
+      'modernize-bc-code': {
+        specialists: [],
+        phases: [
+          { methodology_id: 'analysis-legacy', title: 'Legacy Assessment', description: 'Assess current code patterns and technical debt' },
+          { methodology_id: 'architecture-modernization', title: 'Modernization Planning', description: 'Plan modernization approach and architecture' },
+          { methodology_id: 'coding-upgrade', title: 'Code Modernization', description: 'Implement modern patterns and best practices' }
+        ]
+      },
       'onboard-developer': {
         specialists: [], // Will be populated dynamically
         phases: [
@@ -500,9 +519,30 @@ Phase ${status.session.current_phase + 1} of ${status.session.specialist_pipelin
           { methodology_id: 'code-review-intro', title: 'Code Review Process', description: 'Code review standards and collaborative development practices' }
         ]
       },
-      'upgrade-bc-version': { specialists: [], phases: [] },
-      'add-ecosystem-features': { specialists: [], phases: [] },
-      'document-bc-solution': { specialists: [], phases: [] },
+      'upgrade-bc-version': {
+        specialists: [],
+        phases: [
+          { methodology_id: 'analysis-version-impact', title: 'Version Impact Analysis', description: 'Analyze impact of version upgrade' },
+          { methodology_id: 'migration-planning', title: 'Migration Planning', description: 'Plan the upgrade process and compatibility' },
+          { methodology_id: 'coding-migration', title: 'Code Migration', description: 'Update code for new BC version' }
+        ]
+      },
+      'add-ecosystem-features': {
+        specialists: [],
+        phases: [
+          { methodology_id: 'analysis-ecosystem', title: 'Ecosystem Analysis', description: 'Analyze integration requirements' },
+          { methodology_id: 'architecture-integration', title: 'Integration Architecture', description: 'Design integration patterns and APIs' },
+          { methodology_id: 'coding-integration', title: 'Feature Implementation', description: 'Implement ecosystem integration features' }
+        ]
+      },
+      'document-bc-solution': {
+        specialists: [],
+        phases: [
+          { methodology_id: 'analysis-documentation', title: 'Documentation Analysis', description: 'Analyze documentation requirements' },
+          { methodology_id: 'documentation-planning', title: 'Documentation Planning', description: 'Plan documentation structure and content' },
+          { methodology_id: 'documentation-creation', title: 'Content Creation', description: 'Create comprehensive documentation' }
+        ]
+      },
       'app_takeover': {
         specialists: [], // Will be populated dynamically
         phases: [

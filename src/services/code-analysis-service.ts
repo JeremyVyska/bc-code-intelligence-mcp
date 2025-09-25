@@ -534,6 +534,10 @@ export class CodeAnalysisService {
           return domain === 'security' || name.includes('security') || name.includes('permission');
         case 'patterns':
           return pattern.pattern_type === 'good' || pattern.pattern_type === 'bad';
+        case 'optimization':
+          return domain === 'performance' || name.includes('optimization') || name.includes('performance') || pattern.pattern_type === 'bad';
+        case 'general':
+          return true; // General analysis includes all patterns with balanced coverage
         default:
           return true; // Return all for unknown types
       }

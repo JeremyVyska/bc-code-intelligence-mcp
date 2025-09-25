@@ -45,7 +45,10 @@ describe('Individual MCP Tool Tests', () => {
         advanceWorkflow: vi.fn().mockResolvedValue({
           status: 'advanced',
           nextStep: 2
-        })
+        }),
+        findWorkflowsByQuery: vi.fn().mockResolvedValue([
+          { name: 'test-workflow', description: 'Test workflow', phases: ['analysis', 'implementation'] }
+        ])
       },
       codeAnalysisService: {
         analyzeCode: vi.fn().mockResolvedValue({

@@ -82,100 +82,146 @@ export function createStreamlinedHandlers(server: any, services: any) {
 
   return {
     'find_bc_knowledge': async (args: any) => {
-      const { query, search_type = 'all', bc_version, limit = 10 } = args;
-      
-      const results: any = {
-        query,
-        search_type,
-        results: []
-      };
+      try {
+        const { query, search_type = 'all', bc_version, limit = 10 } = args;
+        
+        // Validate required parameters
+        if (!query) {
+          return {
+            isError: true,
+            error: 'query parameter is required',
+            content: [{
+              type: 'text',
+              text: 'Error: query parameter is required'
+            }]
+          };
+        }
+        
+        const results: any = {
+          query,
+          search_type,
+          results: []
+        };
 
-      if (search_type === 'topics' || search_type === 'all') {
-        const topics = await knowledgeService.searchTopics({ 
-          query, 
-          bc_version, 
-          limit: search_type === 'topics' ? limit : Math.ceil(limit / 3)
-        });
-        results.results.push({
-          type: 'topics',
-          items: topics
-        });
+        if (search_type === 'topics' || search_type === 'all') {
+          const topics = await knowledgeService.searchTopics({ 
+            query, 
+            bc_version, 
+            limit: search_type === 'topics' ? limit : Math.ceil(limit / 3)
+          });
+          results.results.push({
+            type: 'topics',
+            items: topics
+          });
+        }
+
+        if (search_type === 'specialists' || search_type === 'all') {
+          const specialists = await knowledgeService.findSpecialistsByQuery(query);
+          results.results.push({
+            type: 'specialists',
+            items: specialists.slice(0, search_type === 'specialists' ? limit : Math.ceil(limit / 3))
+          });
+        }
+
+        if (search_type === 'workflows' || search_type === 'all') {
+          const workflows = await methodologyService.findWorkflowsByQuery(query);
+          results.results.push({
+            type: 'workflows',
+            items: workflows.slice(0, search_type === 'workflows' ? limit : Math.ceil(limit / 3))
+          });
+        }
+
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify(results, null, 2)
+          }]
+        };
+      } catch (error) {
+        return {
+          isError: true,
+          error: (error && error.message) ? error.message : 'Service error occurred',
+          content: [{
+            type: 'text',
+            text: `Error: ${(error && error.message) ? error.message : 'Service error occurred'}`
+          }]
+        };
       }
-
-      if (search_type === 'specialists' || search_type === 'all') {
-        const specialists = await knowledgeService.findSpecialistsByQuery(query);
-        results.results.push({
-          type: 'specialists',
-          items: specialists.slice(0, search_type === 'specialists' ? limit : Math.ceil(limit / 3))
-        });
-      }
-
-      if (search_type === 'workflows' || search_type === 'all') {
-        const workflows = await methodologyService.findWorkflowsByQuery(query);
-        results.results.push({
-          type: 'workflows',
-          items: workflows.slice(0, search_type === 'workflows' ? limit : Math.ceil(limit / 3))
-        });
-      }
-
-      return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify(results, null, 2)
-        }]
-      };
     },
 
     'ask_bc_expert': async (args: any) => {
-      const { question, context, preferred_specialist } = args;
-      
-      // Auto-detect if this is a "took over app" scenario
-      const isOnboardingScenario = /took over|inherited|new to|understand.*app|unfamiliar/i.test(question + ' ' + (context || ''));
-      
-      if (isOnboardingScenario && !preferred_specialist) {
-        // Start onboarding workflow automatically
-        const startRequest = {
-          workflow_type: 'onboard-developer',
-          project_context: context || question,
-          bc_version: 'BC22' // default
-        };
+      try {
+        const { question, context, preferred_specialist } = args;
         
-        const session = await workflowService.startWorkflow(startRequest);
-        const guidance = await workflowService.getPhaseGuidance(session.id);
+        // Validate required parameters
+        if (!question) {
+          return {
+            isError: true,
+            error: 'question parameter is required',
+            content: [{
+              type: 'text',
+              text: 'Error: question parameter is required'
+            }]
+          };
+        }
+        
+        // Auto-detect if this is a "took over app" scenario
+        const isOnboardingScenario = /took over|inherited|new to|understand.*app|unfamiliar/i.test(question + ' ' + (context || ''));
+        
+        if (isOnboardingScenario && !preferred_specialist) {
+          // Start onboarding workflow automatically
+          const startRequest = {
+            workflow_type: 'onboard-developer',
+            project_context: context || question,
+            bc_version: 'BC22' // default
+          };
+          
+          const session = await workflowService.startWorkflow(startRequest);
+          const guidance = await workflowService.getPhaseGuidance(session.id);
+          
+          return {
+            content: [{
+              type: 'text',
+              text: JSON.stringify({
+                response_type: 'workflow_started',
+                workflow_id: session.id,
+                workflow_type: 'developer_onboarding',
+                message: 'I detected this is a new developer onboarding scenario. Starting the systematic onboarding workflow.',
+                guidance
+              }, null, 2)
+            }]
+          };
+        }
+        
+        // Normal specialist consultation
+        const specialist = await knowledgeService.askSpecialist(question, preferred_specialist);
         
         return {
           content: [{
             type: 'text',
             text: JSON.stringify({
-              response_type: 'workflow_started',
-              workflow_id: session.id,
-              workflow_type: 'developer_onboarding',
-              message: 'I detected this is a new developer onboarding scenario. Starting the systematic onboarding workflow.',
-              guidance
+              response_type: 'specialist_consultation',
+              specialist: {
+                id: specialist.specialist.id,
+                name: specialist.specialist.name,
+                expertise: specialist.specialist.expertise
+              },
+              consultation: specialist.consultation,
+              recommended_topics: specialist.recommended_topics,
+              context: context
             }, null, 2)
           }]
         };
+      } catch (error) {
+        return {
+          isError: true,
+          error: (error && error.message) ? error.message : 'Service error occurred',
+          content: [{
+            type: 'text',
+            text: `Error: ${(error && error.message) ? error.message : 'Service error occurred'}`
+          }]
+        };
       }
-      
-      // Normal specialist consultation
-      const specialist = await knowledgeService.askSpecialist(question, preferred_specialist);
-      
-      return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            response_type: 'specialist_consultation',
-            specialist: {
-              id: specialist.specialist.id,
-              name: specialist.specialist.name,
-              expertise: specialist.specialist.expertise
-            },
-            consultation: specialist.consultation,
-            recommended_topics: specialist.recommended_topics,
-            context: context
-          }, null, 2)
-        }]
-      };
     },
 
     'analyze_al_code': async (args: any) => {
@@ -258,8 +304,9 @@ export function createStreamlinedHandlers(server: any, services: any) {
       const mappedWorkflowType = mapWorkflowType(workflow_type);
       
       try {
-        const session = await workflowService.startWorkflow(mappedWorkflowType, {
-          context: context,  // Note: rename project_context to context
+        const session = await workflowService.startWorkflow({
+          workflow_type: mappedWorkflowType,
+          project_context: context,
           bc_version: bc_version || 'BC22',
           additional_context: additional_info
         });
@@ -314,13 +361,26 @@ export function createStreamlinedHandlers(server: any, services: any) {
     },
 
     'advance_workflow': async (args: any) => {
-      const { workflow_id, phase_results, next_focus } = args;
+      const { workflow_id, phase_results, next_focus, check_status_only } = args;
+      
+      // Validate required parameters
+      if (!workflow_id) {
+        return {
+          isError: true,
+          error: 'workflow_id parameter is required',
+          content: [{
+            type: 'text',
+            text: 'Error: workflow_id parameter is required'
+          }]
+        };
+      }
       
       try {
         const result = await workflowService.advancePhase({
           workflow_id,
           phase_results,
-          specialist_notes: next_focus
+          specialist_notes: next_focus,
+          check_status_only
         });
         
         return {
@@ -462,184 +522,6 @@ export function createStreamlinedHandlers(server: any, services: any) {
           }, null, 2)
         }]
       };
-    },
-
-    'get_layer_info': async (args: any) => {
-      const { include_statistics = true } = args;
-      
-      try {
-        const layers = layerService.getLayers();
-        const layerStats = layerService.getLayerStatistics();
-        
-        const layerInfo: any = {
-          layers: layers.map(layer => ({
-            name: layer.name,
-            priority: layer.priority,
-            enabled: layer.enabled,
-            type: layer.constructor.name,
-            statistics: include_statistics ? layer.getStatistics() : undefined
-          })),
-          configuration: {
-            layer_types: [...new Set(layers.map(layer => layer.constructor.name))],
-            total_layers: layers.length,
-            enabled_layers: layers.filter(layer => layer.enabled).length
-          }
-        };
-
-        if (include_statistics) {
-          layerInfo.total_statistics = layerStats;
-        }
-
-        return {
-          content: [{
-            type: 'text',
-            text: JSON.stringify(layerInfo, null, 2)
-          }]
-        };
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        return {
-          content: [{
-            type: 'text',
-            text: JSON.stringify({
-              error: 'Failed to get layer information',
-              message: errorMessage
-            }, null, 2)
-          }],
-          isError: true
-        };
-      }
-    },
-
-    'analyze_bc_code': async (args: any) => {
-      const { code_snippet, analysis_type = 'comprehensive' } = args;
-      
-      try {
-        const analysisResult = await codeAnalysisService.analyzeCode({
-          code_snippet,
-          analysis_type,
-          suggest_topics: true
-        });
-        
-        return {
-          content: [{
-            type: 'text',
-            text: JSON.stringify(analysisResult, null, 2)
-          }]
-        };
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        return {
-          content: [{
-            type: 'text',
-            text: JSON.stringify({
-              error: 'Code analysis failed',
-              message: errorMessage,
-              code_snippet: code_snippet,
-              analysis_type: analysis_type
-            }, null, 2)
-          }],
-          isError: true
-        };
-      }
-    },
-
-    'get_workflow_status': async (args: any) => {
-      const { workflow_id } = args;
-      
-      try {
-        const status = await workflowService.getWorkflowStatus(workflow_id);
-        
-        return {
-          content: [{
-            type: 'text',
-            text: JSON.stringify(status, null, 2)
-          }]
-        };
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        
-        if (errorMessage.includes('Workflow session not found')) {
-          return {
-            content: [{
-              type: 'text',
-              text: JSON.stringify({
-                error: 'Workflow session not found',
-                workflow_id: workflow_id,
-                suggestion: 'Start a new workflow with start_bc_workflow or use ask_bc_expert for direct consultation',
-                available_workflows: ['new-bc-app', 'enhance-bc-app', 'review-bc-code', 'debug-bc-issues', 'modernize-bc-code', 'onboard-developer', 'upgrade-bc-version', 'add-ecosystem-features', 'document-bc-solution']
-              }, null, 2)
-            }],
-            isError: true
-          };
-        }
-        
-        return {
-          content: [{
-            type: 'text',
-            text: JSON.stringify({
-              error: 'Failed to get workflow status',
-              message: errorMessage,
-              workflow_id: workflow_id
-            }, null, 2)
-          }],
-          isError: true
-        };
-      }
-    },
-
-    'resolve_topic_layers': async (args: any) => {
-      const { topic_id, show_overrides = true } = args;
-      
-      try {
-        const resolution = await layerService.resolveTopic(topic_id);
-        
-        if (!resolution) {
-          return {
-            content: [{
-              type: 'text',
-              text: JSON.stringify({
-                topic_id: topic_id,
-                found: false,
-                message: 'Topic not found in any layer'
-              }, null, 2)
-            }]
-          };
-        }
-
-        const responseData: any = {
-          topic_id: topic_id,
-          found: true,
-          resolved_from: resolution.resolvedLayer.name,
-          is_override: resolution.isOverride,
-          topic: resolution.topic
-        };
-
-        if (show_overrides) {
-          const overriddenTopics = layerService.getOverriddenTopics();
-          responseData.override_info = overriddenTopics[topic_id] || null;
-        }
-        
-        return {
-          content: [{
-            type: 'text',
-            text: JSON.stringify(responseData, null, 2)
-          }]
-        };
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        return {
-          content: [{
-            type: 'text',
-            text: JSON.stringify({
-              error: 'Failed to resolve topic layers',
-              message: errorMessage,
-              topic_id: topic_id
-            }, null, 2)
-          }],
-          isError: true
-        };
-      }
     }
   };
 }

@@ -60,17 +60,17 @@ export const streamlinedTools = [
   },
   {
     name: 'analyze_al_code',
-    description: 'Analyze AL code for issues, patterns, and improvements. Includes workspace analysis and workflow recommendations.',
+    description: 'Analyze AL/BC code for issues, patterns, optimization opportunities, and improvements. Includes workspace analysis and workflow recommendations.',
     inputSchema: {
       type: 'object',
       properties: {
         code: {
           type: 'string',
-          description: 'AL code to analyze (or "workspace" to analyze current workspace)'
+          description: 'AL/BC code to analyze (or "workspace" to analyze current workspace)'
         },
         analysis_type: {
           type: 'string',
-          enum: ['performance', 'quality', 'security', 'patterns', 'comprehensive'],
+          enum: ['performance', 'quality', 'security', 'patterns', 'optimization', 'general', 'comprehensive'],
           description: 'Type of analysis to perform',
           default: 'comprehensive'
         },
@@ -135,7 +135,7 @@ export const streamlinedTools = [
   },
   {
     name: 'advance_workflow',
-    description: 'Progress to the next phase of an active workflow with your results and feedback.',
+    description: 'Progress to the next phase of an active workflow with your results and feedback, or check workflow status.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -145,14 +145,19 @@ export const streamlinedTools = [
         },
         phase_results: {
           type: 'string',
-          description: 'Results from the current phase, decisions made, or feedback'
+          description: 'Results from the current phase, decisions made, or feedback (optional for status checks)'
         },
         next_focus: {
           type: 'string',
           description: 'Optional: specific focus area for the next phase'
+        },
+        check_status_only: {
+          type: 'boolean',
+          description: 'Only check workflow status without advancing',
+          default: false
         }
       },
-      required: ['workflow_id', 'phase_results']
+      required: ['workflow_id']
     }
   },
   {
