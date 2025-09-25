@@ -332,30 +332,22 @@ export function createStreamlinedHandlers(server: any, services: any) {
         
         if (errorMessage.includes('Unknown workflow type')) {
           return {
+            isError: true,
+            error: 'Invalid workflow type',
             content: [{
               type: 'text',
-              text: JSON.stringify({
-                error: 'Invalid workflow type',
-                workflow_type_provided: workflow_type,
-                mapped_to: mappedWorkflowType,
-                suggestion: 'Use ask_bc_expert for specialist conversations or check valid workflow types',
-                valid_workflow_types: ['new-bc-app', 'enhance-bc-app', 'review-bc-code', 'debug-bc-issues', 'modernize-bc-code', 'onboard-developer', 'upgrade-bc-version', 'add-ecosystem-features', 'document-bc-solution'],
-                alternative_tool: `ask_bc_expert({ question: "${context || workflow_type}" })`
-              }, null, 2)
-            }],
-            isError: true
+              text: `Error: Invalid workflow type '${workflow_type}'. Use ask_bc_expert for specialist conversations.`
+            }]
           };
         }
         
         return {
+          isError: true,
+          error: errorMessage,
           content: [{
             type: 'text',
-            text: JSON.stringify({
-              error: errorMessage,
-              suggestion: 'Consider using ask_bc_expert for direct specialist consultation'
-            }, null, 2)
-          }],
-          isError: true
+            text: `Error: ${errorMessage}`
+          }]
         };
       }
     },
@@ -394,29 +386,22 @@ export function createStreamlinedHandlers(server: any, services: any) {
         
         if (errorMessage.includes('Workflow session not found')) {
           return {
+            isError: true,
+            error: 'Workflow session not found',
             content: [{
               type: 'text',
-              text: JSON.stringify({
-                error: 'Workflow session not found',
-                workflow_id: workflow_id,
-                suggestion: 'Start a new workflow with start_bc_workflow or use ask_bc_expert for direct consultation',
-                alternative: `start_bc_workflow({ workflow_type: "enhance-bc-app", context: "${phase_results || 'Continue previous work'}" })`
-              }, null, 2)
-            }],
-            isError: true
+              text: `Error: Workflow session '${workflow_id}' not found. Use start_bc_workflow to create a new workflow.`
+            }]
           };
         }
         
         return {
+          isError: true,
+          error: errorMessage,
           content: [{
             type: 'text',
-            text: JSON.stringify({
-              error: errorMessage,
-              workflow_id: workflow_id,
-              suggestion: 'Check workflow status with get_workflow_help or start new workflow'
-            }, null, 2)
-          }],
-          isError: true
+            text: `Error: ${errorMessage}`
+          }]
         };
       }
     },

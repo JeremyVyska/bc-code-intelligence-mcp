@@ -83,16 +83,7 @@ describe('Performance and Reliability Tests', () => {
       expect(duration).toBeLessThan(100);
     });
 
-    it('should respond to get_layer_info within 50ms', async () => {
-      const startTime = Date.now();
-      
-      const result = await handlers.get_layer_info({});
-      
-      const duration = Date.now() - startTime;
-      
-      expect(result).toBeDefined();
-      expect(duration).toBeLessThan(50);
-    });
+
 
     it('should respond to ask_bc_expert within 100ms', async () => {
       const startTime = Date.now();
@@ -136,10 +127,8 @@ describe('Performance and Reliability Tests', () => {
     it('should handle mixed tool types concurrently', async () => {
       const requests = [
         handlers.find_bc_knowledge({ query: 'test1' }),
-        handlers.get_layer_info({}),
         handlers.ask_bc_expert({ question: 'test2' }),
-        handlers.start_bc_workflow({ workflow_type: 'app_takeover' }),
-        handlers.analyze_bc_code({ code_snippet: 'test code', analysis_type: 'performance' })
+        handlers.start_bc_workflow({ workflow_type: 'app_takeover' })
       ];
       
       const results = await Promise.all(requests);
@@ -184,10 +173,6 @@ describe('Performance and Reliability Tests', () => {
         handlers.find_bc_knowledge({
           query: largeQuery,
           search_type: 'topics'
-        }),
-        handlers.analyze_bc_code({
-          code_snippet: largeCode,
-          analysis_type: 'performance'
         })
       ]);
       

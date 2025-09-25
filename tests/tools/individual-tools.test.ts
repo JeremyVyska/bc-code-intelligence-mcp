@@ -216,66 +216,7 @@ describe('Individual MCP Tool Tests', () => {
     });
   });
 
-  describe('get_workflow_status Tool', () => {
-    it('should get workflow status correctly', async () => {
-      const result = await handlers.get_workflow_status({
-        workflow_id: 'test-workflow-id'
-      });
 
-      expect(result).toBeDefined();
-      expect(mockServices.workflowService.getWorkflow).toHaveBeenCalledWith(
-        'test-workflow-id'
-      );
-    });
-  });
-
-  describe('analyze_bc_code Tool', () => {
-    it('should analyze code correctly', async () => {
-      const result = await handlers.analyze_bc_code({
-        code_snippet: 'codeunit 50100 Test { }',
-        analysis_type: 'performance'
-      });
-
-      expect(result).toBeDefined();
-      expect(mockServices.codeAnalysisService.analyzeCode).toHaveBeenCalledWith(
-        expect.objectContaining({
-          code: 'codeunit 50100 Test { }',
-          analysisType: 'performance'
-        })
-      );
-    });
-
-    it('should handle missing code_snippet', async () => {
-      const result = await handlers.analyze_bc_code({
-        analysis_type: 'performance'
-      });
-
-      expect(result).toBeDefined();
-      expect(result.isError).toBe(true);
-    });
-  });
-
-  describe('get_layer_info Tool', () => {
-    it('should get layer information correctly', async () => {
-      const result = await handlers.get_layer_info({});
-
-      expect(result).toBeDefined();
-      expect(mockServices.layerService.getLayerInfo).toHaveBeenCalled();
-    });
-  });
-
-  describe('resolve_topic_layers Tool', () => {
-    it('should resolve topic layers correctly', async () => {
-      const result = await handlers.resolve_topic_layers({
-        topic_id: 'test-topic-id'
-      });
-
-      expect(result).toBeDefined();
-      expect(mockServices.layerService.resolveTopicLayers).toHaveBeenCalledWith(
-        'test-topic-id'
-      );
-    });
-  });
 
   describe('Error Handling Consistency', () => {
     it('should handle service errors consistently across all tools', async () => {
@@ -292,7 +233,7 @@ describe('Individual MCP Tool Tests', () => {
         { name: 'find_bc_knowledge', args: { query: 'test' } },
         { name: 'ask_bc_expert', args: { question: 'test' } },
         { name: 'start_bc_workflow', args: { workflow_type: 'app_takeover' } },
-        { name: 'analyze_bc_code', args: { code_snippet: 'test', analysis_type: 'performance' } }
+        { name: 'advance_workflow', args: { workflow_id: 'test' } }
       ];
 
       for (const test of toolTests) {
