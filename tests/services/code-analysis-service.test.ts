@@ -59,7 +59,9 @@ describe('CodeAnalysisService', () => {
       const result = await codeAnalysisService.analyzeCode(params);
 
       expect(result).toBeDefined();
-      expect(result.analysis).toBeDefined();
+      expect(result.issues).toBeDefined();
+      expect(result.patterns_detected).toBeDefined();
+      expect(result.optimization_opportunities).toBeDefined();
       expect(mockKnowledgeService.findTopicsByType).toHaveBeenCalledWith('code-pattern');
     });
 
@@ -107,7 +109,8 @@ describe('CodeAnalysisService', () => {
       const result = await codeAnalysisService.analyzeCode(params);
 
       expect(result).toBeDefined();
-      expect(result.analysis).toBeDefined();
+      expect(result.issues).toBeDefined();
+      expect(result.patterns_detected).toBeDefined();
     });
 
     it('should handle malformed code', async () => {

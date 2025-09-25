@@ -39,19 +39,19 @@ describe('LayerService', () => {
   });
 
   describe('Layer Resolution Methods', () => {
-    it('should have getLayerInfo method', () => {
-      expect(typeof layerService.getLayerInfo).toBe('function');
+    it('should have getLayer method', () => {
+      expect(typeof layerService.getLayer).toBe('function');
     });
 
-    it('should have resolveContent method', () => {
-      expect(typeof layerService.resolveContent).toBe('function');
+    it('should have resolveTopic method', () => {
+      expect(typeof layerService.resolveTopic).toBe('function');
     });
 
     it('should return layer information', async () => {
       try {
-        const layerInfo = await layerService.getLayerInfo();
-        expect(layerInfo).toBeDefined();
-        expect(Array.isArray(layerInfo)).toBe(true);
+        const layers = layerService.getLayers();
+        expect(layers).toBeDefined();
+        expect(Array.isArray(layers)).toBe(true);
       } catch (error) {
         // Might fail in test environment - that's acceptable
         expect(error).toBeDefined();
@@ -81,9 +81,7 @@ describe('LayerService', () => {
 
     it('should detect missing methods that cause "function missing" errors', () => {
       // This test specifically looks for the kinds of issues the user reported
-      const criticalMethods = ['getLayerInfo', 'resolveContent'];
-      
-      const missingMethods = criticalMethods.filter(
+        const criticalMethods = ['getLayer', 'resolveTopic'];      const missingMethods = criticalMethods.filter(
         method => typeof (layerService as any)[method] !== 'function'
       );
 
@@ -119,7 +117,7 @@ describe('LayerService', () => {
       const startTime = Date.now();
       
       try {
-        await layerService.getLayerInfo();
+        await layerService.initialize();
         const duration = Date.now() - startTime;
         expect(duration).toBeLessThan(100);
       } catch (error) {
