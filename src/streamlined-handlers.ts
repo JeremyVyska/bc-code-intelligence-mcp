@@ -257,15 +257,12 @@ export function createStreamlinedHandlers(server: any, services: any) {
       // Map streamlined workflow type to existing workflow type
       const mappedWorkflowType = mapWorkflowType(workflow_type);
       
-      const startRequest = {
-        workflow_type: mappedWorkflowType,
-        project_context: context,
-        bc_version: bc_version || 'BC22',
-        additional_context: additional_info
-      };
-      
       try {
-        const session = await workflowService.startWorkflow(startRequest);
+        const session = await workflowService.startWorkflow(mappedWorkflowType, {
+          context: context,  // Note: rename project_context to context
+          bc_version: bc_version || 'BC22',
+          additional_context: additional_info
+        });
         const guidance = await workflowService.getPhaseGuidance(session.id);
         
         return {
