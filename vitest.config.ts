@@ -7,11 +7,11 @@ export default defineConfig({
     include: [
       'tests/unit/**/*.test.ts',
       'tests/tools/**/*.test.ts',
-      'tests/services/**/*.test.ts'
+      'tests/services/**/*.test.ts',
+      'tests/prompt-validation/**/*.test.ts'
     ],
     exclude: [
       'tests/integration/**',
-      'tests/prompt-validation/**',
       'node_modules/**',
       'dist/**'
     ],
