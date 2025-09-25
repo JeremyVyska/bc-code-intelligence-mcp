@@ -14,7 +14,7 @@
     "bc-code-intelligence-mcp": "dist/index.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "npm run validate:embedded-knowledge && tsc",
     "dev": "tsx src/index.ts",
     "start": "node dist/index.js",
     "test": "vitest run",
@@ -24,9 +24,11 @@
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:contracts": "tsx scripts/validate-contracts.ts",
     "test:prompts": "vitest run tests/prompt-validation/ --reporter=verbose",
-    "test:all": "npm run test:contracts && npm run test:unit && npm run test:integration",
+    "test:all": "npm run validate:embedded-knowledge && npm run test:contracts && npm run test:unit && npm run test:integration",
     "validate:contracts": "tsx scripts/validate-contracts.ts",
+    "validate:embedded-knowledge": "tsx scripts/validate-embedded-knowledge.ts",
     "pretest": "npm run validate:contracts",
+    "prebuild": "npm run validate:embedded-knowledge",
     "prepublishOnly": "npm run test:all && npm run build",
     "lint": "eslint src/**/*.ts",
     "format": "prettier --write src/**/*.ts",
