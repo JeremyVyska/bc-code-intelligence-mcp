@@ -8,6 +8,7 @@
 import { fileURLToPath } from 'url';
 import { readFile, readdir, stat } from 'fs/promises';
 import { join, basename, extname, dirname } from 'path';
+import { existsSync } from 'fs';
 import * as yaml from 'yaml';
 import glob from 'fast-glob';
 
@@ -45,6 +46,48 @@ export class EmbeddedKnowledgeLayer extends BaseKnowledgeLayer {
 
     try {
       console.error(`Initializing ${this.name} layer from ${this.embeddedPath}...`);
+
+      // Early validation: Check if embedded knowledge directory exists and has content
+      if (!existsSync(this.embeddedPath)) {
+        throw new Error(`
+🚨 BC Code Intelligence MCP Server Setup Issue
+
+PROBLEM: Embedded knowledge directory not found
+PATH: ${this.embeddedPath}
+
+LIKELY CAUSE: The git submodule 'embedded-knowledge' was not initialized when this package was built/installed.
+
+SOLUTIONS:
+📦 For NPM users: Update to the latest version with: npm update bc-code-intelligence-mcp
+🔧 For developers: Run: git submodule init && git submodule update  
+🏢 For package maintainers: Ensure submodules are initialized before npm publish
+
+The embedded-knowledge directory should contain BC expertise (domains/, specialists/, methodologies/) required for the MCP server to function.
+        `.trim());
+      }
+
+      // Check if directory has the expected structure
+      const expectedDirs = ['domains', 'specialists', 'methodologies'];
+      const missingDirs = expectedDirs.filter(dir => !existsSync(join(this.embeddedPath, dir)));
+      
+      if (missingDirs.length > 0) {
+        throw new Error(`
+🚨 BC Code Intelligence MCP Server Setup Issue
+
+PROBLEM: Incomplete embedded knowledge structure
+PATH: ${this.embeddedPath}
+MISSING: ${missingDirs.join(', ')}
+
+LIKELY CAUSE: The embedded-knowledge submodule is present but incomplete or corrupted.
+
+SOLUTIONS:
+📦 For NPM users: Update to the latest version with: npm update bc-code-intelligence-mcp
+🔧 For developers: Run: git submodule update --remote --force
+🏢 For package maintainers: Verify submodule content before npm publish
+
+Expected structure: domains/, specialists/, methodologies/ directories with BC expertise content.
+        `.trim());
+      }
 
       // Load topics, specialists, and indexes in parallel
       const [topicsLoaded, specialistsLoaded, indexesLoaded] = await Promise.all([

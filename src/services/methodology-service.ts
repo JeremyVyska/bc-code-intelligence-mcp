@@ -93,7 +93,21 @@ export class MethodologyService {
   private loadIndex(): any {
     const indexFile = join(this.methodologyPath, 'index.json');
     if (!existsSync(indexFile)) {
-      throw new Error(`Methodology index not found: ${indexFile}`);
+      throw new Error(`
+🚨 BC Code Intelligence MCP Server Setup Issue
+
+PROBLEM: Missing embedded knowledge content
+FILE: ${indexFile}
+
+LIKELY CAUSE: The git submodule 'embedded-knowledge' was not initialized when this package was built/installed.
+
+SOLUTIONS:
+📦 For NPM users: Update to the latest version with: npm update bc-code-intelligence-mcp
+🔧 For developers: Run: git submodule init && git submodule update
+🏢 For package maintainers: Ensure submodules are initialized before npm publish
+
+This error indicates the embedded BC knowledge base is missing, which contains the methodology definitions, specialist knowledge, and domain expertise required for the MCP server to function.
+      `.trim());
     }
 
     try {
