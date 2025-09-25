@@ -41,7 +41,7 @@ async function createTempDir(): Promise<string> {
 
 async function cleanupTempDir(tempDir: string): Promise<void> {
   try {
-    await fs.rmdir(tempDir, { recursive: true });
+    await fs.rm(tempDir, { recursive: true });
   } catch (error) {
     // Ignore cleanup errors, they're not critical for the test
     console.warn(`Warning: Could not cleanup temp directory ${tempDir}:`, error);
