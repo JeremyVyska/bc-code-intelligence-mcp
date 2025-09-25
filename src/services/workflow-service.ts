@@ -163,6 +163,11 @@ export class WorkflowService {
   }
 
   private async startWorkflowInternal(request: WorkflowStartRequest): Promise<BCWorkflowSession> {
+    // Validate required parameters
+    if (!request.project_context || request.project_context.trim() === '') {
+      throw new Error('project_context is required and cannot be empty');
+    }
+    
     const sessionId = this.generateSessionId();
     const pipeline = this.pipelineDefinitions[request.workflow_type];
     
@@ -172,6 +177,17 @@ export class WorkflowService {
     
     if (!pipeline.phases || pipeline.phases.length === 0) {
       throw new Error(`No phases defined for workflow type: ${request.workflow_type}`);
+    }
+
+    // Try to load methodology for validation (this can fail and should propagate)
+    try {
+      await this.methodologyService.loadMethodology({
+        user_request: request.project_context,
+        domain: request.workflow_type
+      });
+    } catch (error) {
+      // Re-throw methodology service errors
+      throw error;
     }
 
     // Discover specialists dynamically based on workflow type
@@ -351,101 +367,45 @@ Phase ${status.session.current_phase + 1} of ${status.session.specialist_pipelin
 
   /**
    * Dynamically discover specialists relevant to a workflow type
-   * This replaces hard-coded specialist lists with dynamic discovery based on specialist metadata
+   * Uses the specialist discovery service to suggest appropriate specialists
    */
   private async discoverWorkflowSpecialists(workflowType: WorkflowType): Promise<string[]> {
     try {
-      // Get all available specialists from the knowledge service
-      const allSpecialists = await this.knowledgeService.getAllSpecialists();
-      const relevantSpecialists: string[] = [];
-
-      // Define workflow expertise mappings for the current BCSpecialist structure
-      const workflowExpertiseMap: Record<WorkflowType, string[]> = {
-        'new-bc-app': ['architecture', 'implementation', 'security', 'testing', 'ui-ux', 'documentation'],
-        'enhance-bc-app': ['architecture', 'performance', 'implementation', 'error-handling', 'testing'],
-        'review-bc-code': ['code-review', 'performance', 'security', 'error-handling', 'testing', 'ui-ux', 'architecture'],
-        'debug-bc-issues': ['performance', 'troubleshooting', 'error-handling'],
-        'modernize-bc-code': ['architecture', 'performance', 'security', 'best-practices'],
-        'onboard-developer': ['mentoring', 'best-practices', 'education'],
-        'upgrade-bc-version': ['architecture', 'performance', 'error-handling', 'testing'],
-        'add-ecosystem-features': ['integration', 'api-design', 'security'],
-        'document-bc-solution': ['documentation', 'architecture'],
-        'app_takeover': ['architecture', 'legacy-migration', 'implementation', 'security', 'testing', 'documentation']
+      // Define workflow descriptions for specialist suggestion
+      const workflowDescriptions: Record<WorkflowType, string> = {
+        'new-bc-app': 'Create a new Business Central application with architecture, implementation, testing, and documentation',
+        'enhance-bc-app': 'Enhance existing BC application with performance optimization and error handling',
+        'review-bc-code': 'Review BC code for quality, security, performance, and architecture compliance',
+        'debug-bc-issues': 'Debug and troubleshoot performance issues and errors in BC applications',
+        'modernize-bc-code': 'Modernize legacy BC code with current architecture and security practices',
+        'onboard-developer': 'Onboard new developer with mentoring and best practices guidance',
+        'upgrade-bc-version': 'Upgrade BC application to newer version with architecture and testing',
+        'add-ecosystem-features': 'Add ecosystem integration features with API design and security',
+        'document-bc-solution': 'Create comprehensive documentation for BC solution architecture',
+        'app_takeover': 'Take over existing BC application with legacy migration, security, and testing'
       };
 
-      const targetExpertise = workflowExpertiseMap[workflowType] || [];
+      const description = workflowDescriptions[workflowType] || `Workflow for ${workflowType}`;
+      
+      // Use specialist discovery service to suggest specialists
+      const suggestions = await this.specialistDiscoveryService.suggestSpecialists({
+        query: description
+      }, 6);
 
-      // Score each specialist based on expertise area overlap
-      const specialistScores = allSpecialists.map(specialist => {
-        let score = 0;
-        
-        // Score based on expertise overlap
-        if (specialist.expertise?.primary || specialist.expertise?.secondary) {
-          const allExpertise = [...(specialist.expertise.primary || []), ...(specialist.expertise.secondary || [])];
-          const expertiseMatches = allExpertise.filter(area => 
-            targetExpertise.some(targetExp => 
-              area.toLowerCase().includes(targetExp.toLowerCase()) || 
-              targetExp.toLowerCase().includes(area.toLowerCase())
-            )
-          ).length;
-          score += expertiseMatches * 2; // Each expertise match is worth 2 points
-        }
+      // Extract specialist IDs from suggestions
+      const specialistIds = suggestions.map(suggestion => suggestion.specialist.specialist_id);
 
-        // Score based on domains
-        if (specialist.domains) {
-          const domainMatches = specialist.domains.filter(domain => 
-            targetExpertise.some(targetExp => 
-              domain.toLowerCase().includes(targetExp.toLowerCase()) ||
-              targetExp.toLowerCase().includes(domain.toLowerCase())
-            )
-          ).length;
-          score += domainMatches;
-        }
-
-        // Boost score for certain specialists based on role
-        if (specialist.role) {
-          const roleBoosts: Record<string, string[]> = {
-            'architecture': ['Planning & Design', 'Solution Design'],
-            'performance': ['Troubleshooting', 'Performance'],
-            'security': ['Security'],
-            'testing': ['Quality & Testing', 'Testing'],
-            'documentation': ['Documentation'],
-            'mentoring': ['Teaching', 'Learning'],
-            'error-handling': ['Error Handling', 'Exception Management']
-          };
-
-          targetExpertise.forEach(expertise => {
-            const relevantRoles = roleBoosts[expertise] || [];
-            if (relevantRoles.some(role => specialist.role.includes(role))) {
-              score += 1; // Role match bonus
-            }
-          });
-        }
-
-        return { specialist_id: specialist.specialist_id, score };
-      });
-
-      // Sort by score and take top specialists
-      const sortedSpecialists = specialistScores
-        .filter(item => item.score > 0)
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 8) // Take top 8 specialists max
-        .map(item => item.specialist_id);
-
-      // Ensure we have some specialists even if scoring fails
-      if (sortedSpecialists.length === 0) {
-        // Fallback to core specialists - but check they exist first
-        const coreSpecialists = allSpecialists
-          .slice(0, 6)
-          .map(s => s.specialist_id);
-        return coreSpecialists;
+      // Ensure we have at least some specialists
+      if (specialistIds.length === 0) {
+        // Fallback to basic set that should exist
+        return ['alex-architect', 'sam-coder', 'quinn-tester'];
       }
 
-      return sortedSpecialists;
+      return specialistIds;
     } catch (error) {
       console.error('Error discovering workflow specialists:', error);
       // Fallback to basic set that should exist
-      return ['alex-architect', 'sam-coder', 'dean-debug', 'eva-errors', 'roger-reviewer', 'quinn-tester'];
+      return ['alex-architect', 'sam-coder', 'quinn-tester'];
     }
   }
 

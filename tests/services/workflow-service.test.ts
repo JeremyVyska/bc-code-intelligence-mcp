@@ -10,7 +10,8 @@ const mockKnowledgeService = {
 
 const mockMethodologyService = {
   startWorkflow: vi.fn(),
-  getWorkflowStatus: vi.fn()
+  getWorkflowStatus: vi.fn(),
+  loadMethodology: vi.fn()
 };
 
 const mockSpecialistDiscovery = {
@@ -37,6 +38,14 @@ describe('WorkflowService', () => {
       { specialist_id: 'roger-reviewer', title: 'Code Reviewer', expertise: { primary: ['code-review'], secondary: [] }, domains: [] },
       { specialist_id: 'quinn-tester', title: 'Tester', expertise: { primary: ['testing'], secondary: [] }, domains: [] }
     ]);
+
+    mockSpecialistDiscovery.suggestSpecialists.mockResolvedValue([
+      { specialist: { specialist_id: 'alex-architect' }, confidence: 0.9, reasons: ['Architecture match'], keywords_matched: ['architecture'] },
+      { specialist: { specialist_id: 'sam-coder' }, confidence: 0.8, reasons: ['Implementation match'], keywords_matched: ['implementation'] },
+      { specialist: { specialist_id: 'quinn-tester' }, confidence: 0.7, reasons: ['Testing match'], keywords_matched: ['testing'] }
+    ]);
+
+    mockMethodologyService.loadMethodology.mockResolvedValue({ session_id: 'test-session' });
 
     workflowService = new WorkflowService(
       mockKnowledgeService as any,
@@ -230,7 +239,7 @@ describe('WorkflowService', () => {
 
   describe('Error Handling', () => {
     it('should handle methodology service failures', async () => {
-      mockMethodologyService.startWorkflow.mockRejectedValue(new Error('Methodology service error'));
+      mockMethodologyService.loadMethodology.mockRejectedValue(new Error('Methodology service error'));
 
       const request: WorkflowStartRequest = {
         workflow_type: 'new-bc-app',

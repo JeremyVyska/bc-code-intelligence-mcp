@@ -161,7 +161,7 @@ describe('CodeAnalysisService', () => {
       });
 
       // Should only load patterns once due to caching
-      expect(mockKnowledgeService.findTopicsByType).toHaveBeenCalledTimes(2); // Called once per analyze
+      expect(mockKnowledgeService.findTopicsByType).toHaveBeenCalledTimes(1); // Should be called only once, second call uses cache
     });
   });
 

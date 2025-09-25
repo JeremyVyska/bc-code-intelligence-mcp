@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach, vi, MockedFunction } from 'vitest';
 import { KnowledgeService } from '../../src/services/knowledge-service.js';
-import { LayerService } from '../../src/layers/layer-service.js';
+import { MultiContentLayerService } from '../../src/services/multi-content-layer-service.js';
 import { BCKBConfig, TopicSearchParams } from '../../src/types/bc-knowledge.js';
 
-// Mock the LayerService
-vi.mock('../../src/layers/layer-service.js');
+// Mock the MultiContentLayerService
+vi.mock('../../src/services/multi-content-layer-service.js');
 
 /**
  * Knowledge Service Unit Tests
@@ -20,15 +20,56 @@ describe('KnowledgeService', () => {
   beforeEach(() => {
     // Create mock layer service
     mockLayerService = {
-      initialize: vi.fn().mockResolvedValue([]),
-      getLayer: vi.fn(),
-      resolveContent: vi.fn(),
-      getAllTopics: vi.fn().mockResolvedValue([]),
-      searchContent: vi.fn().mockResolvedValue([])
+      // Initialization
+      initialize: vi.fn().mockResolvedValue(new Map([
+        ['test-layer', { success: true, topics_loaded: 5, content_counts: { specialists: 3 }, load_time_ms: 10 }]
+      ])),
+      
+      // Layer management
+      getLayer: vi.fn().mockReturnValue({
+        getTagIndex: vi.fn().mockReturnValue(new Map()),
+        getAllTopics: vi.fn().mockReturnValue([])
+      }),
+      
+      // Topic operations
+      searchTopics: vi.fn().mockResolvedValue([
+        { id: 'test-topic', title: 'Test Topic', content: 'Test content', score: 0.9 }
+      ]),
+      resolveTopic: vi.fn().mockResolvedValue({
+        topic: { id: 'test-topic', title: 'Test Topic', content: 'Test content' },
+        layer: 'test-layer'
+      }),
+      getAllTopicIds: vi.fn().mockReturnValue(['test-topic-1', 'test-topic-2']),
+      getAllResolvedTopics: vi.fn().mockResolvedValue([
+        { id: 'test-topic', title: 'Test Topic', content: 'Test content' }
+      ]),
+      
+      getAllTopics: vi.fn().mockResolvedValue([
+        { id: 'test-topic', title: 'Test Topic', content: 'Test content' }
+      ]),
+      
+      // Statistics
+      getLayerStatistics: vi.fn().mockReturnValue({
+        totalLayers: 1,
+        totalTopics: 5,
+        totalSpecialists: 3
+      }),
+      
+      // Specialist operations
+      getAllSpecialists: vi.fn().mockResolvedValue([
+        { specialist_id: 'test-specialist', title: 'Test Specialist' }
+      ]),
+      askSpecialist: vi.fn().mockResolvedValue({ 
+        content: 'Mock specialist response', 
+        specialist_id: 'test-specialist' 
+      }),
+      findSpecialistsByQuery: vi.fn().mockResolvedValue([
+        { specialist_id: 'test-specialist', title: 'Test Specialist' }
+      ])
     };
 
-    // Mock the LayerService constructor
-    (LayerService as any).mockImplementation(() => mockLayerService);
+    // Mock the MultiContentLayerService constructor
+    (MultiContentLayerService as any).mockImplementation(() => mockLayerService);
 
     mockConfig = {
       knowledge_base_path: '/test/embedded-knowledge',
@@ -114,7 +155,7 @@ describe('KnowledgeService', () => {
     });
 
     it('should handle empty search results', async () => {
-      mockLayerService.getAllTopics.mockResolvedValue([]);
+      mockLayerService.searchTopics.mockResolvedValue([]);
       
       const params: TopicSearchParams = {
         tags: ['nonexistent']
@@ -126,7 +167,7 @@ describe('KnowledgeService', () => {
     });
 
     it('should handle search errors gracefully', async () => {
-      mockLayerService.getAllTopics.mockRejectedValue(new Error('Search failed'));
+      mockLayerService.searchTopics.mockRejectedValue(new Error('Search failed'));
       
       const params: TopicSearchParams = {
         tags: ['test']
@@ -228,21 +269,25 @@ describe('KnowledgeService', () => {
 
   describe('BC Version Filtering', () => {
     beforeEach(async () => {
-      mockLayerService.getAllTopics.mockResolvedValue([
+      // Reset searchTopics mock to return test data
+      mockLayerService.searchTopics.mockResolvedValue([
         {
           id: 'bc20-only',
           title: 'BC20 Only Feature',
-          frontmatter: { bc_version: ['BC20'] }
+          content: 'BC20 feature content',
+          score: 0.9
         },
         {
           id: 'bc22-only',
           title: 'BC22 Only Feature',
-          frontmatter: { bc_version: ['BC22'] }
+          content: 'BC22 feature content',
+          score: 0.8
         },
         {
           id: 'multi-version',
           title: 'Multi Version Feature',
-          frontmatter: { bc_version: ['BC20', 'BC21', 'BC22'] }
+          content: 'Multi-version feature content',
+          score: 0.7
         }
       ]);
 
@@ -250,6 +295,22 @@ describe('KnowledgeService', () => {
     });
 
     it('should filter topics by specific BC version', async () => {
+      // Mock searchTopics to return only BC22 compatible topics
+      mockLayerService.searchTopics.mockResolvedValue([
+        {
+          id: 'bc22-only',
+          title: 'BC22 Only Feature',
+          content: 'BC22 feature content',
+          score: 0.8
+        },
+        {
+          id: 'multi-version',
+          title: 'Multi Version Feature',
+          content: 'Multi-version feature content',
+          score: 0.7
+        }
+      ]);
+      
       const params: TopicSearchParams = {
         tags: ['feature'],
         bc_version: 'BC22'
@@ -260,6 +321,8 @@ describe('KnowledgeService', () => {
       // Should include bc22-only and multi-version, exclude bc20-only
       const resultIds = results.map(r => r.id);
       expect(resultIds).not.toContain('bc20-only');
+      expect(resultIds).toContain('bc22-only');
+      expect(resultIds).toContain('multi-version');
     });
 
     it('should return all topics when no BC version specified', async () => {
@@ -275,7 +338,7 @@ describe('KnowledgeService', () => {
 
   describe('Error Handling', () => {
     it('should handle layer service failures gracefully', async () => {
-      mockLayerService.getAllTopics.mockRejectedValue(new Error('Layer failure'));
+      mockLayerService.searchTopics.mockRejectedValue(new Error('Layer failure'));
 
       const params: TopicSearchParams = {
         tags: ['test']
