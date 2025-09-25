@@ -10,16 +10,15 @@ import { SpecialistDefinition } from './specialist-loader.js';
 
 export type WorkflowType = 
   | 'new-bc-app'
-  | 'enhance-bc-app' 
+  | 'enhance-bc-app'
   | 'upgrade-bc-version'
   | 'add-ecosystem-features'
   | 'debug-bc-issues'
   | 'document-bc-solution'
   | 'modernize-bc-code'
   | 'onboard-developer'
-  | 'review-bc-code';
-
-export interface WorkflowStartRequest {
+  | 'review-bc-code'
+  | 'app_takeover';export interface WorkflowStartRequest {
   workflow_type: WorkflowType;
   project_context: string;
   bc_version?: string;
@@ -168,6 +167,10 @@ export class WorkflowService {
     
     if (!pipeline) {
       throw new Error(`Unknown workflow type: ${request.workflow_type}`);
+    }
+    
+    if (!pipeline.phases || pipeline.phases.length === 0) {
+      throw new Error(`No phases defined for workflow type: ${request.workflow_type}`);
     }
 
     // Discover specialists dynamically based on workflow type
@@ -360,7 +363,8 @@ Phase ${status.session.current_phase + 1} of ${status.session.specialist_pipelin
         'onboard-developer': ['mentoring', 'best-practices', 'education'],
         'upgrade-bc-version': ['architecture', 'performance', 'error-handling', 'testing'],
         'add-ecosystem-features': ['integration', 'api-design', 'security'],
-        'document-bc-solution': ['documentation', 'architecture']
+        'document-bc-solution': ['documentation', 'architecture'],
+        'app_takeover': ['architecture', 'legacy-migration', 'implementation', 'security', 'testing', 'documentation']
       };
 
       const targetExpertise = workflowExpertiseMap[workflowType] || [];
@@ -498,7 +502,19 @@ Phase ${status.session.current_phase + 1} of ${status.session.specialist_pipelin
       },
       'upgrade-bc-version': { specialists: [], phases: [] },
       'add-ecosystem-features': { specialists: [], phases: [] },
-      'document-bc-solution': { specialists: [], phases: [] }
+      'document-bc-solution': { specialists: [], phases: [] },
+      'app_takeover': {
+        specialists: [], // Will be populated dynamically
+        phases: [
+          { methodology_id: 'analysis-legacy', title: 'Legacy App Analysis', description: 'Understanding existing application structure and technical debt' },
+          { methodology_id: 'architecture-migration', title: 'Migration Architecture', description: 'Planning the migration strategy and new architecture' },
+          { methodology_id: 'coding-refactor', title: 'Code Refactoring', description: 'Modernizing existing code and implementing new patterns' },
+          { methodology_id: 'error-migration', title: 'Error Handling Upgrade', description: 'Improving error handling and defensive programming' },
+          { methodology_id: 'verification-takeover', title: 'Takeover Review', description: 'Code quality assessment for the taken over application' },
+          { methodology_id: 'testing-migration', title: 'Migration Testing', description: 'Testing the migration and ensuring functionality preservation' },
+          { methodology_id: 'documentation-takeover', title: 'Documentation Update', description: 'Updating documentation for the migrated application' }
+        ]
+      }
     };
   }
 

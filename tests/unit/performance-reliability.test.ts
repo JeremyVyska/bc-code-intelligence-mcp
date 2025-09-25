@@ -23,7 +23,11 @@ describe('Performance and Reliability Tests', () => {
           await new Promise(resolve => setTimeout(resolve, 15));
           return { content: 'Topic content' };
         }),
-        findSpecialists: vi.fn().mockResolvedValue([]),
+        findSpecialistsByQuery: vi.fn().mockResolvedValue([]),
+        askSpecialist: vi.fn().mockImplementation(async () => {
+          await new Promise(resolve => setTimeout(resolve, 50)); // 50ms delay
+          return { specialist: { id: 'test', name: 'Test' }, response: 'Test response' };
+        }),
         searchWorkflows: vi.fn().mockResolvedValue([])
       },
       methodologyService: {

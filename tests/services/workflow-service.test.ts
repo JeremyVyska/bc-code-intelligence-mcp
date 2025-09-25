@@ -4,7 +4,8 @@ import { WorkflowService, WorkflowType, WorkflowStartRequest } from '../../src/s
 // Mock dependencies
 const mockKnowledgeService = {
   searchTopics: vi.fn(),
-  initialize: vi.fn()
+  initialize: vi.fn(),
+  getAllSpecialists: vi.fn()
 };
 
 const mockMethodologyService = {
@@ -27,6 +28,16 @@ describe('WorkflowService', () => {
   let workflowService: WorkflowService;
 
   beforeEach(() => {
+    // Setup mock return values
+    mockKnowledgeService.getAllSpecialists.mockResolvedValue([
+      { specialist_id: 'alex-architect', title: 'BC Architect', expertise: { primary: ['architecture'], secondary: [] }, domains: [] },
+      { specialist_id: 'sam-coder', title: 'BC Developer', expertise: { primary: ['implementation'], secondary: [] }, domains: [] },
+      { specialist_id: 'dean-debug', title: 'BC Debugger', expertise: { primary: ['debugging'], secondary: [] }, domains: [] },
+      { specialist_id: 'eva-errors', title: 'Error Handler', expertise: { primary: ['error-handling'], secondary: [] }, domains: [] },
+      { specialist_id: 'roger-reviewer', title: 'Code Reviewer', expertise: { primary: ['code-review'], secondary: [] }, domains: [] },
+      { specialist_id: 'quinn-tester', title: 'Tester', expertise: { primary: ['testing'], secondary: [] }, domains: [] }
+    ]);
+
     workflowService = new WorkflowService(
       mockKnowledgeService as any,
       mockMethodologyService as any,

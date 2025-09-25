@@ -6,7 +6,7 @@ import {
   isDomainMatch,
   getDomainList
 } from '../types/bc-knowledge.js';
-import { LayerService } from '../layers/layer-service.js';
+import { MultiContentLayerService } from '../services/multi-content-layer-service.js';
 import { LayerResolutionResult } from '../types/layer-types.js';
 import { SpecialistDefinition } from './specialist-loader.js';
 import { SpecialistDiscoveryService } from './specialist-discovery.js';
@@ -20,7 +20,7 @@ import { SpecialistResponse } from '../types/roleplay-types.js';
  * and relationship traversal with support for project overrides.
  */
 export class KnowledgeService {
-  private layerService: LayerService;
+  private layerService: MultiContentLayerService;
   private initialized = false;
 
   constructor(private config: BCKBConfig) {
@@ -31,7 +31,8 @@ export class KnowledgeService {
       : config.knowledge_base_path.replace(/\/knowledge-base$/, '/embedded-knowledge');
 
     console.error(`🔧 Using embedded path: ${embeddedPath}`);
-    this.layerService = new LayerService(embeddedPath, './bckb-overrides');
+    // MultiContentLayerService uses default specialist resolution strategy
+    this.layerService = new MultiContentLayerService();
   }
 
   /**
@@ -48,18 +49,20 @@ export class KnowledgeService {
 
       this.initialized = true;
 
-      // Log initialization results
-      const successfulLayers = layerResults.filter(r => r.success);
-      const totalTopics = successfulLayers.reduce((sum, r) => sum + r.topicsLoaded, 0);
+      // Log initialization results - handle Map instead of array
+      const layerResultsArray = Array.from(layerResults.entries());
+      const successfulLayers = layerResultsArray.filter(([_, r]) => r.success);
+      const totalTopics = successfulLayers.reduce((sum, [_, r]) => sum + (r.topics_loaded || 0), 0);
 
-      console.error(`✅ Knowledge Service initialized with ${successfulLayers.length}/${layerResults.length} layers and ${totalTopics} total topics`);
+      console.error(`✅ Knowledge Service initialized with ${successfulLayers.length}/${layerResultsArray.length} layers and ${totalTopics} total topics`);
 
       // Log layer details
-      for (const result of layerResults) {
+      for (const [layerName, result] of layerResultsArray) {
         if (result.success) {
-          console.error(`  📚 ${result.layerName}: ${result.topicsLoaded} topics, ${result.indexesLoaded} indexes (${result.loadTimeMs}ms)`);
+          const specialistCount = result.content_counts?.specialists || 0;
+          console.error(`  📚 ${layerName}: ${result.topics_loaded || 0} topics, ${specialistCount} specialists (${result.load_time_ms || 0}ms)`);
         } else {
-          console.error(`  ❌ ${result.layerName}: Failed - ${result.error}`);
+          console.error(`  ❌ ${layerName}: Failed - ${result.error || 'Unknown error'}`);
         }
       }
 
@@ -375,21 +378,42 @@ export class KnowledgeService {
    * Get all available specialists
    */
   /**
-   * Get all available specialists
-   * Now delegates to the embedded layer for modern specialist definitions
+   * Get all available specialists (delegates to MultiContentLayerService)
    */
   async getAllSpecialists(): Promise<SpecialistDefinition[]> {
     if (!this.initialized) {
       await this.initialize();
     }
     
-    const embeddedLayer = this.layerService.getLayer('embedded');
-    if (embeddedLayer && 'getAllSpecialists' in embeddedLayer) {
-      return (embeddedLayer as any).getAllSpecialists();
+    // Delegate to the MultiContentLayerService which has specialist capabilities
+    return await this.layerService.getAllSpecialists();
+  }
+
+  /**
+   * Ask a specialist a question (delegates to MultiContentLayerService)
+   */
+  async askSpecialist(question: string, preferredSpecialist?: string): Promise<any> {
+    if (!this.initialized) {
+      await this.initialize();
     }
     
-    return [];
+    // Delegate to the MultiContentLayerService which has specialist capabilities
+    return await this.layerService.askSpecialist(question, preferredSpecialist);
   }
+
+  /**
+   * Find specialists by query (delegates to MultiContentLayerService)
+   */
+  async findSpecialistsByQuery(query: string): Promise<any[]> {
+    if (!this.initialized) {
+      await this.initialize();
+    }
+    
+    // Delegate to the MultiContentLayerService which has specialist capabilities
+    return await this.layerService.findSpecialistsByQuery(query);
+  }
+
+
 
   /**
    * Get specialists by expertise area
@@ -400,26 +424,6 @@ export class KnowledgeService {
     return this.personaRegistry.getSpecialistsByExpertise(expertiseArea);
   }
   */
-
-  /**
-   * Find specialists by search query
-   */
-  async findSpecialistsByQuery(query: string): Promise<SpecialistDefinition[]> {
-    if (!this.initialized) {
-      await this.initialize();
-    }
-
-    const allSpecialists = await this.getAllSpecialists();
-    const queryLower = query.toLowerCase();
-
-    return allSpecialists.filter(specialist => {
-      return specialist.title.toLowerCase().includes(queryLower) ||
-             specialist.specialist_id.toLowerCase().includes(queryLower) ||
-             specialist.expertise.primary.some(area => area.toLowerCase().includes(queryLower)) ||
-             specialist.expertise.secondary.some(area => area.toLowerCase().includes(queryLower)) ||
-             specialist.domains.some(domain => domain.toLowerCase().includes(queryLower));
-    });
-  }
 
   /**
    * Generate consultation content from specialist

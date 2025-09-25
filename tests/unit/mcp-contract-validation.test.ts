@@ -22,19 +22,22 @@ describe('MCP Tool Contract Validation', () => {
         searchTopics: vi.fn().mockResolvedValue([]),
         getTopicContent: vi.fn().mockResolvedValue({}),
         findSpecialists: vi.fn().mockResolvedValue([]),
-        searchWorkflows: vi.fn().mockResolvedValue([])
+        searchWorkflows: vi.fn().mockResolvedValue([]),
+        askSpecialist: vi.fn().mockResolvedValue({ specialist: 'test', response: 'mock response' }),
+        findSpecialistsByQuery: vi.fn().mockResolvedValue([])
       },
       methodologyService: {
         startWorkflow: vi.fn().mockResolvedValue({}),
         getWorkflowStatus: vi.fn().mockResolvedValue({}),
-        advanceWorkflow: vi.fn().mockResolvedValue({})
+        advanceWorkflow: vi.fn().mockResolvedValue({}),
+        findWorkflowsByQuery: vi.fn().mockResolvedValue([])
       },
       codeAnalysisService: {
         analyzeCode: vi.fn().mockResolvedValue({}),
         validatePerformance: vi.fn().mockResolvedValue({})
       },
       workflowService: {
-        getWorkflowTypes: vi.fn().mockReturnValue(['app_takeover', 'bug_investigation', 'spec_analysis']),
+        getWorkflowTypes: vi.fn().mockReturnValue(['new-bc-app', 'enhance-bc-app', 'review-bc-code', 'debug-bc-issues', 'modernize-bc-code', 'onboard-developer', 'upgrade-bc-version', 'add-ecosystem-features', 'document-bc-solution']),
         startWorkflow: vi.fn().mockResolvedValue({})
       },
       layerService: {

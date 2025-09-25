@@ -22,9 +22,13 @@ describe('Individual MCP Tool Tests', () => {
           content: 'Test content',
           metadata: {}
         }),
-        findSpecialists: vi.fn().mockResolvedValue([
+        findSpecialistsByQuery: vi.fn().mockResolvedValue([
           { id: 'sam-coder', name: 'Sam Coder', expertise: ['coding'] }
         ]),
+        askSpecialist: vi.fn().mockResolvedValue({
+          specialist: { id: 'sam-coder', name: 'Sam Coder' },
+          response: 'Test specialist response'
+        }),
         searchWorkflows: vi.fn().mockResolvedValue([
           { id: 'test-workflow', name: 'Test Workflow' }
         ])
@@ -66,6 +70,11 @@ describe('Individual MCP Tool Tests', () => {
         getWorkflow: vi.fn().mockResolvedValue({
           id: 'workflow-123',
           steps: []
+        }),
+        advancePhase: vi.fn().mockResolvedValue({
+          workflow_id: 'workflow-123',
+          status: 'advanced',
+          next_phase: 2
         })
       },
       layerService: {
@@ -98,9 +107,9 @@ describe('Individual MCP Tool Tests', () => {
       expect(result.content).toBeDefined();
       expect(mockServices.knowledgeService.searchTopics).toHaveBeenCalledWith(
         expect.objectContaining({
-          query: 'posting routines'
-        }),
-        5
+          query: 'posting routines',
+          limit: 5
+        })
       );
     });
 
@@ -111,7 +120,7 @@ describe('Individual MCP Tool Tests', () => {
       });
 
       expect(result).toBeDefined();
-      expect(mockServices.knowledgeService.findSpecialists).toHaveBeenCalled();
+      expect(mockServices.knowledgeService.findSpecialistsByQuery).toHaveBeenCalled();
     });
 
     it('should handle missing query parameter', async () => {
@@ -160,9 +169,9 @@ describe('Individual MCP Tool Tests', () => {
 
       expect(result).toBeDefined();
       expect(mockServices.workflowService.startWorkflow).toHaveBeenCalledWith(
-        'app_takeover',
         expect.objectContaining({
-          context: 'Taking over legacy BC app'
+          workflow_type: 'app_takeover',
+          project_context: 'Taking over legacy BC app'
         })
       );
     });
@@ -193,7 +202,7 @@ describe('Individual MCP Tool Tests', () => {
       });
 
       expect(result).toBeDefined();
-      expect(mockServices.methodologyService.advanceWorkflow).toHaveBeenCalled();
+      expect(mockServices.workflowService.advancePhase).toHaveBeenCalled();
     });
 
     it('should handle missing workflow_id', async () => {
@@ -211,7 +220,7 @@ describe('Individual MCP Tool Tests', () => {
       });
 
       expect(result).toBeDefined();
-      expect(mockServices.methodologyService.getWorkflowStatus).toHaveBeenCalledWith(
+      expect(mockServices.workflowService.getWorkflow).toHaveBeenCalledWith(
         'test-workflow-id'
       );
     });

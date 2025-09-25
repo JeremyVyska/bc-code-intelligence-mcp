@@ -8,7 +8,7 @@
 import { watch, FSWatcher } from 'chokidar';
 import { readFile, stat } from 'fs/promises';
 import { EventEmitter } from 'events';
-import { LayerService } from '../layers/layer-service.js';
+import { MultiContentLayerService } from '../services/multi-content-layer-service.js';
 import { ConfigurationLoader } from '../config/config-loader.js';
 import { BCCodeIntelConfiguration } from '../types/index.js';
 
@@ -30,7 +30,7 @@ export interface DevServerStats {
 
 export class HotReloadSystem extends EventEmitter {
   private watchers: FSWatcher[] = [];
-  private layerService?: LayerService;
+  private layerService?: MultiContentLayerService;
   private configLoader?: ConfigurationLoader;
   private currentConfig?: BCCodeIntelConfiguration;
   private reloadCount = 0;
@@ -54,7 +54,7 @@ export class HotReloadSystem extends EventEmitter {
   /**
    * Initialize hot reload with layer service and config loader
    */
-  async initialize(layerService: LayerService, configLoader: ConfigurationLoader): Promise<void> {
+  async initialize(layerService: MultiContentLayerService, configLoader: ConfigurationLoader): Promise<void> {
     if (!this.enabled) {
       console.log('⏭️  Hot reload disabled, skipping initialization');
       return;

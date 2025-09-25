@@ -19,7 +19,6 @@ import { KnowledgeService } from './services/knowledge-service.js';
 import { CodeAnalysisService } from './services/code-analysis-service.js';
 import { MethodologyService } from './services/methodology-service.js';
 import { WorkflowService } from './services/workflow-service.js';
-import { LayerService } from './layers/layer-service.js';
 import { getDomainList } from './types/bc-knowledge.js';
 import { MultiContentLayerService } from './services/multi-content-layer-service.js';
 import { SpecialistSessionManager } from './services/specialist-session-manager.js';
@@ -58,8 +57,7 @@ class BCCodeIntelligenceServer {
   private codeAnalysisService!: CodeAnalysisService;
   private methodologyService!: MethodologyService;
   private workflowService!: WorkflowService;
-  private layerService!: LayerService;
-  private multiContentLayerService!: MultiContentLayerService;
+  private layerService!: MultiContentLayerService;
   private specialistSessionManager!: SpecialistSessionManager;
   private specialistTools!: SpecialistTools;
   private specialistDiscoveryService!: SpecialistDiscoveryService;
@@ -493,14 +491,12 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
     this.configuration = configResult.config;
 
     // Initialize layer service with configuration
-    this.layerService = new LayerService();
-    await this.layerService.initializeFromConfiguration(this.configuration);
+    this.layerService = new MultiContentLayerService();
 
     // Report layer-by-layer counts
-    const layers = this.layerService.getLayers();
+    const layerStats = this.layerService.getStatistics();
     let totalTopics = 0;
-    for (const layer of layers) {
-      const stats = layer.getStatistics();
+    for (const stats of layerStats) {
       console.error(`📁 Layer '${stats.name}': ${stats.topicCount} topics`);
       totalTopics += stats.topicCount;
     }
@@ -527,35 +523,35 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
     this.methodologyService = new MethodologyService(this.knowledgeService, legacyConfig.methodologies_path);
     
     // Initialize specialist services using a dedicated MultiContentLayerService
-    this.multiContentLayerService = new MultiContentLayerService();
+    this.layerService = new MultiContentLayerService();
     
     // Add embedded layer for specialists
     const embeddedPath = join(__dirname, '../embedded-knowledge');
     const { EmbeddedKnowledgeLayer } = await import('./layers/embedded-layer.js');
     const embeddedLayer = new EmbeddedKnowledgeLayer(embeddedPath);
     
-    this.multiContentLayerService.addLayer(embeddedLayer as any); // Cast to avoid type issues
-    await this.multiContentLayerService.initialize();
+    this.layerService.addLayer(embeddedLayer as any); // Cast to avoid type issues
+    await this.layerService.initialize();
     
     // Get session storage configuration from layer service
     const sessionStorageConfig = this.layerService.getSessionStorageConfig();
     
     this.specialistSessionManager = new SpecialistSessionManager(
-      this.multiContentLayerService, 
+      this.layerService, 
       sessionStorageConfig
     );
     this.specialistTools = new SpecialistTools(
-      this.multiContentLayerService, 
+      this.layerService, 
       this.specialistSessionManager,
       this.knowledgeService
     );
     
     // Initialize specialist discovery service and tools
-    this.specialistDiscoveryService = new SpecialistDiscoveryService(this.multiContentLayerService);
+    this.specialistDiscoveryService = new SpecialistDiscoveryService(this.layerService);
     this.specialistDiscoveryTools = new SpecialistDiscoveryTools(
       this.specialistDiscoveryService,
       this.specialistSessionManager,
-      this.multiContentLayerService
+      this.layerService
     );
     
     // Initialize enhanced prompt service for specialist routing
@@ -568,22 +564,22 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
     // Initialize agent onboarding service for natural specialist introduction
     this.agentOnboardingService = new AgentOnboardingService(
       this.specialistDiscoveryService,
-      this.multiContentLayerService
+      this.layerService
     );
     
     // Initialize specialist handoff service for seamless transitions
     this.specialistHandoffService = new SpecialistHandoffService(
       this.specialistSessionManager,
       this.specialistDiscoveryService,
-      this.multiContentLayerService
+      this.layerService
     );
     
     // Initialize workflow service with specialist discovery
-    const specialistDiscoveryService = new SpecialistDiscoveryService(this.multiContentLayerService);
+    const specialistDiscoveryService = new SpecialistDiscoveryService(this.layerService);
     this.workflowService = new WorkflowService(this.knowledgeService, this.methodologyService, specialistDiscoveryService);
 
     // Report final totals
-    const specialists = await this.multiContentLayerService.getAllSpecialists();
+    const specialists = await this.layerService.getAllSpecialists();
     console.error(`📊 Total: ${totalTopics} topics, ${specialists.length} specialists`);
     
     // Validate tool contracts at startup
@@ -709,35 +705,36 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
    */
   private generateLayerPerformanceAnalytics(): any {
     const layerStats = this.layerService.getLayerStatistics();
-    const layers = this.layerService.getLayers();
+    const layerMetrics = this.layerService.getStatistics();
 
-    const layerMetrics = layers.map(layer => {
-      const stats = layer.getStatistics();
+    const formattedMetrics = layerMetrics.map(stats => {
       return {
-        name: layer.name,
-        priority: layer.priority,
-        enabled: layer.enabled,
+        name: stats.name,
+        priority: stats.priority,
+        enabled: stats.enabled,
         topic_count: stats.topicCount,
         index_count: stats.indexCount,
         memory_usage_mb: stats.memoryUsage?.total ? (stats.memoryUsage.total / (1024 * 1024)).toFixed(2) : 'N/A',
-        load_time_ms: stats.loadTimeMs,
-        type: layer.constructor.name
+        load_time_ms: stats.loadTimeMs || 0,
+        type: 'MultiContentLayer'
       };
     });
 
+    const totalTopics = layerMetrics.reduce((sum, stats) => sum + stats.topicCount, 0);
+
     return {
       system_totals: {
-        total_layers: layerStats.total.layers,
-        total_topics: layerStats.total.totalTopics,
-        total_indexes: layerStats.total.totalIndexes,
-        total_memory_mb: layerStats.total.memoryUsage ? (layerStats.total.memoryUsage / (1024 * 1024)).toFixed(2) : 'N/A'
+        total_layers: layerMetrics.length,
+        total_topics: totalTopics,
+        total_indexes: layerMetrics.reduce((sum, stats) => sum + stats.indexCount, 0),
+        total_memory_mb: 'N/A' // Memory tracking not implemented in new system
       },
-      layer_metrics: layerMetrics,
+      layer_metrics: formattedMetrics,
       performance_insights: {
-        fastest_layer: layerMetrics.sort((a, b) => (a.load_time_ms || 0) - (b.load_time_ms || 0))[0]?.name || 'N/A',
-        most_topics: layerMetrics.sort((a, b) => b.topic_count - a.topic_count)[0]?.name || 'N/A',
+        fastest_layer: formattedMetrics.sort((a, b) => a.load_time_ms - b.load_time_ms)[0]?.name || 'N/A',
+        most_topics: formattedMetrics.sort((a, b) => b.topic_count - a.topic_count)[0]?.name || 'N/A',
         layer_efficiency: layerMetrics.length > 0
-          ? (layerStats.total.totalTopics / layerMetrics.length).toFixed(1) + ' topics/layer avg'
+          ? (totalTopics / layerMetrics.length).toFixed(1) + ' topics/layer avg'
           : 'N/A'
       }
     };

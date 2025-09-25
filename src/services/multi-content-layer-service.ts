@@ -15,7 +15,7 @@ import {
   MultiLayerSpecialistResult,
   SpecialistResolutionStrategy
 } from '../types/enhanced-layer-types.js';
-import { AtomicTopic } from '../types/bc-knowledge.js';
+import { AtomicTopic, TopicSearchParams, TopicSearchResult } from '../types/bc-knowledge.js';
 import { SpecialistDefinition } from './specialist-loader.js';
 import { LayerPriority } from '../types/layer-types.js';
 
@@ -497,6 +497,455 @@ export class MultiContentLayerService {
 
   private clearCache(): void {
     this.contentCache.clear();
+  }
+
+  /**
+   * Search topics across all layers
+   */
+  async searchTopics(params: TopicSearchParams): Promise<TopicSearchResult[]> {
+    if (!this.initialized) {
+      await this.initialize();
+    }
+
+    const results: TopicSearchResult[] = [];
+    const limit = params.limit || 50;
+    
+    // Search across all layers in priority order
+    for (const layerName of this.layerPriorities) {
+      const layer = this.layers.get(layerName);
+      if (!layer) continue;
+
+      try {
+        // Get all topic IDs from this layer
+        const topicIds = layer.getContentIds('topics');
+        
+        // Load each topic and filter
+        for (const topicId of topicIds) {
+          const topic = await layer.getContent('topics', topicId);
+          if (topic && this.matchesSearchCriteria(topic, params)) {
+            const searchResult = this.topicToSearchResult(topic, this.calculateRelevanceScore(topic, params));
+            results.push(searchResult);
+            
+            // Stop if we have enough results
+            if (results.length >= limit) {
+              break;
+            }
+          }
+        }
+        
+        // Stop if we have enough results
+        if (results.length >= limit) {
+          break;
+        }
+      } catch (error) {
+        console.error(`Error searching topics in layer ${layerName}:`, error);
+        // Continue with other layers
+      }
+    }
+
+    // Sort by relevance score and apply limit
+    return results
+      .sort((a, b) => b.relevance_score - a.relevance_score)
+      .slice(0, limit);
+  }
+
+  /**
+   * Find specialists by query across all layers
+   */
+  async findSpecialistsByQuery(query: string): Promise<SpecialistDefinition[]> {
+    if (!this.initialized) {
+      await this.initialize();
+    }
+
+    const results: SpecialistDefinition[] = [];
+    const queryLower = query.toLowerCase();
+    
+    // Search across all layers in priority order
+    for (const layerName of this.layerPriorities) {
+      const layer = this.layers.get(layerName);
+      if (!layer || !layer.supported_content_types.includes('specialists')) {
+        continue;
+      }
+
+      try {
+        // Get all specialist IDs from this layer
+        const specialistIds = layer.getContentIds('specialists');
+        
+        // Load each specialist and check for matches
+        for (const specialistId of specialistIds) {
+          const specialist = await layer.getContent('specialists', specialistId);
+          if (specialist && this.matchesSpecialistQuery(specialist, queryLower)) {
+            results.push(specialist);
+          }
+        }
+      } catch (error) {
+        console.error(`Error searching specialists in layer ${layerName}:`, error);
+        // Continue with other layers
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * Check if specialist matches query
+   */
+  private matchesSpecialistQuery(specialist: SpecialistDefinition, queryLower: string): boolean {
+    const searchableFields = [
+      specialist.title,
+      specialist.role,
+      specialist.specialist_id,
+      ...(specialist.expertise?.primary || []),
+      ...(specialist.expertise?.secondary || []),
+      ...(specialist.domains || []),
+      ...(specialist.when_to_use || [])
+    ].filter(Boolean).map(field => field.toLowerCase());
+
+    return searchableFields.some(field => field.includes(queryLower));
+  }
+
+  /**
+   * Ask a specialist a question (simulated consultation)
+   */
+  async askSpecialist(question: string, preferredSpecialist?: string): Promise<any> {
+    if (!this.initialized) {
+      await this.initialize();
+    }
+
+    let specialist: SpecialistDefinition | null = null;
+
+    // Try to find the preferred specialist first
+    if (preferredSpecialist) {
+      specialist = await this.findSpecialistById(preferredSpecialist);
+    }
+
+    // If no preferred specialist or not found, find best match
+    if (!specialist) {
+      const specialists = await this.findSpecialistsByQuery(question);
+      specialist = specialists[0] || null;
+    }
+
+    if (!specialist) {
+      throw new Error('No suitable specialist found for this question');
+    }
+
+    // Return a consultation response
+    return {
+      specialist: {
+        id: specialist.specialist_id,
+        name: specialist.title,
+        role: specialist.role
+      },
+      response: `${specialist.title} would approach this question: "${question}" using their expertise in ${specialist.expertise?.primary?.join(', ') || 'general BC development'}.`,
+      consultation_guidance: specialist.content.substring(0, 200) + '...' || 'General BC development guidance',
+      follow_up_suggestions: specialist.related_specialists || []
+    };
+  }
+
+  /**
+   * Find specialist by ID across all layers
+   */
+  private async findSpecialistById(specialistId: string): Promise<SpecialistDefinition | null> {
+    for (const layerName of this.layerPriorities) {
+      const layer = this.layers.get(layerName);
+      if (!layer || !layer.supported_content_types.includes('specialists')) {
+        continue;
+      }
+
+      try {
+        if (layer.hasContent('specialists', specialistId)) {
+          return await layer.getContent('specialists', specialistId);
+        }
+      } catch (error) {
+        console.error(`Error finding specialist ${specialistId} in layer ${layerName}:`, error);
+        // Continue with other layers
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Check if topic matches search criteria
+   */
+  private matchesSearchCriteria(topic: AtomicTopic, params: TopicSearchParams): boolean {
+    // For text matching, we'll use a simple approach since there's no query param in TopicSearchParams
+    
+    // Domain filtering
+    if (params.domain) {
+      const topicDomains = Array.isArray(topic.frontmatter.domain) 
+        ? topic.frontmatter.domain 
+        : topic.frontmatter.domain ? [topic.frontmatter.domain] : [];
+      
+      if (!topicDomains.includes(params.domain)) {
+        return false;
+      }
+    }
+
+    // BC version filtering
+    if (params.bc_version && topic.frontmatter.bc_versions) {
+      // Simple version check - could be enhanced
+      if (!topic.frontmatter.bc_versions.includes(params.bc_version)) {
+        return false;
+      }
+    }
+
+    // Difficulty filtering
+    if (params.difficulty && topic.frontmatter.difficulty !== params.difficulty) {
+      return false;
+    }
+
+    // Tag filtering
+    if (params.tags && params.tags.length > 0) {
+      const topicTags = topic.frontmatter.tags || [];
+      if (!params.tags.some(tag => topicTags.includes(tag))) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  /**
+   * Calculate relevance score for topic
+   */
+  private calculateRelevanceScore(topic: AtomicTopic, params: TopicSearchParams): number {
+    let score = 1; // Base score
+
+    // Domain exact match bonus
+    if (params.domain) {
+      const topicDomains = Array.isArray(topic.frontmatter.domain) 
+        ? topic.frontmatter.domain 
+        : topic.frontmatter.domain ? [topic.frontmatter.domain] : [];
+      
+      if (topicDomains.includes(params.domain)) {
+        score += 5;
+      }
+    }
+
+    // BC version exact match bonus
+    if (params.bc_version && topic.frontmatter.bc_versions?.includes(params.bc_version)) {
+      score += 3;
+    }
+
+    // Difficulty match bonus
+    if (params.difficulty && topic.frontmatter.difficulty === params.difficulty) {
+      score += 2;
+    }
+
+    // Tag match bonus
+    if (params.tags && params.tags.length > 0) {
+      const topicTags = topic.frontmatter.tags || [];
+      const matchingTags = params.tags.filter(tag => topicTags.includes(tag));
+      score += matchingTags.length * 2;
+    }
+
+    return score;
+  }
+
+  /**
+   * Convert topic to search result
+   */
+  private topicToSearchResult(topic: AtomicTopic, relevanceScore: number): TopicSearchResult {
+    const primaryDomain = Array.isArray(topic.frontmatter.domain) 
+      ? topic.frontmatter.domain[0] 
+      : topic.frontmatter.domain || '';
+    
+    const allDomains = Array.isArray(topic.frontmatter.domain) 
+      ? topic.frontmatter.domain 
+      : topic.frontmatter.domain ? [topic.frontmatter.domain] : [];
+
+    return {
+      id: topic.id,
+      title: topic.title,
+      summary: topic.content.substring(0, 200) + '...', // First 200 chars as summary
+      domain: primaryDomain,
+      domains: allDomains,
+      difficulty: topic.frontmatter.difficulty || 'beginner',
+      relevance_score: relevanceScore,
+      tags: topic.frontmatter.tags || [],
+      prerequisites: topic.frontmatter.prerequisites || [],
+      estimated_time: topic.frontmatter.estimated_time
+    };
+  }
+
+  /**
+   * Get a specific layer by name (adapted from LayerService)
+   */
+  getLayer(layerName: string): MultiContentKnowledgeLayer | null {
+    return this.layers.get(layerName) || null;
+  }
+
+  /**
+   * Get all layers (adapted from LayerService)
+   */
+  getLayers(): MultiContentKnowledgeLayer[] {
+    return Array.from(this.layers.values());
+  }
+
+  /**
+   * Get all available topic IDs from all layers (adapted from LayerService)
+   */
+  getAllTopicIds(): string[] {
+    const topicIds = new Set<string>();
+
+    for (const layer of this.layers.values()) {
+      if ('getTopicIds' in layer) {
+        for (const topicId of layer.getTopicIds()) {
+          topicIds.add(topicId);
+        }
+      }
+    }
+
+    return Array.from(topicIds);
+  }
+
+  /**
+   * Resolve a topic with layer override logic (adapted from LayerService)
+   */
+  async resolveTopic(topicId: string): Promise<any | null> {
+    if (!this.initialized) {
+      await this.initialize();
+    }
+
+    // Find the highest priority layer that has this topic
+    let resolvedTopic: AtomicTopic | null = null;
+    let sourceLayer: string = '';
+
+    // Go through layers in priority order (highest first)
+    for (const layerName of this.layerPriorities) {
+      const layer = this.layers.get(layerName);
+      if (layer && 'getTopic' in layer) {
+        try {
+          const topic = await (layer as any).getTopic(topicId);
+          if (topic) {
+            resolvedTopic = topic;
+            sourceLayer = layerName;
+            break; // Highest priority wins
+          }
+        } catch (error) {
+          // Continue to next layer
+        }
+      }
+    }
+
+    if (resolvedTopic) {
+      return {
+        topic: resolvedTopic,
+        sourceLayer,
+        isOverride: false,
+        overriddenLayers: []
+      };
+    }
+
+    return null;
+  }
+
+  /**
+   * Get all resolved topics (adapted from LayerService)
+   */
+  async getAllResolvedTopics(): Promise<AtomicTopic[]> {
+    const allTopics: AtomicTopic[] = [];
+    const topicIds = this.getAllTopicIds();
+
+    for (const topicId of topicIds) {
+      const resolution = await this.resolveTopic(topicId);
+      if (resolution && resolution.topic) {
+        allTopics.push(resolution.topic);
+      }
+    }
+
+    return allTopics;
+  }
+
+  /**
+   * Get overridden topics statistics (adapted from LayerService)
+   */
+  getOverriddenTopics(): any {
+    // For now, return empty stats - can be enhanced later
+    return {
+      totalOverrides: 0,
+      overridesByLayer: {},
+      conflictResolutions: []
+    };
+  }
+
+  /**
+   * Get layer statistics - adapts new enhanced statistics to old LayerStatistics format
+   */
+  getStatistics(): Array<{
+    name: string;
+    priority: number;
+    enabled: boolean;
+    topicCount: number;
+    indexCount: number;
+    lastLoaded?: Date;
+    loadTimeMs?: number;
+    memoryUsage?: {
+      topics: number;
+      indexes: number;
+      total: number;
+    };
+  }> {
+    return Array.from(this.layers.values()).map(layer => {
+      const enhanced = layer.getEnhancedStatistics();
+      return {
+        name: enhanced.name,
+        priority: enhanced.priority,
+        enabled: layer.enabled,
+        topicCount: enhanced.content_counts.topics || 0,
+        indexCount: enhanced.content_counts.methodologies || 0, // Use methodologies as index equivalent
+        lastLoaded: enhanced.initialized ? new Date() : undefined,
+        loadTimeMs: enhanced.load_time_ms,
+        memoryUsage: {
+          topics: 0, // Memory estimation not available in new format
+          indexes: 0,
+          total: 0
+        }
+      };
+    });
+  }
+
+  /**
+   * Initialize from configuration (adapted from LayerService)
+   */
+  async initializeFromConfiguration(config: any): Promise<Map<string, EnhancedLayerLoadResult>> {
+    // For now, just call regular initialize
+    // This can be enhanced to handle configuration-based layer loading
+    return await this.initialize();
+  }
+
+  /**
+   * Get session storage configuration (adapted from LayerService)
+   */
+  getSessionStorageConfig(): any {
+    return {
+      enabled: false,
+      type: 'memory',
+      options: {}
+    };
+  }
+
+  /**
+   * Refresh cache (adapted from LayerService)
+   */
+  async refreshCache(): Promise<void> {
+    this.clearCache();
+    // Force re-initialization if needed
+    if (this.initialized) {
+      await this.initialize();
+    }
+  }
+
+  /**
+   * Get cache statistics (adapted from LayerService)
+   */
+  getCacheStats(): any {
+    return {
+      topicCacheSize: this.contentCache.size,
+      layerCount: this.layers.size,
+      totalMemoryUsage: 0 // Could be calculated if needed
+    };
   }
 
   /**

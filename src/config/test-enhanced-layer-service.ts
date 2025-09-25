@@ -4,7 +4,7 @@
  */
 
 import { ConfigurationLoader } from './config-loader.js';
-import { LayerService } from '../layers/layer-service.js';
+import { MultiContentLayerService } from '../services/multi-content-layer-service.js';
 import { LayerSourceType, AuthType } from '../types/index.js';
 
 async function testEnhancedLayerService(): Promise<void> {
@@ -44,7 +44,7 @@ async function testEnhancedLayerService(): Promise<void> {
 
     // 3. Create enhanced layer service
     console.log('🏗️  Creating enhanced layer service...');
-    const layerService = new LayerService();
+    const layerService = new MultiContentLayerService();
 
     // 4. Initialize from configuration
     console.log('🔄 Initializing layers from configuration...');
@@ -56,27 +56,27 @@ async function testEnhancedLayerService(): Promise<void> {
     let totalTopics = 0;
     let successfulLayers = 0;
 
-    for (const result of initResults) {
+    for (const [layerName, result] of initResults) {
       const status = result.success ? '✅' : '❌';
       console.log(`${status} ${result.layer_name}:`);
-      console.log(`   Type: ${result.source_info.type}`);
-      console.log(`   Location: ${result.source_info.location}`);
-      console.log(`   Topics: ${result.topics_loaded}`);
+      console.log(`   Layer: ${layerName}`);
+      console.log(`   Topics: ${result.content_counts.topics || 0}`);
+      console.log(`   Specialists: ${result.content_counts.specialists || 0}`);
       console.log(`   Load time: ${result.load_time_ms}ms`);
 
-      if (result.errors.length > 0) {
-        console.log(`   Errors: ${result.errors.join(', ')}`);
+      if (result.error) {
+        console.log(`   Error: ${result.error}`);
       }
 
       if (result.success) {
-        totalTopics += result.topics_loaded;
+        totalTopics += result.content_counts.topics || 0;
         successfulLayers++;
       }
       console.log();
     }
 
     console.log('📊 Summary:');
-    console.log(`   Successful layers: ${successfulLayers}/${initResults.length}`);
+    console.log(`   Successful layers: ${successfulLayers}/${initResults.size}`);
     console.log(`   Total topics loaded: ${totalTopics}`);
 
     // 5. Test topic resolution

@@ -8,7 +8,7 @@ export { BaseKnowledgeLayer } from './base-layer.js';
 export { EmbeddedKnowledgeLayer } from './embedded-layer.js';
 export { ProjectKnowledgeLayer } from './project-layer.js';
 export { GitKnowledgeLayer } from './git-layer.js';
-export { LayerService } from './layer-service.js';
+export { MultiContentLayerService } from '../services/multi-content-layer-service.js';
 
 export type {
   LayerPriority,
