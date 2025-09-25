@@ -135,8 +135,34 @@ export class WorkflowService {
 
   /**
    * Start a new BC development workflow
+   * Overloaded method to support both single object and two-parameter calling patterns
    */
-  async startWorkflow(request: WorkflowStartRequest): Promise<BCWorkflowSession> {
+  async startWorkflow(request: WorkflowStartRequest): Promise<BCWorkflowSession>;
+  async startWorkflow(workflowType: WorkflowType, context: { context: string; bc_version?: string; additional_context?: Record<string, any> }): Promise<BCWorkflowSession>;
+  async startWorkflow(
+    requestOrWorkflowType: WorkflowStartRequest | WorkflowType, 
+    contextObj?: { context: string; bc_version?: string; additional_context?: Record<string, any> }
+  ): Promise<BCWorkflowSession> {
+    // Handle two-parameter calling pattern
+    if (typeof requestOrWorkflowType === 'string' && contextObj) {
+      const request: WorkflowStartRequest = {
+        workflow_type: requestOrWorkflowType,
+        project_context: contextObj.context,
+        bc_version: contextObj.bc_version,
+        additional_context: contextObj.additional_context
+      };
+      return this.startWorkflowInternal(request);
+    }
+    
+    // Handle single-parameter calling pattern (existing)
+    if (typeof requestOrWorkflowType === 'object') {
+      return this.startWorkflowInternal(requestOrWorkflowType);
+    }
+    
+    throw new Error('Invalid parameters provided to startWorkflow');
+  }
+
+  private async startWorkflowInternal(request: WorkflowStartRequest): Promise<BCWorkflowSession> {
     const sessionId = this.generateSessionId();
     const pipeline = this.pipelineDefinitions[request.workflow_type];
     
