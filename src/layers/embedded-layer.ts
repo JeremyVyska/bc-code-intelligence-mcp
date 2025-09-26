@@ -16,11 +16,11 @@ import { AtomicTopic, AtomicTopicFrontmatterSchema } from '../types/bc-knowledge
 import { LayerPriority, LayerLoadResult } from '../types/layer-types.js';
 import { BaseKnowledgeLayer } from './base-layer.js';
 import { SpecialistDefinition } from '../services/specialist-loader.js';
-import { LayerContentType, EnhancedLayerLoadResult } from '../types/enhanced-layer-types.js';
+import { LayerContentType, EnhancedLayerLoadResult, MultiContentKnowledgeLayer } from '../types/enhanced-layer-types.js';
 
 export class EmbeddedKnowledgeLayer extends BaseKnowledgeLayer {
   private specialists = new Map<string, SpecialistDefinition>();
-  
+
   // Support for MultiContentKnowledgeLayer interface
   readonly supported_content_types: LayerContentType[] = ['topics', 'specialists'];
 
@@ -38,8 +38,8 @@ export class EmbeddedKnowledgeLayer extends BaseKnowledgeLayer {
    * Initialize the embedded layer by loading topics and indexes from submodule
    */
   async initialize(): Promise<LayerLoadResult> {
-    if (this.initialized) {
-      return this.loadResult!;
+    if (this.initialized && this.loadResult) {
+      return this.loadResult;
     }
 
     const startTime = Date.now();
@@ -101,7 +101,7 @@ Expected structure: domains/, specialists/, methodologies/ directories with BC e
       this.loadResult = this.createLoadResult(topicsLoaded, indexesLoaded, loadTimeMs);
 
       console.error(`✅ ${this.name} layer loaded: ${topicsLoaded} topics, ${specialistsLoaded} specialists, ${indexesLoaded} indexes (${loadTimeMs}ms)`);
-      
+
       return this.loadResult;
 
     } catch (error) {
@@ -110,7 +110,7 @@ Expected structure: domains/, specialists/, methodologies/ directories with BC e
       this.loadResult = this.createErrorResult(errorMessage, loadTimeMs);
 
       console.error(`❌ Failed to initialize ${this.name} layer: ${errorMessage}`);
-      throw error;
+      return this.loadResult;
     }
   }
 
@@ -649,7 +649,7 @@ Expected structure: domains/, specialists/, methodologies/ directories with BC e
         specialists: this.specialists.size,
         methodologies: 0
       },
-      topics_loaded: result.topicsLoaded || 0,
+      topics_loaded: this.topics.size, // Use actual Map size for consistency
       indexes_loaded: result.indexesLoaded || 0,
       error: result.success ? undefined : 'Layer load failed'
     };

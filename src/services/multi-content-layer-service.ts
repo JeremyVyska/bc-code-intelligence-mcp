@@ -53,8 +53,32 @@ export class MultiContentLayerService {
     for (const [name, layer] of this.layers) {
       try {
         console.error(`📋 Initializing layer: ${name}`);
-        const result = await layer.initialize();
-        results.set(name, result);
+        let result = await layer.initialize() as any;
+
+        // Convert legacy LayerLoadResult to EnhancedLayerLoadResult if needed
+        if (result && !result.content_counts && result.topicsLoaded !== undefined) {
+          // This is a legacy LayerLoadResult, convert to enhanced format
+          result = {
+            success: result.success,
+            layer_name: result.layerName,
+            load_time_ms: result.loadTimeMs,
+            content_counts: {
+              topics: result.topicsLoaded || 0,
+              specialists: 0, // Will be updated by layer-specific logic
+              methodologies: result.indexesLoaded || 0
+            },
+            topics_loaded: result.topicsLoaded || 0,
+            indexes_loaded: result.indexesLoaded || 0,
+            error: result.success ? undefined : 'Layer load failed'
+          };
+
+          // For embedded layer, update specialist count from the layer itself
+          if (layer.name === 'embedded' && 'specialists' in layer && layer.specialists instanceof Map) {
+            result.content_counts.specialists = layer.specialists.size;
+          }
+        }
+
+        results.set(name, result as EnhancedLayerLoadResult);
         
         if (result.success) {
           const contentCounts = result.content_counts || {};
@@ -523,19 +547,19 @@ export class MultiContentLayerService {
         for (const topicId of topicIds) {
           const topic = await layer.getContent('topics', topicId);
           if (topic && this.matchesSearchCriteria(topic, params)) {
-            const searchResult = this.topicToSearchResult(topic, this.calculateRelevanceScore(topic, params));
-            results.push(searchResult);
-            
-            // Stop if we have enough results
-            if (results.length >= limit) {
-              break;
+            try {
+              const score = this.calculateRelevanceScore(topic, params);
+
+              const searchResult = this.topicToSearchResult(topic, score);
+              results.push(searchResult);
+
+              // Note: Don't break early here - let all matching topics be scored
+              // The final limit will be applied after sorting by relevance
+            } catch (scoreError) {
+              console.error(`Error scoring topic ${topic.title}:`, scoreError);
+              // Skip this topic if scoring fails
             }
           }
-        }
-        
-        // Stop if we have enough results
-        if (results.length >= limit) {
-          break;
         }
       } catch (error) {
         console.error(`Error searching topics in layer ${layerName}:`, error);
@@ -669,8 +693,33 @@ export class MultiContentLayerService {
    * Check if topic matches search criteria
    */
   private matchesSearchCriteria(topic: AtomicTopic, params: TopicSearchParams): boolean {
-    // For text matching, we'll use a simple approach since there's no query param in TopicSearchParams
-    
+    // Text matching using code_context parameter
+    if (params.code_context) {
+      const searchTerm = params.code_context.toLowerCase();
+      const title = topic.title.toLowerCase();
+      const content = topic.content.toLowerCase();
+      const tags = (topic.frontmatter.tags || []).map(tag => tag.toLowerCase());
+
+      // Prioritize individual word matching over full phrase matching
+      const searchWords = searchTerm.split(' ').filter(word => word.length > 2);
+
+      // Check individual words first (more flexible)
+      const wordMatches = searchWords.some(word =>
+        title.includes(word) || content.includes(word) || tags.some(tag => tag.includes(word))
+      );
+
+      // Also check exact phrase match (bonus case)
+      const exactPhraseMatch = title.includes(searchTerm) ||
+                              content.includes(searchTerm) ||
+                              tags.some(tag => tag.includes(searchTerm));
+
+      const matches = wordMatches || exactPhraseMatch;
+
+      if (!matches) {
+        return false;
+      }
+    }
+
     // Domain filtering
     if (params.domain) {
       const topicDomains = Array.isArray(topic.frontmatter.domain) 
@@ -710,14 +759,110 @@ export class MultiContentLayerService {
    * Calculate relevance score for topic
    */
   private calculateRelevanceScore(topic: AtomicTopic, params: TopicSearchParams): number {
-    let score = 1; // Base score
+    let score = 0; // Start with 0, add points for relevance
 
-    // Domain exact match bonus
+    // Text relevance scoring - the most important factor
+    if (params.code_context) {
+      const searchTerm = params.code_context.toLowerCase();
+      const searchWords = searchTerm.split(/\s+/).filter(word => word.length > 2);
+
+      const title = topic.title.toLowerCase();
+      const content = topic.content.toLowerCase();
+      const tags = (topic.frontmatter.tags || []).map(tag => tag.toLowerCase());
+
+      // **MAJOR FIX**: Prioritize exact phrase matches and semantic clusters
+
+      // 1. Exact phrase match in title (highest priority)
+      if (title.includes(searchTerm)) {
+        score += 100; // Massive bonus for exact phrase in title
+      }
+
+      // 2. High-value word combinations in title
+      let titleWordMatches = 0;
+      for (const word of searchWords) {
+        if (title.includes(word)) {
+          titleWordMatches++;
+          score += 15; // Higher than before for title matches
+        }
+      }
+
+      // 3. Title clustering bonus - reward multiple words in title
+      if (titleWordMatches > 1) {
+        score += titleWordMatches * titleWordMatches * 10; // Exponential bonus for clustering
+      }
+
+      // 4. Semantic tag matches (better than content)
+      let tagMatches = 0;
+      for (const word of searchWords) {
+        for (const tag of tags) {
+          if (tag.includes(word)) {
+            tagMatches++;
+            score += 12; // Increased from 8
+          }
+        }
+      }
+
+      // 5. Tag clustering bonus
+      if (tagMatches > 1) {
+        score += tagMatches * 8;
+      }
+
+      // 6. Content matches (lower priority than before)
+      for (const word of searchWords) {
+        const matches = (content.match(new RegExp(`\\b${word}\\b`, 'g')) || []).length;
+        score += Math.min(matches * 1.5, 4); // Reduced from 2 and 6
+      }
+
+      // 7. **NEW**: Exact phrase in content
+      if (content.includes(searchTerm)) {
+        score += 20;
+      }
+
+      // 8. **NEW**: Multi-word phrase detection in title (highest semantic value)
+      if (searchWords.length > 1) {
+        // Check for consecutive word sequences in title
+        for (let i = 0; i < searchWords.length - 1; i++) {
+          const phrase = searchWords.slice(i, i + 2).join(' ');
+          if (title.includes(phrase)) {
+            score += 50; // Massive bonus for 2-word phrases in title
+          }
+        }
+
+        // Check for 3+ word phrases
+        for (let i = 0; i < searchWords.length - 2; i++) {
+          const phrase = searchWords.slice(i, i + 3).join(' ');
+          if (title.includes(phrase)) {
+            score += 100; // Even bigger bonus for longer phrases
+          }
+        }
+      }
+
+      // 9. **NEW**: Semantic relevance bonus for technical terms
+      const technicalTerms = ['al', 'naming', 'convention', 'field', 'table', 'extension'];
+      const queryTechTerms = searchWords.filter(word => technicalTerms.includes(word));
+      const topicTechTerms = [...title.split(/\s+/), ...tags.join(' ').split(/\s+/)]
+        .filter(word => technicalTerms.includes(word.toLowerCase()));
+
+      const techTermOverlap = queryTechTerms.filter(term =>
+        topicTechTerms.some(topicTerm => topicTerm.toLowerCase().includes(term))
+      ).length;
+
+      if (techTermOverlap > 0) {
+        score += techTermOverlap * 25; // High bonus for technical term matches
+      }
+
+      // 10. Penalty for very long content (prefer focused topics)
+      if (topic.content.length > 5000) {
+        score *= 0.8; // Increased penalty
+      }
+    }
+
+    // Domain exact match bonus (secondary factor)
     if (params.domain) {
-      const topicDomains = Array.isArray(topic.frontmatter.domain) 
-        ? topic.frontmatter.domain 
+      const topicDomains = Array.isArray(topic.frontmatter.domain)
+        ? topic.frontmatter.domain
         : topic.frontmatter.domain ? [topic.frontmatter.domain] : [];
-      
+
       if (topicDomains.includes(params.domain)) {
         score += 5;
       }
@@ -733,14 +878,14 @@ export class MultiContentLayerService {
       score += 2;
     }
 
-    // Tag match bonus
+    // Tag match bonus (from explicit tag parameters)
     if (params.tags && params.tags.length > 0) {
       const topicTags = topic.frontmatter.tags || [];
       const matchingTags = params.tags.filter(tag => topicTags.includes(tag));
       score += matchingTags.length * 2;
     }
 
-    return score;
+    return Math.max(score, 0.1); // Ensure minimum score > 0
   }
 
   /**

@@ -23,16 +23,20 @@ export class KnowledgeService {
   private layerService: MultiContentLayerService;
   private initialized = false;
 
-  constructor(private config: BCKBConfig) {
-    // Initialize layer service with embedded knowledge from submodule
-    // For testing, use the knowledge_base_path directly if it doesn't contain embedded-knowledge
-    const embeddedPath = config.knowledge_base_path.includes('embedded-knowledge')
-      ? config.knowledge_base_path
-      : config.knowledge_base_path.replace(/\/knowledge-base$/, '/embedded-knowledge');
+  constructor(private config: BCKBConfig, layerService?: MultiContentLayerService) {
+    if (layerService) {
+      // Use provided layer service (preferred - avoids duplicate initialization)
+      this.layerService = layerService;
+    } else {
+      // Fallback: create own layer service (for backward compatibility)
+      console.error(`⚠️  KnowledgeService creating own layer service - consider passing initialized layerService`);
+      const embeddedPath = config.knowledge_base_path.includes('embedded-knowledge')
+        ? config.knowledge_base_path
+        : config.knowledge_base_path.replace(/\/knowledge-base$/, '/embedded-knowledge');
 
-    console.error(`🔧 Using embedded path: ${embeddedPath}`);
-    // MultiContentLayerService uses default specialist resolution strategy
-    this.layerService = new MultiContentLayerService();
+      console.error(`🔧 Using embedded path: ${embeddedPath}`);
+      this.layerService = new MultiContentLayerService();
+    }
   }
 
   /**

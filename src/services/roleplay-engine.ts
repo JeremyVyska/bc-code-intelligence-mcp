@@ -152,13 +152,9 @@ export class BCSpecialistRoleplayEngine implements RoleplayEngine {
     session: any
   ): Promise<SpecialistResponse> {
     const personality = this.analyzePersonality(specialist);
-    
-    // Find relevant knowledge for direct response
-    const relevantTopics = await this.knowledgeRetriever.findRelevantTopics(
-      userMessage,
-      specialist.expertise.primary.concat(specialist.expertise.secondary),
-      5
-    );
+
+    // NO pre-selection of knowledge - specialist must search themselves
+    const relevantTopics: any[] = [];
 
     // Create a minimal methodology context for the direct response
     const directMethodologyContext = {
@@ -219,14 +215,9 @@ export class BCSpecialistRoleplayEngine implements RoleplayEngine {
     session: any
   ): Promise<SpecialistResponse> {
     const personality = this.analyzePersonality(specialist);
-    
-    // Find relevant knowledge within methodology context
-    const relevantTopics = await this.knowledgeRetriever.findRelevantTopicsInMethodology(
-      userMessage,
-      session.methodology_context,
-      specialist.expertise.primary.concat(specialist.expertise.secondary),
-      5
-    );
+
+    // NO pre-selection of knowledge - specialist must search themselves
+    const relevantTopics: any[] = [];
 
     // Generate methodology-contextual response
     const response = await this.buildMethodologyResponse(
@@ -635,53 +626,29 @@ What's your current experience level so I can tailor the approach accordingly?`;
     relevantTopics: AtomicTopic[],
     context: RoleplayContext
   ): string {
-    // Generate AGENT INSTRUCTIONS for roleplaying the specialist
-    let instructions = `ROLEPLAY AS: ${specialist.title} (${specialist.specialist_id})\n\n`;
+    // Generate AGENT INSTRUCTIONS using the FULL specialist instruction content
+    let instructions = `You are ${specialist.title} (${specialist.specialist_id}). Below are your complete instructions:\n\n`;
 
-    instructions += `SPECIALIST CONTEXT:\n`;
-    instructions += `- Name: ${specialist.title}\n`;
-    instructions += `- Primary Expertise: ${specialist.expertise.primary.join(', ')}\n`;
-    instructions += `- Communication Style: ${specialist.persona.communication_style}\n`;
-    instructions += `- Personality: ${specialist.persona.personality.join(', ')}\n\n`;
+    // **CRITICAL FIX**: Include the full specialist instruction content
+    instructions += `# SPECIALIST INSTRUCTIONS:\n${specialist.content}\n\n`;
+
+    instructions += `---\n\n# CURRENT REQUEST CONTEXT:\n`;
+    instructions += `**User Message**: "${userMessage}"\n\n`;
+
+    // **NO PRE-SELECTED KNOWLEDGE** - provide YAML-based hints instead
+    instructions += `**Knowledge Search Hints** (based on your YAML configuration):\n`;
+    instructions += `- Your Primary Expertise: ${specialist.expertise.primary.join(', ')}\n`;
+    instructions += `- Your Domains: ${specialist.domains.join(', ')}\n`;
+    instructions += `- Suggested find_bc_knowledge searches: "${specialist.expertise.primary.join('", "')}", "${specialist.domains.join('", "')}"\n\n`;
 
     // Add introduction instructions if this is a new session or handoff
     if (context.requiresIntroduction) {
-      instructions += `INTRODUCTION REQUIRED:\n`;
-      instructions += `- This is a new session or handoff - introduce yourself as ${specialist.title}\n`;
-      instructions += `- Use your greeting: "${specialist.persona.greeting}"\n`;
-      instructions += `- Briefly mention your primary expertise: ${specialist.expertise.primary.slice(0, 2).join(' and ')}\n`;
-      instructions += `- Set a welcoming, confident tone for the conversation\n\n`;
+      instructions += `**Session Info**: This is a new session - introduce yourself using your greeting and explain your expertise.\n\n`;
     }
 
-    instructions += `USER REQUEST ANALYSIS:\n`;
-    instructions += `- User Message: "${userMessage}"\n`;
+    instructions += `**CRITICAL REMINDER**: NO knowledge has been pre-selected for you. Follow your "Implementation Requirements" section exactly - you MUST use find_bc_knowledge to search for relevant information yourself.\n\n`;
 
-    if (relevantTopics.length > 0) {
-      instructions += `- Relevant Knowledge: ${relevantTopics[0].title}\n`;
-      instructions += `- Domain Match: STRONG - This is directly in your expertise area\n`;
-      instructions += `- Confidence Level: HIGH\n\n`;
-
-      instructions += `RESPOND AS ${specialist.title.toUpperCase()} WITH:\n`;
-      instructions += `1. Immediate confidence and expertise recognition\n`;
-      instructions += `2. BC-specific architectural/technical guidance based on: ${relevantTopics[0].title}\n`;
-      instructions += `3. Practical next steps for implementation\n`;
-      instructions += `4. Reference relevant BC patterns and best practices\n\n`;
-
-      instructions += `TONE: Confident, knowledgeable, immediately helpful. DO NOT suggest other specialists - you are the expert for this question.\n`;
-    } else {
-      instructions += `- Domain Match: PARTIAL - Outside core expertise but still valuable\n`;
-      instructions += `- Confidence Level: MODERATE\n\n`;
-
-      instructions += `RESPOND AS ${specialist.title.toUpperCase()} WITH:\n`;
-      instructions += `1. Acknowledge the question and provide what insight you can\n`;
-      instructions += `2. Apply your ${specialist.expertise.primary[0]} perspective to the problem\n`;
-      instructions += `3. Suggest appropriate specialist if needed (e.g., Sam Coder for implementation, Alex Architect for design)\n`;
-      instructions += `4. Bridge to relevant specialist with specific handoff reason\n\n`;
-
-      instructions += `TONE: Helpful but honest about expertise boundaries. Provide value while routing appropriately.\n`;
-    }
-
-    instructions += `IMPORTANT: Respond directly as the specialist character, not as an AI describing roleplay.`;
+    instructions += `Now respond as ${specialist.title} following your complete instruction set above.`;
 
     return instructions;
   }

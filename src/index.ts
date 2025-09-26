@@ -492,14 +492,7 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
 
     // Initialize layer service with configuration
     this.layerService = new MultiContentLayerService();
-
-    // Report layer-by-layer counts
-    const layerStats = this.layerService.getStatistics();
     let totalTopics = 0;
-    for (const stats of layerStats) {
-      console.error(`📁 Layer '${stats.name}': ${stats.topicCount} topics`);
-      totalTopics += stats.topicCount;
-    }
 
     // Initialize legacy knowledge service for backward compatibility
     const __filename = fileURLToPath(import.meta.url);
@@ -516,23 +509,31 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
       search_threshold: 0.6
     };
 
-    this.knowledgeService = new KnowledgeService(legacyConfig);
-    await this.knowledgeService.initialize();
-
-    this.codeAnalysisService = new CodeAnalysisService(this.knowledgeService);
-    this.methodologyService = new MethodologyService(this.knowledgeService, legacyConfig.methodologies_path);
-    
-    // Initialize specialist services using a dedicated MultiContentLayerService
+    // Initialize specialist services using a dedicated MultiContentLayerService FIRST
     this.layerService = new MultiContentLayerService();
-    
+
     // Add embedded layer for specialists
     const embeddedPath = join(__dirname, '../embedded-knowledge');
     const { EmbeddedKnowledgeLayer } = await import('./layers/embedded-layer.js');
     const embeddedLayer = new EmbeddedKnowledgeLayer(embeddedPath);
-    
+
     this.layerService.addLayer(embeddedLayer as any); // Cast to avoid type issues
     await this.layerService.initialize();
-    
+
+    // Now create KnowledgeService with the initialized layerService
+    this.knowledgeService = new KnowledgeService(legacyConfig, this.layerService);
+    await this.knowledgeService.initialize();
+
+    this.codeAnalysisService = new CodeAnalysisService(this.knowledgeService);
+    this.methodologyService = new MethodologyService(this.knowledgeService, legacyConfig.methodologies_path);
+
+    // Report layer-by-layer counts after initialization
+    const layerStats = this.layerService.getStatistics();
+    for (const stats of layerStats) {
+      console.error(`📁 Layer '${stats.name}': ${stats.topicCount} topics`);
+      totalTopics += stats.topicCount;
+    }
+
     // Get session storage configuration from layer service
     const sessionStorageConfig = this.layerService.getSessionStorageConfig();
     

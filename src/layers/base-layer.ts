@@ -200,11 +200,21 @@ export abstract class BaseKnowledgeLayer implements IKnowledgeLayer {
    * Normalize topic ID for consistent lookup
    */
   protected normalizeTopicId(filePath: string, basePath: string): string {
-    // Convert file path to topic ID
-    return filePath
-      .replace(basePath, '')
+    // Normalize both paths to handle different formats
+    const normalizedFilePath = filePath.replace(/\\/g, '/');
+    const normalizedBasePath = basePath.replace(/\\/g, '/');
+
+    // Remove base path to get relative path
+    let relativePath = normalizedFilePath;
+    if (normalizedFilePath.startsWith(normalizedBasePath)) {
+      relativePath = normalizedFilePath.substring(normalizedBasePath.length);
+    }
+
+    // Clean up the relative path to create a clean ID
+    return relativePath
       .replace(/^[/\\]+/, '') // Remove leading slashes
       .replace(/\.md$/, '') // Remove .md extension
-      .replace(/[\\]/g, '/'); // Normalize path separators to forward slashes
+      .replace(/^domains\//, '') // Remove domains/ prefix if present
+      .replace(/[\\]/g, '/'); // Normalize to forward slashes
   }
 }

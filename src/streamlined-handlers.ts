@@ -104,9 +104,9 @@ export function createStreamlinedHandlers(server: any, services: any) {
         };
 
         if (search_type === 'topics' || search_type === 'all') {
-          const topics = await knowledgeService.searchTopics({ 
-            query, 
-            bc_version, 
+          const topics = await knowledgeService.searchTopics({
+            code_context: query,  // FIX: Use code_context instead of query
+            bc_version,
             limit: search_type === 'topics' ? limit : Math.ceil(limit / 3)
           });
           results.results.push({
