@@ -110,7 +110,7 @@ describe('Individual MCP Tool Tests', () => {
       expect(result.content).toBeDefined();
       expect(mockServices.knowledgeService.searchTopics).toHaveBeenCalledWith(
         expect.objectContaining({
-          query: 'posting routines',
+          code_context: 'posting routines',
           limit: 5
         })
       );
