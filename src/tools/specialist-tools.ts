@@ -293,7 +293,12 @@ Example: find_bc_knowledge({ query: "AL file naming conventions" }) before writi
     // Return agent roleplay instructions (NOT formatted user response)
     let agentInstructions = response.content;
 
-    // NO knowledge context provided - specialist must search themselves
+    // Add knowledge context for the agent
+    if (response.topics_referenced.length > 0) {
+      agentInstructions += `\n\nKNOWLEDGE CONTEXT FOR RESPONSE:\n`;
+      agentInstructions += `- Referenced Topics: ${response.topics_referenced.join(', ')}\n`;
+      agentInstructions += `- Use this knowledge to provide specific, accurate guidance\n`;
+    }
 
     // Add handoff guidance for the agent
     if (response.suggested_handoffs && response.suggested_handoffs.length > 0) {
