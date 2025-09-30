@@ -5,6 +5,34 @@ All notable changes to the BC Code Intelligence MCP Server will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.1] - 2025-09-30
+
+### 🚀 New Feature - Self-Documenting Configuration
+
+#### Added - Chris-Config Specialist Domain
+- **Multi-Team Layer Configuration**: Comprehensive organizational setup guidance available through MCP tools
+  - VS Code `mcp.json` integration examples with Windows/macOS compatibility
+  - Git repository layer configuration for team and company knowledge sharing
+  - Authentication setup (GitHub tokens, SSH keys) with troubleshooting guides
+  - Real capabilities documentation vs. fantasy enterprise features
+- **Knowledge Content Creation**: Complete authoring guide for custom BC knowledge
+  - YAML frontmatter reference and markdown structure best practices
+  - AL code example standards with compilable, realistic samples
+  - Override configuration and merge strategies for layer system
+  - Quality standards and development workflow guidance
+
+#### Improved - Discoverability
+- **Self-Documenting System**: Users can now discover configuration guidance through MCP tools themselves
+  - Ask: "How do I set up multi-team knowledge layers?" → Gets embedded knowledge response
+  - Ask: "How do I create custom BC knowledge content?" → Gets comprehensive authoring guide
+  - Configuration help available via `find_bc_topics` searches for "configuration", "layers", "overrides"
+- **Layer-Ready Documentation**: Configuration guides follow the same layer override system they document
+
+#### Developer Experience
+- **No External Dependencies**: Configuration guidance embedded in knowledge base, no wiki hunting required
+- **Override-Ready Content**: Teams can customize configuration guides with company-specific instructions
+- **Cross-Referenced**: Proper topic linking between configuration and content creation workflows
+
 ## [1.3.2] - 2025-09-22
 
 ### 🔧 Major Discovery Improvements - Enhanced Specialist Discovery
