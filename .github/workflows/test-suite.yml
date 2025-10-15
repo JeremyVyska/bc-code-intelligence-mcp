@@ -180,7 +180,8 @@ jobs:
       - name: Verify build artifacts
         run: |
           test -f dist/index.js
-          test -f dist/streamlined-tools.js
+          test -f dist/tools/core-tools.js
+          test -f dist/tools/index.js
           test -f dist/streamlined-handlers.js
 
       - name: Test built server startup
