@@ -197,7 +197,7 @@ export class SpecialistLoader {
    */
   async getSpecialistsByDomain(domain: string): Promise<SpecialistDefinition[]> {
     const specialists = await this.getAllSpecialists();
-    return specialists.filter(s => s.domains.includes(domain));
+    return specialists.filter(s => s.domains && s.domains.includes(domain));
   }
 
   /**
@@ -269,26 +269,34 @@ export class SpecialistLoader {
       let score = 0;
 
       // Check when_to_use scenarios
-      for (const scenario of specialist.when_to_use) {
-        if (context.toLowerCase().includes(scenario.toLowerCase()) ||
-            scenario.toLowerCase().includes(context.toLowerCase())) {
-          score += 10;
+      if (specialist.when_to_use) {
+        for (const scenario of specialist.when_to_use) {
+          if (context.toLowerCase().includes(scenario.toLowerCase()) ||
+              scenario.toLowerCase().includes(context.toLowerCase())) {
+            score += 10;
+          }
         }
       }
 
       // Check expertise areas
-      for (const expertise of [...specialist.expertise.primary, ...specialist.expertise.secondary]) {
-        if (context.toLowerCase().includes(expertise.toLowerCase()) ||
-            expertise.toLowerCase().includes(context.toLowerCase())) {
-          score += specialist.expertise.primary.includes(expertise) ? 8 : 5;
+      if (specialist.expertise?.primary || specialist.expertise?.secondary) {
+        const primary = specialist.expertise.primary || [];
+        const secondary = specialist.expertise.secondary || [];
+        for (const expertise of [...primary, ...secondary]) {
+          if (context.toLowerCase().includes(expertise.toLowerCase()) ||
+              expertise.toLowerCase().includes(context.toLowerCase())) {
+            score += primary.includes(expertise) ? 8 : 5;
+          }
         }
       }
 
       // Check domains
-      for (const domain of specialist.domains) {
-        if (context.toLowerCase().includes(domain.toLowerCase()) ||
-            domain.toLowerCase().includes(context.toLowerCase())) {
-          score += 6;
+      if (specialist.domains) {
+        for (const domain of specialist.domains) {
+          if (context.toLowerCase().includes(domain.toLowerCase()) ||
+              domain.toLowerCase().includes(context.toLowerCase())) {
+            score += 6;
+          }
         }
       }
 

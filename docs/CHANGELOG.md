@@ -5,6 +5,35 @@ All notable changes to the BC Code Intelligence MCP Server will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.3] - 2025-10-15
+
+### 🐛 Bug Fixes - Issue #16: Company Knowledge Layer Loading
+
+#### Fixed - Critical `.includes()` Crashes
+- **Specialist Discovery**: Fixed `Cannot read properties of undefined (reading 'includes')` errors when querying specialists with incomplete metadata
+  - Added null safety checks in `specialist-discovery.ts` for `expertise.primary`, `expertise.secondary`, and `domains` arrays
+  - Added null safety checks in `specialist-loader.ts` for `suggestSpecialist()` and `getSpecialistsByDomain()` methods
+  - Added null safety check in `multi-content-layer-service.ts` for `supported_content_types` array
+- **Company Layer Queries**: Company-specific knowledge now loads and surfaces correctly when using company context phrases
+  - Domain content from company knowledge layers now properly retrieved via `searchTopics()`
+  - Specialist queries no longer crash when company layer specialists have undefined metadata fields
+
+#### Added - Comprehensive Integration Tests
+- **Real Knowledge Validation**: Tests that validate actual knowledge loading (not mocks)
+  - `tests/integration/real-knowledge-validation.test.ts` - Validates real specialists and topics load from embedded-knowledge
+  - Tests edge cases with incomplete specialist metadata without crashing
+  - Validates performance requirements with real data
+- **Company Layer Loading**: Complete scenario testing for custom company knowledge
+  - `tests/integration/company-layer-loading.test.ts` - 16 tests validating company knowledge layers
+  - Creates sample company layer with custom domain topics and specialist overrides
+  - Validates domain content surfaces when searched ("myPartner naming conventions" scenario)
+  - Tests graceful degradation and error recovery with missing metadata
+
+#### Impact
+- Users can now successfully use company-specific knowledge layers without crashes
+- Queries like "Using [company name] company standards, [question]" now work as intended
+- Company domain knowledge (naming conventions, coding standards, etc.) properly loads and returns in search results
+
 ## [1.4.1] - 2025-09-30
 
 ### 🚀 New Feature - Self-Documenting Configuration

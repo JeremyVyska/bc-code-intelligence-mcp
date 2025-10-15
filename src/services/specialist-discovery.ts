@@ -99,9 +99,9 @@ export class SpecialistDiscoveryService {
     await this.ensureInitialized();
     
     return this.specialists.filter(specialist => 
-      specialist.expertise?.primary?.includes(domain) ||
-      specialist.expertise?.secondary?.includes(domain) ||
-      specialist.domains?.includes(domain)
+      (specialist.expertise?.primary && specialist.expertise.primary.includes(domain)) ||
+      (specialist.expertise?.secondary && specialist.expertise.secondary.includes(domain)) ||
+      (specialist.domains && specialist.domains.includes(domain))
     );
   }
 

@@ -587,7 +587,7 @@ export class MultiContentLayerService {
     // Search across all layers in priority order
     for (const layerName of this.layerPriorities) {
       const layer = this.layers.get(layerName);
-      if (!layer || !layer.supported_content_types.includes('specialists')) {
+      if (!layer || !layer.supported_content_types || !layer.supported_content_types.includes('specialists')) {
         continue;
       }
 
