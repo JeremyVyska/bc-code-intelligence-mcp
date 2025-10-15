@@ -79,9 +79,10 @@ describe('MCP Tool Contract Validation', () => {
 
     it('should have required properties defined correctly', () => {
       for (const tool of streamlinedTools) {
-        if (tool.inputSchema.required) {
-          for (const requiredProp of tool.inputSchema.required) {
-            expect(tool.inputSchema.properties).toHaveProperty(requiredProp);
+        const schema = tool.inputSchema as any;
+        if (schema.required && Array.isArray(schema.required)) {
+          for (const requiredProp of schema.required) {
+            expect(schema.properties).toHaveProperty(requiredProp);
           }
         }
       }
@@ -117,8 +118,9 @@ describe('MCP Tool Contract Validation', () => {
   describe('Enum Validation', () => {
     it('should validate workflow_type enums match service capabilities', async () => {
       const workflowTool = streamlinedTools.find(t => t.name === 'start_bc_workflow');
-      if (workflowTool?.inputSchema?.properties?.workflow_type?.enum) {
-        const schemaEnums = workflowTool.inputSchema.properties.workflow_type.enum;
+      const schema = workflowTool?.inputSchema as any;
+      if (schema?.properties?.workflow_type?.enum) {
+        const schemaEnums = schema.properties.workflow_type.enum;
         const serviceWorkflowTypes = mockServices.workflowService.getWorkflowTypes();
         
         for (const enumValue of schemaEnums) {
@@ -129,8 +131,9 @@ describe('MCP Tool Contract Validation', () => {
 
     it('should validate search_type enums are handled correctly', async () => {
       const searchTool = streamlinedTools.find(t => t.name === 'find_bc_knowledge');
-      if (searchTool?.inputSchema?.properties?.search_type?.enum) {
-        const searchTypes = searchTool.inputSchema.properties.search_type.enum;
+      const schema = searchTool?.inputSchema as any;
+      if (schema?.properties?.search_type?.enum) {
+        const searchTypes = schema.properties.search_type.enum;
         
         // Test each search type can be handled
         for (const searchType of searchTypes) {

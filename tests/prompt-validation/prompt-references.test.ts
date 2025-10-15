@@ -191,6 +191,9 @@ describe('Prompt Validation Tests', () => {
       for (const tool of streamlinedTools) {
         const description = tool.description;
         
+        // Skip tools without descriptions
+        if (!description) continue;
+        
         // Look for tool references in descriptions
         const matches = description.match(/`([a-z_]+)`/g) || [];
         
