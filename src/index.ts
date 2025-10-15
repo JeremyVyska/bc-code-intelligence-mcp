@@ -41,7 +41,8 @@ import { SpecialistDefinition } from './services/specialist-loader.js';
 import { WorkflowType, WorkflowStartRequest, WorkflowAdvanceRequest } from './services/workflow-service.js';
 import {
   BCCodeIntelConfiguration,
-  ConfigurationLoadResult
+  ConfigurationLoadResult,
+  LayerSourceType
 } from './types/index.js';
 
 /**
@@ -512,12 +513,72 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
     // Initialize specialist services using a dedicated MultiContentLayerService FIRST
     this.layerService = new MultiContentLayerService();
 
-    // Add embedded layer for specialists
-    const embeddedPath = join(__dirname, '../embedded-knowledge');
-    const { EmbeddedKnowledgeLayer } = await import('./layers/embedded-layer.js');
-    const embeddedLayer = new EmbeddedKnowledgeLayer(embeddedPath);
+    // Iterate over configured layers and instantiate each based on type
+    for (const layerConfig of this.configuration.layers) {
+      if (!layerConfig.enabled) {
+        console.error(`⏭️  Skipping disabled layer: ${layerConfig.name}`);
+        continue;
+      }
 
-    this.layerService.addLayer(embeddedLayer as any); // Cast to avoid type issues
+      let layer;
+      
+      switch (layerConfig.source.type) {
+        case LayerSourceType.EMBEDDED: {
+          // Embedded layer
+          const embeddedPath = layerConfig.source.path === 'embedded-knowledge'
+            ? join(__dirname, '../embedded-knowledge')
+            : (layerConfig.source.path || join(__dirname, '../embedded-knowledge'));
+          const { EmbeddedKnowledgeLayer } = await import('./layers/embedded-layer.js');
+          layer = new EmbeddedKnowledgeLayer(embeddedPath);
+          break;
+        }
+        
+        case LayerSourceType.LOCAL: {
+          // Local filesystem layer - use ProjectKnowledgeLayer
+          const { ProjectKnowledgeLayer } = await import('./layers/project-layer.js');
+          layer = new ProjectKnowledgeLayer(layerConfig.source.path!);
+          // Override name and priority from config
+          (layer as any).name = layerConfig.name;
+          (layer as any).priority = layerConfig.priority;
+          break;
+        }
+        
+        case LayerSourceType.GIT: {
+          // Git repository layer
+          const { GitKnowledgeLayer } = await import('./layers/git-layer.js');
+          const gitSource = layerConfig.source as any; // GitLayerSource
+          layer = new GitKnowledgeLayer(
+            layerConfig.name,
+            layerConfig.priority,
+            {
+              type: LayerSourceType.GIT,
+              url: gitSource.url,
+              branch: gitSource.branch,
+              subpath: gitSource.subpath
+            },
+            layerConfig.auth
+          );
+          break;
+        }
+        
+        case LayerSourceType.HTTP:
+        case LayerSourceType.NPM: {
+          // Future layer types - not yet implemented
+          // HTTP: Would load knowledge from HTTP endpoints (ZIP/tarball downloads)
+          // NPM: Would load knowledge from NPM packages
+          console.warn(`⚠️  Layer type '${layerConfig.source.type}' not yet implemented - skipping ${layerConfig.name}`);
+          continue;
+        }
+        
+        default:
+          console.error(`❌ Unknown layer type: ${(layerConfig.source as any).type} - skipping ${layerConfig.name}`);
+          continue;
+      }
+      
+      console.error(`📋 Initializing layer: ${layerConfig.name}`);
+      this.layerService.addLayer(layer as any);
+    }
+
     await this.layerService.initialize();
 
     // Now create KnowledgeService with the initialized layerService

@@ -1033,21 +1033,41 @@ export class MultiContentLayerService {
     };
   }> {
     return Array.from(this.layers.values()).map(layer => {
-      const enhanced = layer.getEnhancedStatistics();
-      return {
-        name: enhanced.name,
-        priority: enhanced.priority,
-        enabled: layer.enabled,
-        topicCount: enhanced.content_counts.topics || 0,
-        indexCount: enhanced.content_counts.methodologies || 0, // Use methodologies as index equivalent
-        lastLoaded: enhanced.initialized ? new Date() : undefined,
-        loadTimeMs: enhanced.load_time_ms,
-        memoryUsage: {
-          topics: 0, // Memory estimation not available in new format
-          indexes: 0,
-          total: 0
-        }
-      };
+      // Try to use getEnhancedStatistics if available, otherwise fall back to basic stats
+      if ('getEnhancedStatistics' in layer && typeof (layer as any).getEnhancedStatistics === 'function') {
+        const enhanced = (layer as any).getEnhancedStatistics();
+        return {
+          name: enhanced.name,
+          priority: enhanced.priority,
+          enabled: layer.enabled,
+          topicCount: enhanced.content_counts.topics || 0,
+          indexCount: enhanced.content_counts.methodologies || 0,
+          lastLoaded: enhanced.initialized ? new Date() : undefined,
+          loadTimeMs: enhanced.load_time_ms,
+          memoryUsage: {
+            topics: 0,
+            indexes: 0,
+            total: 0
+          }
+        };
+      } else {
+        // Fallback to standard layer properties
+        const layerAsAny = layer as any;
+        return {
+          name: layer.name,
+          priority: layer.priority,
+          enabled: layer.enabled,
+          topicCount: layerAsAny.topics?.size || 0,
+          indexCount: layerAsAny.indexes?.size || 0,
+          lastLoaded: undefined,
+          loadTimeMs: undefined,
+          memoryUsage: {
+            topics: 0,
+            indexes: 0,
+            total: 0
+          }
+        };
+      }
     });
   }
 

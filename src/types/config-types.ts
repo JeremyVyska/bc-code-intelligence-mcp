@@ -28,11 +28,11 @@ export interface LayerConfiguration {
 }
 
 export enum LayerSourceType {
-  EMBEDDED = 'embedded',
-  GIT = 'git',
-  LOCAL = 'local',
-  HTTP = 'http',
-  NPM = 'npm'
+  EMBEDDED = 'embedded',  // ✅ Implemented
+  GIT = 'git',            // ✅ Implemented
+  LOCAL = 'local',        // ✅ Implemented
+  HTTP = 'http',          // 🚧 Planned - HTTP-based knowledge sources
+  NPM = 'npm'             // 🚧 Planned - NPM package knowledge sources
 }
 
 export interface LayerSource {

@@ -217,4 +217,70 @@ export abstract class BaseKnowledgeLayer implements IKnowledgeLayer {
       .replace(/^domains\//, '') // Remove domains/ prefix if present
       .replace(/[\\]/g, '/'); // Normalize to forward slashes
   }
+
+  // Enhanced layer interface methods for multi-content support
+
+  /**
+   * Get all content IDs for a specific type
+   */
+  getContentIds(type: 'topics' | 'specialists' | 'methodologies'): string[] {
+    if (type === 'topics') {
+      return this.getTopicIds();
+    }
+    // Other content types not supported by base layer
+    return [];
+  }
+
+  /**
+   * Check if content exists by type and ID
+   */
+  hasContent(type: 'topics' | 'specialists' | 'methodologies', id: string): boolean {
+    if (type === 'topics') {
+      return this.hasTopic(id);
+    }
+    return false;
+  }
+
+  /**
+   * Get content by type and ID
+   */
+  async getContent(type: 'topics' | 'specialists' | 'methodologies', id: string): Promise<any> {
+    if (type === 'topics') {
+      return this.getTopic(id);
+    }
+    return null;
+  }
+
+  /**
+   * Search content within this layer by type
+   */
+  searchContent(type: 'topics' | 'specialists' | 'methodologies', query: string, limit?: number): any[] {
+    if (type === 'topics') {
+      return this.searchTopics(query, limit);
+    }
+    return [];
+  }
+
+  /**
+   * Get layer statistics with content type breakdown
+   */
+  getEnhancedStatistics(): {
+    name: string;
+    priority: number;
+    content_counts: Record<string, number>;
+    load_time_ms?: number;
+    initialized: boolean;
+  } {
+    return {
+      name: this.name,
+      priority: this.priority,
+      content_counts: {
+        topics: this.topics.size,
+        specialists: 0,
+        methodologies: this.indexes.size
+      },
+      load_time_ms: this.loadResult?.loadTimeMs,
+      initialized: this.initialized
+    };
+  }
 }

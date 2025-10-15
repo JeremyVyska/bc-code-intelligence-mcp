@@ -17,12 +17,13 @@
     "build": "tsc",
     "dev": "tsx src/index.ts",
     "start": "node dist/index.js",
-    "test": "npm run validate:contracts",
+    "test": "npm run validate:contracts && vitest run",
     "test:contracts": "tsx scripts/validate-contracts.ts",
-    "test:unit": "echo 'Unit tests temporarily disabled - using contract validation only'",
-    "test:integration": "echo 'Integration tests temporarily disabled - using contract validation only'",
-    "test:prompts": "echo 'Prompt tests temporarily disabled - using contract validation only'",
-    "test:coverage": "echo 'Coverage tests temporarily disabled - using contract validation only'",
+    "test:unit": "vitest run --config vitest.unit.config.ts",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:prompts": "vitest run --config vitest.config.ts tests/prompt-validation",
+    "test:coverage": "vitest run --coverage",
+    "test:all": "npm run test:contracts && npm run test:unit && npm run test:integration && npm run test:prompts",
     "validate:contracts": "tsx scripts/validate-contracts.ts",
     "pretest": "npm run validate:contracts",
     "prepublishOnly": "npm run validate:contracts && npm run build",
@@ -59,10 +60,12 @@
     "@types/node": "^20.19.14",
     "@typescript-eslint/eslint-plugin": "^7.18.0",
     "@typescript-eslint/parser": "^7.18.0",
+    "@vitest/coverage-v8": "^3.2.4",
     "eslint": "^8.57.1",
     "prettier": "^3.1.1",
     "tsx": "^4.7.0",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "vitest": "^3.2.4"
   },
   "engines": {
     "node": ">=20.0.0"
