@@ -13,7 +13,14 @@ import {
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { readFileSync } from 'fs';
-import { streamlinedTools } from './streamlined-tools.js';
+import { 
+  getAllToolDefinitions,
+  STREAMLINED_TOOL_NAMES,
+  SpecialistTools,
+  SpecialistDiscoveryTools,
+  AgentOnboardingTools,
+  SpecialistHandoffTools
+} from './tools/index.js';
 import { createStreamlinedHandlers } from './streamlined-handlers.js';
 import { KnowledgeService } from './services/knowledge-service.js';
 import { CodeAnalysisService } from './services/code-analysis-service.js';
@@ -22,12 +29,8 @@ import { WorkflowService } from './services/workflow-service.js';
 import { getDomainList } from './types/bc-knowledge.js';
 import { MultiContentLayerService } from './services/multi-content-layer-service.js';
 import { SpecialistSessionManager } from './services/specialist-session-manager.js';
-import { SpecialistTools } from './tools/specialist-tools.js';
 import { SpecialistDiscoveryService } from './services/specialist-discovery.js';
-import { SpecialistDiscoveryTools } from './tools/specialist-discovery-tools.js';
 import { EnhancedPromptService } from './services/enhanced-prompt-service.js';
-import { AgentOnboardingService } from './services/agent-onboarding-service.js';
-import { SpecialistHandoffService } from './services/specialist-handoff-service.js';
 import { ConfigurationLoader } from './config/config-loader.js';
 import { ConfigurationValidator } from './config/config-validator.js';
 import { domainWorkflows } from './workflows/domain-workflows.js';
@@ -64,8 +67,8 @@ class BCCodeIntelligenceServer {
   private specialistDiscoveryService!: SpecialistDiscoveryService;
   private specialistDiscoveryTools!: SpecialistDiscoveryTools;
   private enhancedPromptService!: EnhancedPromptService;
-  private agentOnboardingService!: AgentOnboardingService;
-  private specialistHandoffService!: SpecialistHandoffService;
+  private agentOnboardingTools!: AgentOnboardingTools;
+  private specialistHandoffTools!: SpecialistHandoffTools;
   private configuration!: BCCodeIntelConfiguration;
   private configLoader: ConfigurationLoader;
 
@@ -99,34 +102,19 @@ class BCCodeIntelligenceServer {
   }
 
   private setupToolHandlers(): void {
-    // List available tools
+    // List available tools - now using centralized registry
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
-      const tools = [...streamlinedTools];
-      
-      // Add specialist tools if available
-      if (this.specialistTools) {
-        tools.push(...this.specialistTools.getToolDefinitions() as any);
-      }
-      
-      // Add specialist discovery tools if available
-      if (this.specialistDiscoveryTools) {
-        tools.push(...this.specialistDiscoveryTools.getToolDefinitions() as any);
-      }
-      
-      // Add agent onboarding tools if available
-      if (this.agentOnboardingService) {
-        tools.push(...this.agentOnboardingService.getToolDefinitions() as any);
-      }
-      
-      // Add specialist handoff tools if available
-      if (this.specialistHandoffService) {
-        tools.push(...this.specialistHandoffService.getToolDefinitions() as any);
-      }
+      const tools = getAllToolDefinitions({
+        specialistTools: this.specialistTools,
+        specialistDiscoveryTools: this.specialistDiscoveryTools,
+        onboardingTools: this.agentOnboardingTools,
+        handoffTools: this.specialistHandoffTools
+      });
       
       return { tools };
     });
 
-    // Handle tool calls
+    // Handle tool calls - now using centralized tool names
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const { name, arguments: args } = request.params;
 
@@ -142,13 +130,13 @@ class BCCodeIntelligenceServer {
         }
 
         // Check if it's an agent onboarding tool  
-        if (this.agentOnboardingService && ['introduce_bc_specialists', 'get_specialist_introduction', 'suggest_next_specialist'].includes(name)) {
-          return await this.agentOnboardingService.handleToolCall(request);
+        if (this.agentOnboardingTools && ['introduce_bc_specialists', 'get_specialist_introduction', 'suggest_next_specialist'].includes(name)) {
+          return await this.agentOnboardingTools.handleToolCall(request);
         }
 
         // Check if it's a specialist handoff tool
-        if (this.specialistHandoffService && ['handoff_to_specialist', 'bring_in_specialist', 'get_handoff_summary'].includes(name)) {
-          return await this.specialistHandoffService.handleToolCall(request);
+        if (this.specialistHandoffTools && ['handoff_to_specialist', 'bring_in_specialist', 'get_handoff_summary'].includes(name)) {
+          return await this.specialistHandoffTools.handleToolCall(request);
         }
 
         // Create streamlined handlers with all services
@@ -623,14 +611,14 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
       this.workflowService
     );
     
-    // Initialize agent onboarding service for natural specialist introduction
-    this.agentOnboardingService = new AgentOnboardingService(
+    // Initialize agent onboarding tools for natural specialist introduction
+    this.agentOnboardingTools = new AgentOnboardingTools(
       this.specialistDiscoveryService,
       this.layerService
     );
     
-    // Initialize specialist handoff service for seamless transitions
-    this.specialistHandoffService = new SpecialistHandoffService(
+    // Initialize specialist handoff tools for seamless transitions
+    this.specialistHandoffTools = new SpecialistHandoffTools(
       this.specialistSessionManager,
       this.specialistDiscoveryService,
       this.layerService
@@ -661,12 +649,22 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
         layerService: this.layerService
       }) as any;
       
+      const tools = getAllToolDefinitions({
+        specialistTools: this.specialistTools,
+        specialistDiscoveryTools: this.specialistDiscoveryTools,
+        onboardingTools: this.agentOnboardingTools,
+        handoffTools: this.specialistHandoffTools
+      });
+      
       let hasIssues = false;
       
-      for (const tool of streamlinedTools) {
-        if (!handlers[tool.name]) {
-          console.error(`❌ No handler found for tool: ${tool.name}`);
-          hasIssues = true;
+      for (const tool of tools) {
+        // Only validate core streamlined tools (others handle their own routing)
+        if (Object.values(STREAMLINED_TOOL_NAMES).includes(tool.name as any)) {
+          if (!handlers[tool.name]) {
+            console.error(`❌ No handler found for core tool: ${tool.name}`);
+            hasIssues = true;
+          }
         }
       }
       

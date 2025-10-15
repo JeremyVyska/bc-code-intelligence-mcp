@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, vi } from 'vitest';
-import { streamlinedTools } from '../../src/streamlined-tools.js';
+import { streamlinedTools } from '../../src/tools/core-tools.js';
 import { createStreamlinedHandlers } from '../../src/streamlined-handlers.js';
 import { BCCodeIntelligenceServer } from '../../src/index.js';
 

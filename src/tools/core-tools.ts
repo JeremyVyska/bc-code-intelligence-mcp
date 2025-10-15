@@ -1,5 +1,31 @@
-// Streamlined 8-tool interface for BCKB MCP Server 1.0.1
-export const streamlinedTools = [
+/**
+ * Core BC Knowledge MCP Tools
+ * 
+ * The fundamental 8-tool interface for Business Central development assistance.
+ * These tools provide the primary interface for accessing BC knowledge, specialists,
+ * and workflows.
+ */
+
+import { Tool } from '@modelcontextprotocol/sdk/types.js';
+
+/**
+ * Tool name constants for type safety
+ */
+export const STREAMLINED_TOOL_NAMES = {
+  FIND_BC_KNOWLEDGE: 'find_bc_knowledge',
+  ASK_BC_EXPERT: 'ask_bc_expert',
+  ANALYZE_AL_CODE: 'analyze_al_code',
+  GET_BC_TOPIC: 'get_bc_topic',
+  START_BC_WORKFLOW: 'start_bc_workflow',
+  ADVANCE_WORKFLOW: 'advance_workflow',
+  GET_WORKFLOW_HELP: 'get_workflow_help',
+  GET_BC_HELP: 'get_bc_help'
+} as const;
+
+/**
+ * Core 8-tool interface for BC Code Intelligence MCP Server
+ */
+export const streamlinedTools: Tool[] = [
   {
     name: 'find_bc_knowledge',
     description: 'Search BC knowledge topics, find specialists, or discover workflows. Use this when users want to find information about BC development.',

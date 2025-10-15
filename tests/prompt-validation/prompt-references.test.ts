@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
-import { streamlinedTools } from '../../src/streamlined-tools.js';
+import { streamlinedTools } from '../../src/tools/core-tools.js';
 
 /**
  * Prompt Validation Tests

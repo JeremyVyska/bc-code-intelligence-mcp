@@ -553,7 +553,7 @@ Expected structure: domains/, specialists/, methodologies/ directories with BC e
   /**
    * Check if content exists by type and ID
    */
-  hasContent<T extends LayerContentType>(type: T, id: string): boolean {
+  override hasContent<T extends LayerContentType>(type: T, id: string): boolean {
     switch (type) {
       case 'topics':
         return this.topics.has(id);
@@ -567,7 +567,7 @@ Expected structure: domains/, specialists/, methodologies/ directories with BC e
   /**
    * Get content by type and ID
    */
-  async getContent<T extends LayerContentType>(
+  override async getContent<T extends LayerContentType>(
     type: T, 
     id: string
   ): Promise<any> {
@@ -584,7 +584,7 @@ Expected structure: domains/, specialists/, methodologies/ directories with BC e
   /**
    * Get all content IDs for a specific type
    */
-  getContentIds<T extends LayerContentType>(type: T): string[] {
+  override getContentIds<T extends LayerContentType>(type: T): string[] {
     switch (type) {
       case 'topics':
         return Array.from(this.topics.keys());
@@ -598,7 +598,7 @@ Expected structure: domains/, specialists/, methodologies/ directories with BC e
   /**
    * Search content within this layer by type
    */
-  searchContent<T extends LayerContentType>(
+  override searchContent<T extends LayerContentType>(
     type: T, 
     query: string, 
     limit: number = 10
@@ -616,7 +616,7 @@ Expected structure: domains/, specialists/, methodologies/ directories with BC e
   /**
    * Get enhanced statistics with content type breakdown
    */
-  getEnhancedStatistics(): {
+  override getEnhancedStatistics(): {
     name: string;
     priority: number;
     content_counts: Record<LayerContentType, number>;

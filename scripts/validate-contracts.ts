@@ -5,7 +5,7 @@
  * Run this during CI/CD and at server startup to catch dead ends early.
  */
 
-import { streamlinedTools } from '../src/streamlined-tools.ts';
+import { streamlinedTools } from '../src/tools/core-tools.ts';
 import { createStreamlinedHandlers } from '../src/streamlined-handlers.ts';
 
 interface ValidationResult {
