@@ -41,6 +41,12 @@ describe('Real Knowledge Validation - Issue #16', () => {
       inherit_collaborations: true,
       merge_expertise: false
     });
+    
+    // Load the embedded layer (CRITICAL: this was missing!)
+    const { EmbeddedKnowledgeLayer } = await import('../../src/layers/embedded-layer.js');
+    const embeddedLayer = new EmbeddedKnowledgeLayer(embeddedKnowledgePath);
+    layerService.addLayer(embeddedLayer as any);
+    
     await layerService.initialize();
     
     discoveryService = new SpecialistDiscoveryService(layerService);
