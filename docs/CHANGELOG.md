@@ -5,9 +5,9 @@ All notable changes to the BC Code Intelligence MCP Server will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.5.0] - 2025-10-16
+## [1.4.4] - 2025-10-16
 
-### 🎯 Major Feature - Issue #17: Token-Based Specialist Auto-Detection
+### 🐛 Bug Fixes - Issue #17: Token-Based Specialist Auto-Detection
 
 #### Fixed - Specialist Discovery for Complex/Compound Queries
 - **Token-Based Matching**: Implemented intelligent query tokenization for specialist discovery
