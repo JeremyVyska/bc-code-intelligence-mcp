@@ -5,6 +5,61 @@ All notable changes to the BC Code Intelligence MCP Server will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2025-10-16
+
+### 🎯 Major Feature - Issue #17: Token-Based Specialist Auto-Detection
+
+#### Fixed - Specialist Discovery for Complex/Compound Queries
+- **Token-Based Matching**: Implemented intelligent query tokenization for specialist discovery
+  - Queries now split into individual keywords for matching (e.g., "review" matches "code-review")
+  - Bidirectional partial matching: tokens match field substrings and vice versa
+  - Short words (≤3 characters) filtered out for better precision
+  - Applied across all specialist discovery services: `roleplay-engine.ts`, `multi-content-layer-service.ts`, `specialist-discovery.ts`
+
+- **Improved Confidence Scoring**: Lowered threshold from 0.3 to 0.15
+  - Specialists now match with fewer keyword hits (more permissive)
+  - Still filters irrelevant results (e.g., "weather forecast" returns no BC specialists)
+  - Granular scoring: 0.15 for primary expertise, 0.10 for secondary, 0.05 for domains
+
+- **Enhanced Query Robustness**: 
+  - Handles compound queries: "code review standards compliance naming conventions error handling"
+  - Handles punctuation and special characters gracefully
+  - Case-insensitive matching across all query variations
+  - Very long queries (50+ words) work correctly
+
+#### Fixed - Core Tools Now Work with Natural Language
+- **`ask_bc_expert`**: No longer throws "No suitable specialist found" for compound queries
+  - Previously: Required exact substring matches
+  - Now: Token-based matching finds appropriate specialists for complex questions
+  
+- **`suggest_specialist`**: Returns relevant specialists with proper confidence scores
+  - Previously: Empty results for multi-term queries
+  - Now: Suggests Roger Reviewer, Dean Debug, Eva Errors correctly based on keywords
+
+- **`get_specialist_advice`**: Auto-detection improved via better specialist discovery
+  - Works seamlessly with natural language queries
+  - Finds specialists even when query contains multiple domain-specific terms
+
+#### Added - Comprehensive Integration Tests
+- **`tests/integration/specialist-auto-detection.test.ts`**: 17 new integration tests (all passing)
+  - Token-based matching validation (6 tests)
+  - Confidence calculation validation (5 tests)
+  - Edge cases and robustness (4 tests)
+  - End-to-end integration (2 tests)
+  - Validates exact scenarios from Issue #17 bug report
+
+#### Impact
+- **Usability**: AI agents can now use natural, compound questions with `ask_bc_expert`
+- **Discovery**: Specialist suggestions work with multi-domain queries
+- **Reliability**: No more "No suitable specialist found" errors for valid queries
+- **GitHub Copilot**: Improved integration with natural language queries
+
+### 🔧 Technical Changes
+- Modified: `src/services/roleplay-engine.ts` - `calculateSpecialistConfidence()` now uses token matching
+- Modified: `src/services/multi-content-layer-service.ts` - `matchesSpecialistQuery()` tokenizes queries
+- Modified: `src/services/specialist-discovery.ts` - `analyzeSpecialistMatch()` implements token-based scoring
+- Added: `tests/integration/specialist-auto-detection.test.ts` - 17 comprehensive tests
+
 ## [1.4.3] - 2025-10-15
 
 ### 🐛 Bug Fixes - Issue #16: Company Knowledge Layer Loading
