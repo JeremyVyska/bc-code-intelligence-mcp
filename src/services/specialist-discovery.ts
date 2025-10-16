@@ -196,64 +196,117 @@ export class SpecialistDiscoveryService {
     }
 
     const queryLower = context.query.toLowerCase();
-    const queryWords = queryLower.split(/\s+/);
+    
+    // Tokenize query for better matching (Issue #17 fix)
+    const queryTokens = queryLower
+      .split(/[\s,]+/)
+      .filter(token => token.length > 3)
+      .map(token => token.replace(/[^a-z0-9]/g, ''));
 
     // Check keyword matches
     const specialistKeywords = this.keywordMappings.get(specialist.specialist_id) || new Set();
     
-    for (const word of queryWords) {
-      if (specialistKeywords.has(word)) {
-        keywords_matched.push(word);
-        confidence += 0.2;
+    for (const token of queryTokens) {
+      if (specialistKeywords.has(token)) {
+        keywords_matched.push(token);
+        confidence += 0.15;
       }
     }
 
-    // Check domain expertise matches
+    // Check domain expertise matches with token-based matching
     if (specialist.expertise?.primary) {
       for (const expertise of specialist.expertise.primary) {
-        if (queryLower.includes(expertise.toLowerCase())) {
-          confidence += 0.3;
-          reasons.push(`Primary expertise in ${expertise}`);
-          domain_match = expertise;
+        const expertiseTokens = expertise
+          .toLowerCase()
+          .replace(/[-_]/g, ' ')
+          .split(/\s+/)
+          .filter(t => t.length > 3);
+        
+        // Check if any query token matches any expertise token (bidirectional)
+        for (const queryToken of queryTokens) {
+          if (expertiseTokens.some(et => et.includes(queryToken) || queryToken.includes(et))) {
+            confidence += 0.15;
+            reasons.push(`Primary expertise in ${expertise}`);
+            domain_match = expertise;
+            break; // Only count each expertise once
+          }
         }
       }
     }
 
     if (specialist.expertise?.secondary) {
       for (const expertise of specialist.expertise.secondary) {
-        if (queryLower.includes(expertise.toLowerCase())) {
-          confidence += 0.2;
-          reasons.push(`Secondary expertise in ${expertise}`);
-          domain_match = domain_match || expertise;
+        const expertiseTokens = expertise
+          .toLowerCase()
+          .replace(/[-_]/g, ' ')
+          .split(/\s+/)
+          .filter(t => t.length > 3);
+        
+        for (const queryToken of queryTokens) {
+          if (expertiseTokens.some(et => et.includes(queryToken) || queryToken.includes(et))) {
+            confidence += 0.1;
+            reasons.push(`Secondary expertise in ${expertise}`);
+            domain_match = domain_match || expertise;
+            break;
+          }
         }
       }
     }
 
-    // Check domain matches
+    // Check domain matches with token-based matching
     if (specialist.domains) {
       for (const domain of specialist.domains) {
-        if (queryLower.includes(domain.toLowerCase())) {
-          confidence += 0.25;
-          reasons.push(`Domain specialist for ${domain}`);
-          domain_match = domain_match || domain;
+        const domainTokens = domain
+          .toLowerCase()
+          .replace(/[-_]/g, ' ')
+          .split(/\s+/)
+          .filter(t => t.length > 3);
+        
+        for (const queryToken of queryTokens) {
+          if (domainTokens.some(dt => dt.includes(queryToken) || queryToken.includes(dt))) {
+            confidence += 0.1;
+            reasons.push(`Domain specialist for ${domain}`);
+            domain_match = domain_match || domain;
+            break;
+          }
         }
       }
     }
 
-    // Check "when to use" scenarios
+    // Check "when to use" scenarios with token-based matching
     if (specialist.when_to_use) {
       for (const scenario of specialist.when_to_use) {
-        if (queryLower.includes(scenario.toLowerCase())) {
-          confidence += 0.3;
-          reasons.push(`Ideal for ${scenario}`);
+        const scenarioTokens = scenario
+          .toLowerCase()
+          .replace(/[-_]/g, ' ')
+          .split(/\s+/)
+          .filter(t => t.length > 3);
+        
+        for (const queryToken of queryTokens) {
+          if (scenarioTokens.some(st => st.includes(queryToken) || queryToken.includes(st))) {
+            confidence += 0.15;
+            reasons.push(`Ideal for ${scenario}`);
+            break;
+          }
         }
       }
     }
 
-    // Boost confidence for exact role matches
-    if (specialist.role && queryLower.includes(specialist.role.toLowerCase())) {
-      confidence += 0.4;
-      reasons.push(`Role matches: ${specialist.role}`);
+    // Boost confidence for exact role matches with token-based matching
+    if (specialist.role) {
+      const roleTokens = specialist.role
+        .toLowerCase()
+        .replace(/[-_]/g, ' ')
+        .split(/\s+/)
+        .filter(t => t.length > 3);
+      
+      for (const queryToken of queryTokens) {
+        if (roleTokens.some(rt => rt.includes(queryToken) || queryToken.includes(rt))) {
+          confidence += 0.2;
+          reasons.push(`Role matches: ${specialist.role}`);
+          break;
+        }
+      }
     }
 
     // Context domain bonus

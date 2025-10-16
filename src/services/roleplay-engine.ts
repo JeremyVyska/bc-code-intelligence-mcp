@@ -436,7 +436,7 @@ What's your current experience level so I can tailor the approach accordingly?`;
         currentContext
       );
 
-      if (confidence > 0.3) { // Threshold for relevant suggestions
+      if (confidence > 0.15) { // Lowered threshold for token-based matching (Issue #17)
         suggestions.push({
           specialist_id: specialist.specialist_id,
           confidence,
@@ -929,26 +929,77 @@ What's your current experience level so I can tailor the approach accordingly?`;
     context?: SessionContext
   ): Promise<number> {
     const messageLower = userMessage.toLowerCase();
+    
+    // Tokenize the user message into individual keywords (filter out short words)
+    const messageTokens = messageLower
+      .split(/[\s,]+/)
+      .filter(token => token.length > 3)
+      .map(token => token.replace(/[^a-z0-9]/g, ''));
+    
     let confidence = 0;
+    const matchedTokens = new Set<string>(); // Track matched tokens to avoid double-counting
 
-    // Check against primary expertise
+    // Check against primary expertise with token-based matching
     for (const expertise of specialist.expertise.primary) {
-      if (messageLower.includes(expertise.toLowerCase().replace('-', ' '))) {
-        confidence += 0.3;
+      const expertiseTokens = expertise
+        .toLowerCase()
+        .replace(/[-_]/g, ' ')
+        .split(/\s+/)
+        .filter(t => t.length > 3);
+      
+      // Award points for any token match (bidirectional partial matching)
+      for (const msgToken of messageTokens) {
+        if (matchedTokens.has(msgToken)) continue; // Skip already matched tokens
+        
+        for (const expToken of expertiseTokens) {
+          if (expToken.includes(msgToken) || msgToken.includes(expToken)) {
+            confidence += 0.15; // Lower increment for more granular scoring
+            matchedTokens.add(msgToken);
+            break; // Found a match for this message token
+          }
+        }
       }
     }
 
-    // Check against secondary expertise  
+    // Check against secondary expertise with token-based matching
     for (const expertise of specialist.expertise.secondary) {
-      if (messageLower.includes(expertise.toLowerCase().replace('-', ' '))) {
-        confidence += 0.2;
+      const expertiseTokens = expertise
+        .toLowerCase()
+        .replace(/[-_]/g, ' ')
+        .split(/\s+/)
+        .filter(t => t.length > 3);
+      
+      for (const msgToken of messageTokens) {
+        if (matchedTokens.has(msgToken)) continue;
+        
+        for (const expToken of expertiseTokens) {
+          if (expToken.includes(msgToken) || msgToken.includes(expToken)) {
+            confidence += 0.1;
+            matchedTokens.add(msgToken);
+            break;
+          }
+        }
       }
     }
 
-    // Check against domains
+    // Check against domains with token-based matching
     for (const domain of specialist.domains) {
-      if (messageLower.includes(domain.toLowerCase().replace('-', ' '))) {
-        confidence += 0.1;
+      const domainTokens = domain
+        .toLowerCase()
+        .replace(/[-_]/g, ' ')
+        .split(/\s+/)
+        .filter(t => t.length > 3);
+      
+      for (const msgToken of messageTokens) {
+        if (matchedTokens.has(msgToken)) continue;
+        
+        for (const domToken of domainTokens) {
+          if (domToken.includes(msgToken) || msgToken.includes(domToken)) {
+            confidence += 0.05;
+            matchedTokens.add(msgToken);
+            break;
+          }
+        }
       }
     }
 

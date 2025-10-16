@@ -612,7 +612,10 @@ export class MultiContentLayerService {
   }
 
   /**
-   * Check if specialist matches query
+   * Check if specialist matches query using token-based matching
+   * 
+   * Fixes Issue #17: Complex compound questions now tokenized for matching.
+   * Instead of requiring full query as substring, matches any individual token.
    */
   private matchesSpecialistQuery(specialist: SpecialistDefinition, queryLower: string): boolean {
     const searchableFields = [
@@ -625,7 +628,18 @@ export class MultiContentLayerService {
       ...(specialist.when_to_use || [])
     ].filter(Boolean).map(field => field.toLowerCase());
 
-    return searchableFields.some(field => field.includes(queryLower));
+    // Tokenize query into individual keywords (filter out short words)
+    const queryTokens = queryLower
+      .split(/[\s,]+/)
+      .filter(token => token.length > 3)
+      .map(token => token.replace(/[^a-z0-9]/g, ''));
+    
+    // Match if ANY query token matches ANY searchable field (bidirectional partial matching)
+    return queryTokens.some(token => 
+      searchableFields.some(field => 
+        field.includes(token) || token.includes(field)
+      )
+    );
   }
 
   /**
