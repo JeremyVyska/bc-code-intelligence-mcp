@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.5] - 2025-10-26
+
 ### 📚 Enhanced Knowledge - Alex Architect Copilot Agent Delegation
 - **New Knowledge Topic**: "Delegating Coding Tasks to GitHub Copilot Agents"
 - **Strategic AI-to-AI Handoff**: Comprehensive guide for creating effective Issues for Copilot Agent task delegation
