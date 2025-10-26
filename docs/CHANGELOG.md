@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 📚 Enhanced Knowledge - Alex Architect Copilot Agent Delegation
+- **New Knowledge Topic**: "Delegating Coding Tasks to GitHub Copilot Agents"
+- **Strategic AI-to-AI Handoff**: Comprehensive guide for creating effective Issues for Copilot Agent task delegation
+- **BC-Specific Context Templates**: Object IDs, naming conventions, data models, validation rules
+- **Layer Integration**: Extract standards from company/team layers for consistent code generation
+- **Complete Issue Template**: Real-world example (Sales Priority Management) showing all context elements
+- **Best Practices**: Front-load context, reference layers, provide examples, specify acceptance criteria
+
+**What Alex Can Now Guide:**
+- Crafting Issues with complete BC context (object IDs, field types, relationships)
+- Extracting naming conventions from loaded company/team layers
+- Incorporating data architecture standards from organizational knowledge
+- Providing validation and error handling patterns from layer-based best practices
+- Creating testable acceptance criteria for Copilot Agent deliverables
+
+**Why This Matters:**
+- GitHub Copilot Agents can't ask clarifying questions - all context must be in the Issue
+- Company/team layer standards ensure generated code follows organizational patterns
+- Complete upfront context reduces iteration cycles and improves code quality
+- Enables effective AI-to-AI delegation while maintaining standards compliance
+
 ### ✨ Added - Git Layer Diagnostics (Advanced Users Only)
 - **Optional Diagnostic Tools**: New `developer.enable_diagnostic_tools` config flag (default: false)
 - **Reduces Token Overhead**: Diagnostic tools only load when explicitly enabled (saves ~1000 tokens per request)
