@@ -140,6 +140,7 @@ export interface DeveloperSettings {
   profile_performance: boolean;
   validate_on_startup: boolean;
   export_config_schema: boolean;
+  enable_diagnostic_tools: boolean; // Load git/config diagnostic tools (for advanced layer users)
 }
 
 export interface ConfigurationSource {
@@ -253,7 +254,8 @@ export const DEFAULT_BC_CODE_INTEL_CONFIG: BCCodeIntelConfiguration = {
     log_level: 'info',
     profile_performance: false,
     validate_on_startup: true,
-    export_config_schema: false
+    export_config_schema: false,
+    enable_diagnostic_tools: false // Disabled by default to minimize token overhead
   }
 };
 
@@ -261,6 +263,7 @@ export const DEFAULT_BC_CODE_INTEL_CONFIG: BCCodeIntelConfiguration = {
 export const ENV_VAR_MAPPINGS = {
   'BC_CODE_INTEL_CONFIG_PATH': 'config_file_path',
   'BC_CODE_INTEL_DEBUG_LAYERS': 'developer.debug_layers',
+  'BC_CODE_INTEL_ENABLE_DIAGNOSTICS': 'developer.enable_diagnostic_tools',
   'BC_CODE_INTEL_HOT_RELOAD': 'developer.hot_reload',
   'BC_CODE_INTEL_LOG_LEVEL': 'developer.log_level',
   'BC_CODE_INTEL_CACHE_STRATEGY': 'cache.strategy',

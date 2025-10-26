@@ -33,6 +33,7 @@ import { SpecialistDiscoveryService } from './services/specialist-discovery.js';
 import { EnhancedPromptService } from './services/enhanced-prompt-service.js';
 import { ConfigurationLoader } from './config/config-loader.js';
 import { ConfigurationValidator } from './config/config-validator.js';
+import { ConfigDiagnosticTools } from './tools/config-diagnostic-tools.js';
 import { domainWorkflows } from './workflows/domain-workflows.js';
 import {
   TopicSearchParams,
@@ -69,6 +70,7 @@ class BCCodeIntelligenceServer {
   private enhancedPromptService!: EnhancedPromptService;
   private agentOnboardingTools!: AgentOnboardingTools;
   private specialistHandoffTools!: SpecialistHandoffTools;
+  private configDiagnosticTools!: ConfigDiagnosticTools;
   private configuration!: BCCodeIntelConfiguration;
   private configLoader: ConfigurationLoader;
 
@@ -123,6 +125,11 @@ class BCCodeIntelligenceServer {
         handoffTools: this.specialistHandoffTools
       });
       
+      // Add configuration diagnostic tools if available AND enabled
+      if (this.configDiagnosticTools) {
+        tools.push(...this.configDiagnosticTools.getToolDefinitions() as any);
+      }
+      
       return { tools };
     });
 
@@ -149,6 +156,11 @@ class BCCodeIntelligenceServer {
         // Check if it's a specialist handoff tool
         if (this.specialistHandoffTools && ['handoff_to_specialist', 'bring_in_specialist', 'get_handoff_summary'].includes(name)) {
           return await this.specialistHandoffTools.handleToolCall(request);
+        }
+
+        // Check if it's a configuration diagnostic tool
+        if (this.configDiagnosticTools && ['diagnose_git_layer', 'validate_layer_config', 'test_azure_devops_pat', 'get_layer_diagnostics'].includes(name)) {
+          return await this.configDiagnosticTools.handleToolCall(request);
         }
 
         // Create streamlined handlers with all services
@@ -635,6 +647,14 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
       this.specialistDiscoveryService,
       this.layerService
     );
+    
+    // Initialize configuration diagnostic tools ONLY if enabled (reduces token overhead)
+    if (this.configuration.developer.enable_diagnostic_tools) {
+      this.configDiagnosticTools = new ConfigDiagnosticTools(this.layerService);
+      console.error('🔧 Configuration diagnostic tools enabled');
+    } else {
+      console.error('💡 Tip: Set developer.enable_diagnostic_tools=true for git layer diagnostics');
+    }
     
     // Initialize workflow service with specialist discovery
     const specialistDiscoveryService = new SpecialistDiscoveryService(this.layerService);

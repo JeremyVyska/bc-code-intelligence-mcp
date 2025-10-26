@@ -30,6 +30,10 @@
   "developer": {
     "debug_layers": false,
     "hot_reload": false,
-    "log_level": "info"
+    "log_level": "info",
+    "enable_diagnostic_tools": false
+  },
+  "_comments": {
+    "enable_diagnostic_tools": "Set to true to enable git layer authentication diagnostics (adds 4 MCP tools - only needed for advanced layer users)"
   }
 }

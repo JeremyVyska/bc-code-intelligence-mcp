@@ -61,3 +61,4 @@ developer:
   hot_reload: false
   log_level: info
   validate_on_startup: true
+  enable_diagnostic_tools: false  # Set to true for git layer auth diagnostics (adds 4 tools)

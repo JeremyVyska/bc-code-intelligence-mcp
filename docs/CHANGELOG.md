@@ -5,6 +5,36 @@ All notable changes to the BC Code Intelligence MCP Server will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### ✨ Added - Git Layer Diagnostics (Advanced Users Only)
+- **Optional Diagnostic Tools**: New `developer.enable_diagnostic_tools` config flag (default: false)
+- **Reduces Token Overhead**: Diagnostic tools only load when explicitly enabled (saves ~1000 tokens per request)
+- **Git Authentication Testing**: `diagnose_git_layer` tool for Azure DevOps PAT troubleshooting
+- **Azure DevOps Support**: `test_azure_devops_pat` specifically for Azure DevOps authentication issues
+- **Environment Variable**: Set `BC_CODE_INTEL_ENABLE_DIAGNOSTICS=true` to enable
+
+**To enable diagnostic tools:**
+```yaml
+# In bc-code-intel-config.yaml
+developer:
+  enable_diagnostic_tools: true
+```
+
+Or via environment variable:
+```bash
+export BC_CODE_INTEL_ENABLE_DIAGNOSTICS=true
+```
+
+This adds 2 specialized tools for Chris Config to diagnose git layer authentication issues without adding token overhead for users who don't use layers.
+
+### 🔧 Fixed - macOS Startup Issues (Issue #18)
+- **Platform Diagnostics**: Added comprehensive pre-initialization platform checks for macOS compatibility
+- **Enhanced Error Logging**: Unhandled promise rejections and uncaught exceptions now log before exit
+- **Path Validation**: Embedded knowledge directory validation with detailed error messages
+- **Cross-Platform Glob**: Improved glob pattern handling for macOS/Linux path conventions
+- **Diagnostic Output**: Early logging captures errors that occur before stdio transport initialization
+
 ## [1.4.4] - 2025-10-16
 
 ### 🐛 Bug Fixes - Issue #17: Token-Based Specialist Auto-Detection
@@ -116,6 +146,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **No External Dependencies**: Configuration guidance embedded in knowledge base, no wiki hunting required
 - **Override-Ready Content**: Teams can customize configuration guides with company-specific instructions
 - **Cross-Referenced**: Proper topic linking between configuration and content creation workflows
+
+## [1.4.2] - 2025-10-01
 
 ## [1.3.2] - 2025-09-22
 
