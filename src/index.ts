@@ -12,7 +12,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 import { 
   getAllToolDefinitions,
   STREAMLINED_TOOL_NAMES,
@@ -77,9 +77,21 @@ class BCCodeIntelligenceServer {
       const __filename = fileURLToPath(import.meta.url);
       const __dirname = dirname(__filename);
       const packagePath = join(__dirname, '..', 'package.json');
+      
+      console.error(`🔍 Looking for package.json at: ${packagePath}`);
+      console.error(`   Exists: ${existsSync(packagePath)}`);
+      
+      if (!existsSync(packagePath)) {
+        console.error(`⚠️  package.json not found at expected location`);
+        return '1.0.0'; // fallback
+      }
+      
       const packageJson = JSON.parse(readFileSync(packagePath, 'utf8'));
-      return packageJson.version;
-    } catch {
+      const version = packageJson.version || '1.0.0';
+      console.error(`   Version: ${version}`);
+      return version;
+    } catch (error) {
+      console.error(`⚠️  Error reading package.json:`, error instanceof Error ? error.message : String(error));
       return '1.0.0'; // fallback
     }
   }
@@ -968,7 +980,31 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
 
   async run(): Promise<void> {
     try {
-      console.error(`🚀 BC Code Intelligence MCP Server v${this.getPackageVersion()} starting...`);
+      // Ultra-early diagnostics for platform issues
+      console.error('=== BC Code Intelligence MCP Server Startup Diagnostics ===');
+      console.error(`Platform: ${process.platform}`);
+      console.error(`Node version: ${process.version}`);
+      console.error(`Architecture: ${process.arch}`);
+      console.error(`Working directory: ${process.cwd()}`);
+      console.error(`Script path: ${process.argv[1]}`);
+      
+      const version = this.getPackageVersion();
+      console.error(`🚀 BC Code Intelligence MCP Server v${version} starting...`);
+
+      // Verify embedded knowledge path BEFORE any service initialization
+      const __filename = fileURLToPath(import.meta.url);
+      const __dirname = dirname(__filename);
+      const embeddedPath = join(__dirname, '..', 'embedded-knowledge');
+      console.error(`Embedded knowledge path: ${embeddedPath}`);
+      console.error(`Embedded knowledge exists: ${existsSync(embeddedPath)}`);
+      
+      if (existsSync(embeddedPath)) {
+        const expectedDirs = ['domains', 'specialists', 'methodologies'];
+        for (const dir of expectedDirs) {
+          const dirPath = join(embeddedPath, dir);
+          console.error(`  ${dir}/: ${existsSync(dirPath)}`);
+        }
+      }
 
       // Load configuration
       const configResult = await this.configLoader.loadConfiguration();
@@ -1022,19 +1058,55 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
 
 // Start the server
 async function main() {
-  const server = new BCCodeIntelligenceServer();
-  await server.run();
+  try {
+    // Ultra-early platform diagnostics (before any server initialization)
+    console.error('=== Pre-Initialization Platform Check ===');
+    console.error(`Node.js: ${process.version}`);
+    console.error(`Platform: ${process.platform} (${process.arch})`);
+    console.error(`PWD: ${process.cwd()}`);
+    console.error(`Script: ${process.argv[1]}`);
+    
+    const server = new BCCodeIntelligenceServer();
+    await server.run();
+  } catch (error) {
+    console.error('💥 Fatal error in main():', error);
+    console.error('Error details:', {
+      name: error instanceof Error ? error.name : 'Unknown',
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : 'No stack trace'
+    });
+    process.exit(1);
+  }
 }
 
 // Handle process termination
 process.on('SIGINT', async () => {
-  console.error('BC Code Intelligence MCP Server shutting down...');
+  console.error('BC Code Intelligence MCP Server shutting down (SIGINT)...');
   process.exit(0);
 });
 
 process.on('SIGTERM', async () => {
-  console.error('BC Code Intelligence MCP Server shutting down...');
+  console.error('BC Code Intelligence MCP Server shutting down (SIGTERM)...');
   process.exit(0);
+});
+
+// Catch unhandled promise rejections (common cause of silent crashes)
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('💥 Unhandled Promise Rejection:');
+  console.error('Reason:', reason);
+  console.error('Promise:', promise);
+  if (reason instanceof Error) {
+    console.error('Stack:', reason.stack);
+  }
+  process.exit(1);
+});
+
+// Catch uncaught exceptions
+process.on('uncaughtException', (error) => {
+  console.error('💥 Uncaught Exception:');
+  console.error('Error:', error);
+  console.error('Stack:', error.stack);
+  process.exit(1);
 });
 
 // Run server if this is the main module

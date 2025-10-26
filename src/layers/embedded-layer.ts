@@ -120,38 +120,63 @@ Expected structure: domains/, specialists/, methodologies/ directories with BC e
   protected async loadTopics(): Promise<number> {
     const domainsPath = join(this.embeddedPath, 'domains');
 
-    // Use glob to find all markdown files in domains, excluding samples
-    // Convert Windows paths to the format expected by fast-glob
-    let pattern = join(domainsPath, '**', '*.md').replace(/\\/g, '/');
+    // Diagnostic logging for path resolution across platforms
+    console.error(`📂 Loading topics from: ${domainsPath}`);
+    console.error(`   Platform: ${process.platform}`);
+    console.error(`   Directory exists: ${existsSync(domainsPath)}`);
 
-    // Convert /c/path to C:/path on Windows
-    if (pattern.startsWith('/c/')) {
+    // Use glob to find all markdown files in domains, excluding samples
+    // Normalize path separators for cross-platform compatibility
+    let pattern = join(domainsPath, '**', '*.md');
+    
+    // fast-glob expects forward slashes on all platforms
+    pattern = pattern.replace(/\\/g, '/');
+    
+    // Handle Windows drive letter normalization (e.g., /c/ to C:/)
+    if (process.platform === 'win32' && pattern.startsWith('/c/')) {
       pattern = 'C:' + pattern.substring(2);
     }
 
     console.error(`🔍 Using glob pattern: ${pattern}`);
-    const topicFiles = await glob(pattern, {
-      ignore: ['**/samples/**'] // Ignore sample files
-    });
+    
+    try {
+      const topicFiles = await glob(pattern, {
+        ignore: ['**/samples/**'], // Ignore sample files
+        absolute: true, // Return absolute paths
+        onlyFiles: true // Only return files, not directories
+      });
 
-    console.error(`Found ${topicFiles.length} topic files in ${domainsPath}`);
-
-    let loadedCount = 0;
-    for (const filePath of topicFiles) {
-      try {
-        const topic = await this.loadAtomicTopic(filePath);
-        if (topic && this.validateTopic(topic)) {
-          this.topics.set(topic.id, topic);
-          loadedCount++;
-        } else {
-          console.error(`Invalid topic structure in ${filePath}`);
-        }
-      } catch (error) {
-        console.error(`Failed to load topic ${filePath}:`, error instanceof Error ? error.message : String(error));
+      console.error(`   Found ${topicFiles.length} topic files`);
+      
+      if (topicFiles.length === 0) {
+        console.error(`⚠️  Warning: No topic files found. Check if embedded-knowledge is properly populated.`);
       }
-    }
 
-    return loadedCount;
+      let loadedCount = 0;
+      for (const filePath of topicFiles) {
+        try {
+          const topic = await this.loadAtomicTopic(filePath);
+          if (topic && this.validateTopic(topic)) {
+            this.topics.set(topic.id, topic);
+            loadedCount++;
+          } else {
+            console.error(`Invalid topic structure in ${filePath}`);
+          }
+        } catch (error) {
+          console.error(`Failed to load topic ${filePath}:`, error instanceof Error ? error.message : String(error));
+        }
+      }
+
+      return loadedCount;
+    } catch (error) {
+      console.error(`❌ Fatal error loading topics from ${domainsPath}:`, error);
+      console.error(`   Error type: ${error instanceof Error ? error.constructor.name : typeof error}`);
+      console.error(`   Error message: ${error instanceof Error ? error.message : String(error)}`);
+      if (error instanceof Error && error.stack) {
+        console.error(`   Stack trace: ${error.stack}`);
+      }
+      throw error; // Re-throw to be caught by initialize()
+    }
   }
 
   /**
