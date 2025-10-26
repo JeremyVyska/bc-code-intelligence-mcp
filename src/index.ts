@@ -159,7 +159,7 @@ class BCCodeIntelligenceServer {
         }
 
         // Check if it's a configuration diagnostic tool
-        if (this.configDiagnosticTools && ['diagnose_git_layer', 'validate_layer_config', 'test_azure_devops_pat', 'get_layer_diagnostics'].includes(name)) {
+        if (this.configDiagnosticTools && ['diagnose_git_layer', 'validate_layer_config', 'test_azure_devops_pat', 'get_layer_diagnostics', 'diagnose_local_layer', 'reload_layers'].includes(name)) {
           return await this.configDiagnosticTools.handleToolCall(request);
         }
 
@@ -650,7 +650,7 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
     
     // Initialize configuration diagnostic tools ONLY if enabled (reduces token overhead)
     if (this.configuration.developer.enable_diagnostic_tools) {
-      this.configDiagnosticTools = new ConfigDiagnosticTools(this.layerService);
+      this.configDiagnosticTools = new ConfigDiagnosticTools(this.layerService, this.configLoader);
       console.error('🔧 Configuration diagnostic tools enabled');
     } else {
       console.error('💡 Tip: Set developer.enable_diagnostic_tools=true for git layer diagnostics');

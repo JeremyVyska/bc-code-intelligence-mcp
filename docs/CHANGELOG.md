@@ -11,8 +11,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Optional Diagnostic Tools**: New `developer.enable_diagnostic_tools` config flag (default: false)
 - **Reduces Token Overhead**: Diagnostic tools only load when explicitly enabled (saves ~1000 tokens per request)
 - **Git Authentication Testing**: `diagnose_git_layer` tool for Azure DevOps PAT troubleshooting
+- **Local Layer Diagnostics**: `diagnose_local_layer` tool for troubleshooting project override layers
+- **Layer Validation**: `validate_layer_config` and `get_layer_diagnostics` for configuration debugging
 - **Azure DevOps Support**: `test_azure_devops_pat` specifically for Azure DevOps authentication issues
+- **Hot Reload**: `reload_layers` command to reload layers after config changes WITHOUT restarting MCP
 - **Environment Variable**: Set `BC_CODE_INTEL_ENABLE_DIAGNOSTICS=true` to enable
+
+**6 Diagnostic Tools Total:**
+1. `diagnose_git_layer` - Comprehensive git auth & connectivity testing
+2. `test_azure_devops_pat` - Azure DevOps PAT validation
+3. `diagnose_local_layer` - Local layer path, permissions, and content validation
+4. `get_layer_diagnostics` - Layer status and performance metrics
+5. `validate_layer_config` - Configuration file validation (planned)
+6. `reload_layers` - Reload layers after config changes (no restart needed!)
+
+**Local Layer Diagnostics Features:**
+- Path existence and accessibility checks
+- Permission validation (read/write)
+- Content discovery (markdown file counting)
+- Subdirectory structure validation (domains/, topics/, overrides/)
+- Sample markdown frontmatter validation
+- Specific recommendations for each failure type
+
+**Reload Layers Features:**
+- Reload configuration file dynamically
+- Refresh layer cache without MCP restart
+- Reload specific layer or all layers
+- Shows updated topic counts and load status
+- Perfect for testing configuration changes iteratively
 
 **To enable diagnostic tools:**
 ```yaml
