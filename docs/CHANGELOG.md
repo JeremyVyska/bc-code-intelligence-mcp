@@ -10,36 +10,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.5.0] - 2025-10-27
 
 ### 🎯 Workspace Management Tools
-- **New Tool**: `set_workspace_root` - Configure workspace root when MCP can't auto-detect VS Code workspace folder
-- **New Tool**: `get_workspace_root` - Query currently configured workspace root
+- **New Tool**: `set_workspace_info` - Configure workspace root and MCP ecosystem context
+- **New Tool**: `get_workspace_info` - Query currently configured workspace and available MCPs
 - **Lazy Initialization**: Server starts with only embedded knowledge, defers project/company layers until workspace is set
 - **First-Call Interception**: Tools provide helpful guidance to set workspace before allowing operations
 - **VS Code Workaround**: Solves VS Code bug #245905 (${workspaceFolder} doesn't work in user-level MCP settings)
 - **Automatic Reload**: Setting workspace triggers full config reload with project-local layers
+- **MCP Ecosystem Awareness**: Track available BC MCP servers for conditional knowledge loading
 
 **Why This Was Needed:**
 - MCP servers launched by VS Code extension run from user home/npm cache, not workspace folder
 - Config file discovery (`bckb-config.yml`) and project layers (`./bc-code-intel-overrides`) failed
 - No standard MCP protocol for workspace context passing
 - Lazy initialization prevents startup failures while maintaining zero-config embedded knowledge
+- Specialists need to know what other BC tools are available for delegation and integration
 
 **Usage:**
 ```json
-// After server starts, configure workspace:
+// After server starts, configure workspace with MCP ecosystem:
 {
-  "tool": "set_workspace_root",
+  "tool": "set_workspace_info",
   "arguments": {
-    "path": "C:\\Users\\YourName\\Projects\\your-bc-project"
+    "path": "C:\\Users\\YourName\\Projects\\your-bc-project",
+    "available_mcps": ["bc-telemetry-buddy", "al-objid-mcp-server"]
   }
 }
 
-// Server responds with reload status:
+// Server responds with reload status and MCP categorization:
 {
   "success": true,
-  "message": "Workspace configured successfully. Loaded 145 topics from 3 layers, 15 specialists available.",
+  "workspace_root": "C:\\Users\\YourName\\Projects\\your-bc-project",
+  "available_mcps": {
+    "known": [
+      "bc-telemetry-buddy: BC Telemetry Buddy - Advanced telemetry analysis",
+      "al-objid-mcp-server: Object ID Ninja - AL object ID management"
+    ],
+    "unknown": []
+  },
+  "message": "Workspace configured. Loaded 145 topics from 3 layers, 15 specialists available.",
   "reloaded": true
 }
 ```
+
+**Legacy Tool Names:**
+- `set_workspace_root` → Now `set_workspace_info` (legacy name still intercepted)
+- `get_workspace_root` → Now `get_workspace_info` (legacy name still intercepted)
 
 ### 📚 Universal Content Type Support - ALL Layers
 - **Breaking Architecture Fix**: ALL layers (embedded, git, project) now support all three content types
@@ -102,11 +117,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reference architecture for other specialists with extensive knowledge domains
 
 ### 🌐 MCP Ecosystem Awareness
-- **⚠️ BREAKING CHANGE**: Workspace tools renamed for generality
-  - `set_workspace_root` → `set_workspace_info`
-  - `get_workspace_root` → `get_workspace_info`
-  - Legacy tool names still intercepted for smooth transition
-- **MCP Discovery**: New `available_mcps` parameter reports other BC MCP servers available in environment
+- **MCP Discovery**: New `available_mcps` parameter in workspace tools reports other BC MCP servers in environment
 - **Known BC MCPs Registry**: Built-in registry of 8 BC-related MCP servers:
   - **AL & BC Development**: bc-code-intelligence-mcp, al-dependency-mcp-server, serena-mcp, al-objid-mcp-server (Object ID Ninja), bc-telemetry-buddy
   - **DevOps & Productivity**: azure-devops-mcp, clockify-mcp, nab-al-tools-mcp
@@ -135,6 +146,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Customer-specific troubleshooting with tenant mapping
   - Query library for saving and reusing KQL patterns
   - Fallback to theoretical guidance when telemetry not available
+
+**Conditional MCP Filtering Implementation:**
+- **Dynamic Topic Loading**: Knowledge base adapts based on available MCP servers (no restart required)
+- **Dual Conditional Pattern**:
+  - `conditional_mcp`: Topic appears ONLY when specified MCP is available (integration topics)
+  - `conditional_mcp_missing`: Topic appears ONLY when specified MCP is NOT available (recommendation topics)
+- **Progressive Enhancement Architecture**:
+  - **Baseline Topics**: Always available (no conditional frontmatter)
+  - **Recommendation Topics**: Show when tool missing - guide users to install and explain benefits
+  - **Integration Topics**: Show when tool present - provide tool-specific workflows and delegation patterns
+- **Filter Timing**: Dynamic filtering at search/query time (not load time)
+  - `MultiContentLayerService.shouldIncludeTopic()` checks conditionals before returning results
+  - `setAvailableMcps()` updates MCP list and clears cache for immediate filtering updates
+  - Specialists see tool-specific knowledge appear/disappear as ecosystem changes
+- **New Recommendation Topics** (450+ lines total):
+  - `dean-debug/recommend-bc-telemetry-buddy.md` - "What you're missing: data-driven vs theoretical guidance"
+  - `alex-architect/recommend-object-id-ninja.md` - "Object ID collision risks and manual fallback strategies"
+
+**Frontmatter Schema:**
+```yaml
+# Integration topic (only show when MCP present)
+conditional_mcp: "bc-telemetry-buddy"
+
+# Recommendation topic (only show when MCP absent)  
+conditional_mcp_missing: "al-objid-mcp-server"
+
+# Baseline topic (always show - no conditional field)
+```
+
+**Implementation:**
+- Enhanced `AtomicTopicFrontmatterSchema` with optional `conditional_mcp` and `conditional_mcp_missing` fields
+- `MultiContentLayerService` filtering logic:
+  - `setAvailableMcps(mcps: string[])` - Update available MCPs and clear cache
+  - `getAvailableMcps()` - Query current MCP availability
+  - `shouldIncludeTopic(topic)` - Boolean filter based on conditionals
+- Integrated with `set_workspace_info` tool - MCP list updates trigger dynamic filtering
+- **99 Integration Tests Passing** - Comprehensive filtering test coverage validates all scenarios
 
 **Usage:**
 ```json
