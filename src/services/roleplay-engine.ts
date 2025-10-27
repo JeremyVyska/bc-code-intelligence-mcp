@@ -153,8 +153,12 @@ export class BCSpecialistRoleplayEngine implements RoleplayEngine {
   ): Promise<SpecialistResponse> {
     const personality = this.analyzePersonality(specialist);
 
-    // NO pre-selection of knowledge - specialist must search themselves
-    const relevantTopics: any[] = [];
+    // Search for relevant knowledge topics based on user's question and specialist's expertise
+    const relevantTopics = await this.knowledgeRetriever.findRelevantTopics(
+      userMessage,
+      specialist.expertise.primary.concat(specialist.expertise.secondary || []),
+      5
+    );
 
     // Create a minimal methodology context for the direct response
     const directMethodologyContext = {
@@ -216,8 +220,12 @@ export class BCSpecialistRoleplayEngine implements RoleplayEngine {
   ): Promise<SpecialistResponse> {
     const personality = this.analyzePersonality(specialist);
 
-    // NO pre-selection of knowledge - specialist must search themselves
-    const relevantTopics: any[] = [];
+    // Search for relevant knowledge topics based on user's question and specialist's expertise
+    const relevantTopics = await this.knowledgeRetriever.findRelevantTopics(
+      userMessage,
+      specialist.expertise.primary.concat(specialist.expertise.secondary || []),
+      5
+    );
 
     // Generate methodology-contextual response
     const response = await this.buildMethodologyResponse(
