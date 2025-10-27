@@ -5,17 +5,6 @@ import { EmbeddedKnowledgeLayer } from '../../src/layers/embedded-layer.js';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
-/**
- * MCP Ecosystem Awareness Tests (Priority 2 - v1.5.0 Feature)
- *
- * Tests for MCP ecosystem awareness and conditional knowledge loading:
- * - KNOWN_BC_MCPS registry validation
- * - MCP categorization (known vs unknown)
- * - WorkspaceInfo interface structure
- * - Conditional topic detection (conditional_mcp frontmatter)
- * - Specialist knowledge expansion when MCPs available
- * - Fallback behavior when conditional MCPs missing
- */
 describe('MCP Ecosystem Awareness', () => {
   describe('KNOWN_BC_MCPS Registry', () => {
     it('should contain 8 known BC MCP servers', () => {
@@ -204,9 +193,9 @@ describe('MCP Ecosystem Awareness', () => {
       expect(topic).toBeDefined();
       if (topic) {
         expect(topic.id).toContain(searchString);
-        // Check conditional_mcp in metadata if it exists
-        if (topic.metadata) {
-          expect(topic.metadata.conditional_mcp).toBe('al-objid-mcp-server');
+        // Check conditional_mcp in frontmatter if it exists
+        if (topic.frontmatter) {
+          expect(topic.frontmatter.conditional_mcp).toBe('al-objid-mcp-server');
         } else if ((topic as any).conditional_mcp) {
           expect((topic as any).conditional_mcp).toBe('al-objid-mcp-server');
         }
@@ -227,9 +216,9 @@ describe('MCP Ecosystem Awareness', () => {
       expect(topic).toBeDefined();
       if (topic) {
         expect(topic.id).toContain(searchString);
-        // Check conditional_mcp in metadata if it exists
-        if (topic.metadata) {
-          expect(topic.metadata.conditional_mcp).toBe('bc-telemetry-buddy');
+        // Check conditional_mcp in frontmatter if it exists
+        if (topic.frontmatter) {
+          expect(topic.frontmatter.conditional_mcp).toBe('bc-telemetry-buddy');
         } else if ((topic as any).conditional_mcp) {
           expect((topic as any).conditional_mcp).toBe('bc-telemetry-buddy');
         }
@@ -247,12 +236,12 @@ describe('MCP Ecosystem Awareness', () => {
         expect(topic).toBeDefined();
 
         if (topic) {
-          // Should have conditional_mcp in metadata
-          expect(topic.metadata.conditional_mcp).toBeDefined();
-          expect(typeof topic.metadata.conditional_mcp).toBe('string');
+          // Should have conditional_mcp in frontmatter
+          expect(topic.frontmatter.conditional_mcp).toBeDefined();
+          expect(typeof topic.frontmatter.conditional_mcp).toBe('string');
 
           // Should reference a known MCP
-          const conditionalMcp = topic.metadata.conditional_mcp as string;
+          const conditionalMcp = topic.frontmatter.conditional_mcp as string;
           expect(conditionalMcp in KNOWN_BC_MCPS).toBe(true);
         }
       }
@@ -266,18 +255,17 @@ describe('MCP Ecosystem Awareness', () => {
         // Standard topic fields
         expect(alexTopic.id).toBeDefined();
         expect(alexTopic.title).toBeDefined();
-        expect(alexTopic.domain).toBeDefined();
         expect(alexTopic.content).toBeDefined();
 
         // Conditional MCP specific
-        expect(alexTopic.metadata.conditional_mcp).toBe('al-objid-mcp-server');
+        expect(alexTopic.frontmatter.conditional_mcp).toBe('al-objid-mcp-server');
 
         // Should have BC version info
-        expect(alexTopic.metadata.bc_versions).toBeDefined();
+        expect(alexTopic.frontmatter.bc_versions).toBeDefined();
 
         // Should have tags
-        expect(Array.isArray(alexTopic.metadata.tags)).toBe(true);
-        expect(alexTopic.metadata.tags).toContain('mcp-integration');
+        expect(Array.isArray(alexTopic.frontmatter.tags)).toBe(true);
+        expect(alexTopic.frontmatter.tags).toContain('mcp-integration');
       }
     });
 
@@ -299,7 +287,7 @@ describe('MCP Ecosystem Awareness', () => {
       expect(standardTopic).toBeDefined();
       if (standardTopic) {
         // Should not have conditional_mcp
-        expect(standardTopic.metadata.conditional_mcp).toBeUndefined();
+        expect(standardTopic.frontmatter.conditional_mcp).toBeUndefined();
         // Should still be a valid topic
         expect(standardTopic.id).toBe('posting-performance-patterns');
         expect(standardTopic.content).toBeDefined();
@@ -418,7 +406,7 @@ describe('MCP Ecosystem Awareness', () => {
       }
     });
 
-    it('should validate MCP ecosystem metadata completeness', async () => {
+    it('should validate MCP ecosystem frontmatter completeness', async () => {
       const conditionalTopics = [
         { id: 'object-id-ninja-integration', mcp: 'al-objid-mcp-server' },
         { id: 'bc-telemetry-buddy-integration', mcp: 'bc-telemetry-buddy' }
@@ -430,18 +418,112 @@ describe('MCP Ecosystem Awareness', () => {
 
         if (topic) {
           // Validate conditional_mcp matches expected
-          expect(topic.metadata.conditional_mcp).toBe(mcp);
+          expect(topic.frontmatter.conditional_mcp).toBe(mcp);
 
           // Validate it's a known MCP
           expect(mcp in KNOWN_BC_MCPS).toBe(true);
 
           // Validate tags include mcp-integration
-          expect(Array.isArray(topic.metadata.tags)).toBe(true);
-          expect(topic.metadata.tags).toContain('mcp-integration');
+          expect(Array.isArray(topic.frontmatter.tags)).toBe(true);
+          expect(topic.frontmatter.tags).toContain('mcp-integration');
         }
       }
     });
   });
+
+  describe('Conditional Topic Filtering Logic', () => {
+    let layerService: MultiContentLayerService;
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = dirname(__filename);
+    const embeddedPath = join(__dirname, '../../embedded-knowledge');
+
+    beforeEach(async () => {
+      layerService = new MultiContentLayerService();
+      const embeddedLayer = new EmbeddedKnowledgeLayer(embeddedPath);
+      layerService.addLayer(embeddedLayer as any);
+      await layerService.initialize();
+    });
+
+    it('should include conditional topics when MCP is available', async () => {
+      // Set available MCPs
+      layerService.setAvailableMcps(['bc-telemetry-buddy']);
+
+      // Search for Dean's topics
+      const results = await layerService.searchTopics({ domain: 'dean-debug', limit: 50 });
+      
+      // Should include telemetry integration topic (conditional_mcp: "bc-telemetry-buddy")
+      const hasTelemetryTopic = results.some(r => r.id.includes('bc-telemetry-buddy-integration'));
+      expect(hasTelemetryTopic).toBe(true);
+
+      // Should NOT include recommendation topic (conditional_mcp_missing: "bc-telemetry-buddy")
+      const hasRecommendationTopic = results.some(r => r.id.includes('recommend-bc-telemetry-buddy'));
+      expect(hasRecommendationTopic).toBe(false);
+    });
+
+    it('should exclude conditional topics when MCP is missing', async () => {
+      // No MCPs available
+      layerService.setAvailableMcps([]);
+
+      // Search for Dean's topics
+      const results = await layerService.searchTopics({ domain: 'dean-debug', limit: 50 });
+      
+      // Should NOT include integration topic (requires bc-telemetry-buddy)
+      const hasTelemetryTopic = results.some(r => r.id.includes('bc-telemetry-buddy-integration'));
+      expect(hasTelemetryTopic).toBe(false);
+
+      // Should include recommendation topic (shows when MCP missing)
+      const hasRecommendationTopic = results.some(r => r.id.includes('recommend-bc-telemetry-buddy'));
+      expect(hasRecommendationTopic).toBe(true);
+    });
+
+    it('should dynamically update filtering when MCPs change', async () => {
+      // Start with no MCPs
+      layerService.setAvailableMcps([]);
+      
+      let results = await layerService.searchTopics({ domain: 'dean-debug', limit: 50 });
+      let hasTelemetryTopic = results.some(r => r.id.includes('bc-telemetry-buddy-integration'));
+      expect(hasTelemetryTopic).toBe(false);
+
+      // Add telemetry buddy
+      layerService.setAvailableMcps(['bc-telemetry-buddy']);
+      
+      // Should immediately see the topic (no restart needed)
+      results = await layerService.searchTopics({ domain: 'dean-debug', limit: 50 });
+      hasTelemetryTopic = results.some(r => r.id.includes('bc-telemetry-buddy-integration'));
+      expect(hasTelemetryTopic).toBe(true);
+    });
+
+    it('should handle multiple conditional topics for different MCPs', async () => {
+      // Set both MCPs available
+      layerService.setAvailableMcps(['bc-telemetry-buddy', 'al-objid-mcp-server']);
+
+      // Should see both integration topics
+      const deanResults = await layerService.searchTopics({ domain: 'dean-debug', limit: 50 });
+      const alexResults = await layerService.searchTopics({ domain: 'alex-architect', limit: 50 });
+
+      expect(deanResults.some(r => r.id.includes('bc-telemetry-buddy-integration'))).toBe(true);
+      expect(alexResults.some(r => r.id.includes('object-id-ninja-integration'))).toBe(true);
+
+      // Should NOT see recommendation topics
+      expect(deanResults.some(r => r.id.includes('recommend-bc-telemetry-buddy'))).toBe(false);
+      expect(alexResults.some(r => r.id.includes('recommend-object-id-ninja'))).toBe(false);
+    });
+
+    it('should always include topics without conditional fields', async () => {
+      // Even with no MCPs
+      layerService.setAvailableMcps([]);
+
+      const results = await layerService.searchTopics({ domain: 'dean-debug', limit: 50 });
+      
+      // Standard topics (without conditionals) should always be present
+      const hasStandardTopics = results.some(r => 
+        r.id.includes('sift-technology-fundamentals') || 
+        r.id.includes('setloadfields-performance-optimization')
+      );
+      expect(hasStandardTopics).toBe(true);
+    });
+  });
+
 
   describe('Edge Cases and Error Handling', () => {
     it('should handle case-sensitive MCP IDs correctly', () => {

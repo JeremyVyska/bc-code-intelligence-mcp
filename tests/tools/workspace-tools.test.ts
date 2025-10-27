@@ -2,17 +2,6 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { WorkspaceTools, WorkspaceToolsContext, KNOWN_BC_MCPS } from '../../src/tools/workspace-tools.js';
 import { CallToolRequest } from '@modelcontextprotocol/sdk/types.js';
 
-/**
- * Workspace Management Tools Tests (Priority 1 - v1.5.0 Feature)
- *
- * Tests for workspace management tools including:
- * - set_workspace_info: Setting workspace root and MCP ecosystem
- * - get_workspace_info: Retrieving current workspace configuration
- * - Lazy initialization: Server starts without workspace configured
- * - First-call interception: Guidance before operations
- * - MCP ecosystem awareness: Known vs unknown MCP categorization
- * - Backward compatibility: Legacy tool names (set_workspace_root, get_workspace_root)
- */
 describe('Workspace Management Tools', () => {
   let workspaceTools: WorkspaceTools;
   let mockContext: WorkspaceToolsContext;
