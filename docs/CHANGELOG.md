@@ -7,6 +7,82 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2025-10-27
+
+### 🎯 Workspace Management Tools
+- **New Tool**: `set_workspace_root` - Configure workspace root when MCP can't auto-detect VS Code workspace folder
+- **New Tool**: `get_workspace_root` - Query currently configured workspace root
+- **Lazy Initialization**: Server starts with only embedded knowledge, defers project/company layers until workspace is set
+- **First-Call Interception**: Tools provide helpful guidance to set workspace before allowing operations
+- **VS Code Workaround**: Solves VS Code bug #245905 (${workspaceFolder} doesn't work in user-level MCP settings)
+- **Automatic Reload**: Setting workspace triggers full config reload with project-local layers
+
+**Why This Was Needed:**
+- MCP servers launched by VS Code extension run from user home/npm cache, not workspace folder
+- Config file discovery (`bckb-config.yml`) and project layers (`./bc-code-intel-overrides`) failed
+- No standard MCP protocol for workspace context passing
+- Lazy initialization prevents startup failures while maintaining zero-config embedded knowledge
+
+**Usage:**
+```json
+// After server starts, configure workspace:
+{
+  "tool": "set_workspace_root",
+  "arguments": {
+    "path": "C:\\Users\\YourName\\Projects\\your-bc-project"
+  }
+}
+
+// Server responds with reload status:
+{
+  "success": true,
+  "message": "Workspace configured successfully. Loaded 145 topics from 3 layers, 15 specialists available.",
+  "reloaded": true
+}
+```
+
+### 📚 Universal Content Type Support - ALL Layers
+- **Breaking Architecture Fix**: ALL layers (embedded, git, project) now support all three content types
+  - Topics (domains/) - BC knowledge articles  
+  - Specialists (specialists/) - AI persona definitions
+  - Methodologies (methodologies/) - Systematic workflows
+- **BaseKnowledgeLayer Enhancement**: Added `specialists` and `methodologies` Maps to base class
+- **Git Layer**: Now loads from `domains/`, `specialists/`, and `methodologies/` subdirectories
+- **Project Layer**: Enhanced to support all content types for local overrides
+- **Consistent Interface**: All layers implement `getContentIds()`, `getContent()`, `hasContent()`, `searchContent()`
+
+**Why This Matters:**
+- Companies can add custom specialists via git layers (e.g., company-specific code reviewers)
+- Projects can override methodologies for team-specific workflows
+- Consistent multi-content support across all layer types
+- Fixes incomplete MultiContentLayerService implementation
+
+**Migration Notes:**
+- Git repositories should organize content in standard directories:
+  - `domains/` for knowledge topics
+  - `specialists/` for specialist definitions  
+  - `methodologies/` for workflow definitions
+- Specialist markdown files require proper YAML frontmatter (see embedded specialists for format)
+
+### 🔧 Configuration Loader Improvements
+- Added support for additional config file names and locations:
+  - `bc-code-intel-config.{json|yaml|yml}` in project root
+  - `.bc-code-intel/config.{json|yaml|yml}` in project
+  - Home directory equivalents under `.bc-code-intel/`
+- Added support for `BC_CODE_INTEL_CONFIG_PATH` env var (in addition to legacy `BCKB_CONFIG_PATH`)
+- The loader now logs which configuration file was loaded, or explicitly states when no file was found and defaults (plus any environment overrides) are used
+- **Startup Diagnostics**: Logs process.cwd(), Node version, platform for troubleshooting CWD issues
+
+### 🐛 Bug Fixes
+- **ES Module Compatibility**: Fixed `__dirname` errors in `MethodologyService` and `ConfigValidator`
+  - Added proper `fileURLToPath` and `dirname` imports for ES modules
+  - Resolves `ReferenceError: __dirname is not defined` crashes
+
+### 🔇 Reduced Debug Output
+- Removed excessive "No directory" messages from layer loading
+- Layer initialization now only logs successful loads and specialist counts
+- Tool call debugging removed from production (kept for diagnostic tools when enabled)
+
 ## [1.4.5] - 2025-10-26
 
 ### 📚 Enhanced Knowledge - Alex Architect Copilot Agent Delegation

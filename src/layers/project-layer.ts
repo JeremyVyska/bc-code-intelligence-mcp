@@ -45,9 +45,11 @@ export class ProjectKnowledgeLayer extends BaseKnowledgeLayer {
 
       console.error(`Initializing ${this.name} layer from ${this.projectPath}...`);
 
-      // Load topics and indexes in parallel
-      const [topicsLoaded, indexesLoaded] = await Promise.all([
+      // Load all content types in parallel
+      const [topicsLoaded, specialistsLoaded, methodologiesLoaded, indexesLoaded] = await Promise.all([
         this.loadTopics(),
+        this.loadSpecialists(),
+        this.loadMethodologies(),
         this.loadIndexes()
       ]);
 
@@ -55,7 +57,7 @@ export class ProjectKnowledgeLayer extends BaseKnowledgeLayer {
       this.initialized = true;
       this.loadResult = this.createLoadResult(topicsLoaded, indexesLoaded, loadTimeMs);
 
-      console.error(`✅ ${this.name} layer loaded: ${topicsLoaded} topics, ${indexesLoaded} indexes (${loadTimeMs}ms)`);
+      console.error(`✅ ${this.name} layer loaded: ${topicsLoaded} topics, ${specialistsLoaded} specialists, ${methodologiesLoaded} methodologies, ${indexesLoaded} indexes (${loadTimeMs}ms)`);
       return this.loadResult;
 
     } catch (error) {
@@ -169,6 +171,38 @@ export class ProjectKnowledgeLayer extends BaseKnowledgeLayer {
     }
 
     return loadedIndexes;
+  }
+
+  /**
+   * Load project-specific specialists
+   */
+  protected async loadSpecialists(): Promise<number> {
+    const specialistsPath = join(this.projectPath, 'specialists');
+    
+    try {
+      await access(specialistsPath);
+      // TODO: Implement specialist loading when needed
+    } catch (error) {
+      // specialists/ directory doesn't exist - that's okay
+    }
+    
+    return this.specialists.size;
+  }
+
+  /**
+   * Load project-specific methodologies
+   */
+  protected async loadMethodologies(): Promise<number> {
+    const methodologiesPath = join(this.projectPath, 'methodologies');
+    
+    try {
+      await access(methodologiesPath);
+      // TODO: Implement methodology loading when needed
+    } catch (error) {
+      // methodologies/ directory doesn't exist - that's okay
+    }
+    
+    return this.methodologies.size;
   }
 
   /**

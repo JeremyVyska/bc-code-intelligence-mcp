@@ -6,7 +6,8 @@
  */
 
 import { access, stat, constants } from 'fs/promises';
-import { resolve, join } from 'path';
+import { resolve, join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { homedir } from 'os';
 
 import {
@@ -357,6 +358,9 @@ export class ConfigurationValidator {
     errors: ValidationError[],
     warnings: ConfigurationWarning[]
   ): Promise<void> {
+    // ES module: __dirname equivalent
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = dirname(__filename);
     const embeddedPath = source.path || join(__dirname, '../embedded-knowledge');
 
     try {

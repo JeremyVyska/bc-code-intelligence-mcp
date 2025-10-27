@@ -2,19 +2,26 @@
  * Base Knowledge Layer
  *
  * Abstract base class providing common functionality for all knowledge layer implementations.
- * Handles topic caching, statistics tracking, and common operations.
+ * ALL layers support three content types: topics, specialists, and methodologies.
  */
 
 import { AtomicTopic } from '../types/bc-knowledge.js';
+import { SpecialistDefinition } from '../services/specialist-loader.js';
 import {
   IKnowledgeLayer,
   LayerPriority,
   LayerLoadResult,
   LayerStatistics
 } from '../types/layer-types.js';
+import { LayerContentType } from '../types/enhanced-layer-types.js';
 
 export abstract class BaseKnowledgeLayer implements IKnowledgeLayer {
+  // ALL layers support all three content types
+  readonly supported_content_types: LayerContentType[] = ['topics', 'specialists', 'methodologies'];
+  
   protected topics = new Map<string, AtomicTopic>();
+  protected specialists = new Map<string, SpecialistDefinition>();
+  protected methodologies = new Map<string, any>();
   protected indexes = new Map<string, any>();
   protected loadResult: LayerLoadResult | null = null;
   protected initialized = false;
@@ -34,6 +41,16 @@ export abstract class BaseKnowledgeLayer implements IKnowledgeLayer {
    * Load topics from the layer source - must be implemented by subclasses
    */
   protected abstract loadTopics(): Promise<number>;
+
+  /**
+   * Load specialists from the layer source - must be implemented by subclasses
+   */
+  protected abstract loadSpecialists(): Promise<number>;
+
+  /**
+   * Load methodologies from the layer source - must be implemented by subclasses
+   */
+  protected abstract loadMethodologies(): Promise<number>;
 
   /**
    * Load indexes from the layer source - must be implemented by subclasses
@@ -94,6 +111,119 @@ export abstract class BaseKnowledgeLayer implements IKnowledgeLayer {
     }
 
     return results;
+  }
+
+  /**
+   * Generic content access methods (for MultiContentLayerService compatibility)
+   */
+  
+  /**
+   * Check if layer has specific content by type and ID
+   */
+  hasContent<T extends LayerContentType>(type: T, id: string): boolean {
+    switch (type) {
+      case 'topics':
+        return this.topics.has(id);
+      case 'specialists':
+        return this.specialists.has(id);
+      case 'methodologies':
+        return this.methodologies.has(id);
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * Get content by type and ID
+   */
+  async getContent<T extends LayerContentType>(
+    type: T,
+    id: string
+  ): Promise<any | null> {
+    if (!this.initialized) {
+      await this.initialize();
+    }
+
+    switch (type) {
+      case 'topics':
+        return this.topics.get(id) || null;
+      case 'specialists':
+        return this.specialists.get(id) || null;
+      case 'methodologies':
+        return this.methodologies.get(id) || null;
+      default:
+        return null;
+    }
+  }
+
+  /**
+   * Get all content IDs for a specific type
+   */
+  getContentIds<T extends LayerContentType>(type: T): string[] {
+    switch (type) {
+      case 'topics':
+        return Array.from(this.topics.keys());
+      case 'specialists':
+        return Array.from(this.specialists.keys());
+      case 'methodologies':
+        return Array.from(this.methodologies.keys());
+      default:
+        return [];
+    }
+  }
+
+  /**
+   * Search content by type
+   */
+  searchContent<T extends LayerContentType>(
+    type: T,
+    query: string,
+    limit: number = 10
+  ): any[] {
+    switch (type) {
+      case 'topics':
+        return this.searchTopics(query, limit);
+      case 'specialists':
+        return this.searchSpecialists(query, limit);
+      case 'methodologies':
+        return this.searchMethodologies(query, limit);
+      default:
+        return [];
+    }
+  }
+
+  /**
+   * Search specialists within this layer
+   */
+  protected searchSpecialists(query: string, limit: number = 10): SpecialistDefinition[] {
+    const normalizedQuery = query.toLowerCase();
+    const results: SpecialistDefinition[] = [];
+
+    for (const specialist of this.specialists.values()) {
+      const searchableText = [
+        specialist.title,
+        specialist.role,
+        specialist.team,
+        specialist.expertise.primary.join(' '),
+        specialist.expertise.secondary.join(' '),
+        specialist.domains.join(' ')
+      ].join(' ').toLowerCase();
+
+      if (searchableText.includes(normalizedQuery)) {
+        results.push(specialist);
+        if (results.length >= limit) break;
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * Search methodologies within this layer
+   */
+  protected searchMethodologies(query: string, limit: number = 10): any[] {
+    // TODO: Implement when methodology structure is defined
+    return [];
   }
 
   /**
@@ -218,49 +348,6 @@ export abstract class BaseKnowledgeLayer implements IKnowledgeLayer {
       .replace(/[\\]/g, '/'); // Normalize to forward slashes
   }
 
-  // Enhanced layer interface methods for multi-content support
-
-  /**
-   * Get all content IDs for a specific type
-   */
-  getContentIds(type: 'topics' | 'specialists' | 'methodologies'): string[] {
-    if (type === 'topics') {
-      return this.getTopicIds();
-    }
-    // Other content types not supported by base layer
-    return [];
-  }
-
-  /**
-   * Check if content exists by type and ID
-   */
-  hasContent(type: 'topics' | 'specialists' | 'methodologies', id: string): boolean {
-    if (type === 'topics') {
-      return this.hasTopic(id);
-    }
-    return false;
-  }
-
-  /**
-   * Get content by type and ID
-   */
-  async getContent(type: 'topics' | 'specialists' | 'methodologies', id: string): Promise<any> {
-    if (type === 'topics') {
-      return this.getTopic(id);
-    }
-    return null;
-  }
-
-  /**
-   * Search content within this layer by type
-   */
-  searchContent(type: 'topics' | 'specialists' | 'methodologies', query: string, limit?: number): any[] {
-    if (type === 'topics') {
-      return this.searchTopics(query, limit);
-    }
-    return [];
-  }
-
   /**
    * Get layer statistics with content type breakdown
    */
@@ -276,8 +363,8 @@ export abstract class BaseKnowledgeLayer implements IKnowledgeLayer {
       priority: this.priority,
       content_counts: {
         topics: this.topics.size,
-        specialists: 0,
-        methodologies: this.indexes.size
+        specialists: this.specialists.size,
+        methodologies: this.methodologies.size
       },
       load_time_ms: this.loadResult?.loadTimeMs,
       initialized: this.initialized

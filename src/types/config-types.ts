@@ -272,6 +272,8 @@ export const ENV_VAR_MAPPINGS = {
   'BC_CODE_INTEL_ALLOW_HTTP_SOURCES': 'security.allow_http_sources',
   'BC_CODE_INTEL_MAX_LAYERS': 'performance.max_layers',
   'BC_CODE_INTEL_MEMORY_LIMIT_MB': 'performance.memory_limit_mb',
+  // Project overrides absolute path
+  'BC_CODE_INTEL_PROJECT_OVERRIDES_PATH': 'layers[project].source.path',
 
   // Quick git layer setup
   'BC_CODE_INTEL_COMPANY_KNOWLEDGE_URL': 'layers[company].source.url',

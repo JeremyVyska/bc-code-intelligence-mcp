@@ -48,6 +48,7 @@ import {
   ConfigurationLoadResult,
   LayerSourceType
 } from './types/index.js';
+import { WorkspaceTools, WorkspaceToolsContext } from './tools/workspace-tools.js';
 
 /**
  * BC Code Intelligence MCP Server
@@ -73,6 +74,10 @@ class BCCodeIntelligenceServer {
   private configDiagnosticTools!: ConfigDiagnosticTools;
   private configuration!: BCCodeIntelConfiguration;
   private configLoader: ConfigurationLoader;
+  private workspaceRoot: string | null = null;
+  private hasWarnedAboutWorkspace = false;
+  private workspaceTools!: WorkspaceTools;
+  private servicesInitialized = false;
 
   private getPackageVersion(): string {
     try {
@@ -99,6 +104,11 @@ class BCCodeIntelligenceServer {
   }
 
   constructor() {
+    // Log startup diagnostics
+    console.error(`[startup] MCP Server starting...`);
+    console.error(`[startup] Process CWD: ${process.cwd()}`);
+    console.error(`[startup] Node version: ${process.version}`);
+    
     // Initialize MCP server
     this.server = new Server(
       {
@@ -109,6 +119,13 @@ class BCCodeIntelligenceServer {
 
     // Initialize configuration loader
     this.configLoader = new ConfigurationLoader();
+
+    // Initialize workspace tools
+    const workspaceContext: WorkspaceToolsContext = {
+      setWorkspaceRoot: this.setWorkspaceRoot.bind(this),
+      getWorkspaceRoot: () => this.workspaceRoot
+    };
+    this.workspaceTools = new WorkspaceTools(workspaceContext);
 
     // Services will be initialized asynchronously in run()
     this.setupToolHandlers();
@@ -125,6 +142,9 @@ class BCCodeIntelligenceServer {
         handoffTools: this.specialistHandoffTools
       });
       
+      // Add workspace tools (always available)
+      tools.push(...this.workspaceTools.getToolDefinitions() as any);
+      
       // Add configuration diagnostic tools if available AND enabled
       if (this.configDiagnosticTools) {
         tools.push(...this.configDiagnosticTools.getToolDefinitions() as any);
@@ -138,6 +158,37 @@ class BCCodeIntelligenceServer {
       const { name, arguments: args } = request.params;
 
       try {
+        // Workspace tools are always available (no interception)
+        if (['set_workspace_root', 'get_workspace_root'].includes(name)) {
+          return await this.workspaceTools.handleToolCall(request);
+        }
+
+        // Intercept all other tools if services not initialized
+        if (!this.servicesInitialized) {
+          return {
+            content: [{
+              type: 'text',
+              text: `⚠️ **Workspace Not Configured**
+
+The BC Code Intelligence server needs a workspace root to load project-specific configuration and knowledge layers.
+
+**Option 1: Set workspace root** (recommended for project-specific layers)
+\`\`\`
+set_workspace_root({ path: "C:/your/project/path" })
+\`\`\`
+
+**Option 2: Use user-level config** (works without workspace)
+Place a configuration file at:
+- Windows: \`%USERPROFILE%\\.bckb\\config.yml\`
+- Linux/Mac: \`~/.bckb/config.yml\`
+
+Use absolute paths in the config for git/local layers.
+
+Currently only embedded knowledge is loaded. Call \`set_workspace_root\` to enable project layers.`
+            }]
+          };
+        }
+
         // Check if it's a specialist tool
         if (this.specialistTools && ['suggest_specialist', 'get_specialist_advice', 'list_specialists'].includes(name)) {
           return await this.specialistTools.handleToolCall(request);
@@ -1026,38 +1077,167 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
         }
       }
 
-      // Load configuration
-      const configResult = await this.configLoader.loadConfiguration();
-
-      if (configResult.validation_errors.length > 0) {
-        console.error('❌ Configuration validation errors:');
-        configResult.validation_errors.forEach(error => {
-          console.error(`   - ${error.field}: ${error.message}`);
-        });
-        process.exit(1);
-      }
-
-      if (configResult.warnings.length > 0) {
-        console.error('⚠️  Configuration warnings:');
-        configResult.warnings.forEach(warning => {
-          console.error(`   - ${warning.type}: ${warning.message}`);
-        });
-      }
-
-      // Initialize all services (this will now show layer counts)
-      await this.initializeServices(configResult);
+      // Initialize ONLY embedded knowledge at startup
+      // Project-local layers will be loaded when workspace root is set
+      console.error('📦 Loading embedded knowledge only (workspace-specific layers require set_workspace_root)...');
+      await this.initializeEmbeddedOnly();
 
       // Start MCP server
       const transport = new StdioServerTransport();
       await this.server.connect(transport);
 
       console.error(`✅ BC Code Intelligence MCP Server v${this.getPackageVersion()} started successfully`);
+      console.error(`💡 To enable project-specific layers, call set_workspace_root with your project path`);
 
     } catch (error) {
       console.error('💥 Fatal error during server startup:', error);
       console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
       process.exit(1);
     }
+  }
+
+  /**
+   * Initialize only embedded knowledge layer at startup
+   */
+  private async initializeEmbeddedOnly(): Promise<void> {
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = dirname(__filename);
+    const embeddedPath = join(__dirname, '../embedded-knowledge');
+
+    // Initialize minimal layer service with only embedded
+    this.layerService = new MultiContentLayerService();
+    
+    const { EmbeddedKnowledgeLayer } = await import('./layers/embedded-layer.js');
+    const embeddedLayer = new EmbeddedKnowledgeLayer(embeddedPath);
+    
+    this.layerService.addLayer(embeddedLayer as any);
+    await this.layerService.initialize();
+
+    // Initialize minimal services for embedded-only mode
+    const legacyConfig: BCKBConfig = {
+      knowledge_base_path: embeddedPath,
+      indexes_path: join(embeddedPath, 'indexes'),
+      methodologies_path: join(embeddedPath, 'methodologies'),
+      cache_size: 1000,
+      max_search_results: 20,
+      default_bc_version: 'BC22',
+      enable_fuzzy_search: true,
+      search_threshold: 0.6
+    };
+
+    this.knowledgeService = new KnowledgeService(legacyConfig);
+    await this.knowledgeService.initialize();
+
+    this.codeAnalysisService = new CodeAnalysisService(this.knowledgeService);
+    this.methodologyService = new MethodologyService(this.knowledgeService);
+    
+    const specialistDiscoveryService = new SpecialistDiscoveryService(this.layerService);
+    this.workflowService = new WorkflowService(this.knowledgeService, this.methodologyService, specialistDiscoveryService);
+
+    // Initialize tool classes (but servicesInitialized = false will intercept them)
+    // We need these initialized so they appear in the tool list, but they won't execute
+    const sessionStorageConfig = this.layerService.getSessionStorageConfig();
+    this.specialistSessionManager = new SpecialistSessionManager(
+      this.layerService,
+      sessionStorageConfig
+    );
+    this.specialistTools = new SpecialistTools(
+      this.layerService,
+      this.specialistSessionManager,
+      this.knowledgeService
+    );
+    this.specialistDiscoveryService = new SpecialistDiscoveryService(this.layerService);
+    this.specialistDiscoveryTools = new SpecialistDiscoveryTools(
+      this.specialistDiscoveryService,
+      this.specialistSessionManager,
+      this.layerService
+    );
+    this.agentOnboardingTools = new AgentOnboardingTools(
+      this.specialistDiscoveryService,
+      this.layerService
+    );
+    this.specialistHandoffTools = new SpecialistHandoffTools(
+      this.specialistSessionManager,
+      this.specialistDiscoveryService,
+      this.layerService
+    );
+
+    // Note: Services and tools are initialized, but servicesInitialized = false 
+    // This prevents tools from being called until workspace is set
+    console.error('✅ Embedded knowledge loaded. Workspace-specific services pending set_workspace_root.');
+  }
+
+  /**
+   * Set workspace root and initialize full services
+   */
+  private async setWorkspaceRoot(path: string): Promise<{ success: boolean; message: string; reloaded: boolean }> {
+    try {
+      // Normalize and validate path
+      const { resolve } = await import('path');
+      const { existsSync } = await import('fs');
+      const resolvedPath = resolve(path);
+
+      if (!existsSync(resolvedPath)) {
+        return {
+          success: false,
+          message: `Path does not exist: ${resolvedPath}`,
+          reloaded: false
+        };
+      }
+
+      // Check if this is the same workspace
+      if (this.workspaceRoot === resolvedPath) {
+        return {
+          success: true,
+          message: `Workspace root already set to: ${resolvedPath}`,
+          reloaded: false
+        };
+      }
+
+      console.error(`📁 Setting workspace root to: ${resolvedPath}`);
+      
+      // Change working directory
+      process.chdir(resolvedPath);
+      this.workspaceRoot = resolvedPath;
+
+      // Load configuration with new workspace context
+      const configResult = await this.configLoader.loadConfiguration();
+
+      if (configResult.validation_errors.length > 0) {
+        console.error('⚠️  Configuration validation errors:');
+        configResult.validation_errors.forEach(error => {
+          console.error(`   - ${error.field}: ${error.message}`);
+        });
+      }
+
+      // Initialize full services with configuration
+      await this.initializeServices(configResult);
+      this.servicesInitialized = true;
+
+      const specialists = await this.layerService.getAllSpecialists();
+      const topics = this.layerService.getAllTopicIds();
+
+      return {
+        success: true,
+        message: `Workspace configured successfully. Loaded ${topics.length} topics from ${this.layerService.getLayers().length} layers, ${specialists.length} specialists available.`,
+        reloaded: true
+      };
+
+    } catch (error) {
+      console.error('❌ Error setting workspace root:', error);
+      return {
+        success: false,
+        message: `Failed to set workspace root: ${error instanceof Error ? error.message : String(error)}`,
+        reloaded: false
+      };
+    }
+  }
+
+  /**
+   * Get current workspace root
+   */
+  private getWorkspaceRoot(): string | null {
+    return this.workspaceRoot;
   }
 
   /**
@@ -1085,6 +1265,19 @@ async function main() {
     console.error(`Platform: ${process.platform} (${process.arch})`);
     console.error(`PWD: ${process.cwd()}`);
     console.error(`Script: ${process.argv[1]}`);
+    
+    // Check for workspace root argument (e.g., "." passed from MCP client)
+    const workspaceArg = process.argv[2];
+    if (workspaceArg) {
+      console.error(`Workspace argument provided: "${workspaceArg}"`);
+      const { resolve } = await import('path');
+      const resolvedPath = resolve(workspaceArg);
+      console.error(`Resolved to: ${resolvedPath}`);
+      
+      // Override process.cwd() for config/layer discovery
+      process.chdir(resolvedPath);
+      console.error(`Changed working directory to: ${process.cwd()}`);
+    }
     
     const server = new BCCodeIntelligenceServer();
     await server.run();

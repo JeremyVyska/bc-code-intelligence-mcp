@@ -4,7 +4,8 @@
  */
 
 import { readFileSync, existsSync } from 'fs';
-import { join } from 'path';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { KnowledgeService } from './knowledge-service.js';
 import { AtomicTopic } from '../types/bc-knowledge.js';
 
@@ -79,6 +80,9 @@ export class MethodologyService {
     methodologyPath?: string
   ) {
     // Keep methodology loading from files, but add knowledge service for BC content
+    // ES module: __dirname equivalent
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = dirname(__filename);
     this.methodologyPath = methodologyPath || join(__dirname, '../../embedded-knowledge', 'methodologies');
     this.indexData = this.loadIndex();
     this.currentSession = {

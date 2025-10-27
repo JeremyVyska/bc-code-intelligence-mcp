@@ -28,15 +28,26 @@ const __dirname = dirname(__filename);
 
 export class ConfigurationLoader {
   private readonly CONFIG_PATHS = [
+    // Legacy filenames
     './bckb-config.json',
     './bckb-config.yaml',
     './bckb-config.yml',
+    // New preferred filenames (bc-code-intel branding)
+    './bc-code-intel-config.json',
+    './bc-code-intel-config.yaml',
+    './bc-code-intel-config.yml',
     './.bckb/config.json',
     './.bckb/config.yaml',
     './.bckb/config.yml',
+    './.bc-code-intel/config.json',
+    './.bc-code-intel/config.yaml',
+    './.bc-code-intel/config.yml',
     join(homedir(), '.bckb/config.json'),
     join(homedir(), '.bckb/config.yaml'),
     join(homedir(), '.bckb/config.yml'),
+    join(homedir(), '.bc-code-intel/config.json'),
+    join(homedir(), '.bc-code-intel/config.yaml'),
+    join(homedir(), '.bc-code-intel/config.yml'),
     ...(process.platform === 'win32'
       ? [join(process.env['ProgramData'] || 'C:\\ProgramData', 'bckb', 'config.json')]
       : ['/etc/bckb/config.json', '/usr/local/etc/bckb/config.json']
@@ -47,6 +58,10 @@ export class ConfigurationLoader {
     const sources: ConfigurationSource[] = [];
     const warnings: ConfigurationWarning[] = [];
     const validationErrors: ValidationError[] = [];
+    let envOverridesApplied = false;
+    let loadedFilePath: string | undefined;
+    let loadedFileFormat: 'json' | 'yaml' | undefined;
+    let loadedFromEnvVarName: string | undefined;
 
     try {
       // 1. Start with default configuration
@@ -65,7 +80,9 @@ export class ConfigurationLoader {
       });
 
       // 2. Load from environment variable specified config file
-      const customConfigPath = process.env['BCKB_CONFIG_PATH'];
+      // Support both legacy and new env var names
+      const customConfigPath = process.env['BCKB_CONFIG_PATH'] || process.env['BC_CODE_INTEL_CONFIG_PATH'];
+      loadedFromEnvVarName = process.env['BCKB_CONFIG_PATH'] ? 'BCKB_CONFIG_PATH' : (process.env['BC_CODE_INTEL_CONFIG_PATH'] ? 'BC_CODE_INTEL_CONFIG_PATH' : undefined);
       if (customConfigPath) {
         const customConfig = await this.loadFromFile(customConfigPath);
         if (customConfig.success && customConfig.config) {
@@ -76,6 +93,9 @@ export class ConfigurationLoader {
             format: this.getFileFormat(customConfigPath),
             priority: 50
           });
+          loadedFilePath = customConfigPath;
+          loadedFileFormat = this.getFileFormat(customConfigPath);
+          console.log(`[config] Loaded configuration from ${loadedFromEnvVarName}: ${customConfigPath}`);
         } else {
           validationErrors.push({
             field: 'BCKB_CONFIG_PATH',
@@ -90,6 +110,11 @@ export class ConfigurationLoader {
       if (fileConfig.config) {
         config = this.mergeConfigurations(config, fileConfig.config);
         sources.push(...fileConfig.sources);
+        if (!loadedFilePath && fileConfig.sources.length > 0) {
+          loadedFilePath = fileConfig.sources[0].path;
+          loadedFileFormat = fileConfig.sources[0].format;
+          console.log(`[config] Loaded configuration file: ${loadedFilePath} (${loadedFileFormat})`);
+        }
       }
       warnings.push(...fileConfig.warnings);
 
@@ -101,6 +126,8 @@ export class ConfigurationLoader {
           type: 'environment',
           priority: 100
         });
+        envOverridesApplied = true;
+        console.log(`[config] Applied environment overrides${loadedFilePath ? '' : ' (no file config found)'}`);
       }
       warnings.push(...envConfig.warnings);
 
@@ -108,6 +135,12 @@ export class ConfigurationLoader {
       const validation = this.validateConfiguration(config);
       validationErrors.push(...validation.errors);
       warnings.push(...validation.warnings);
+
+      // Emit summary if no file-based configuration was found
+      const hasFileSource = sources.some(s => s.type === 'file');
+      if (!hasFileSource) {
+        console.log(`[config] No configuration file found; using defaults${envOverridesApplied ? ' + environment overrides' : ''}.`);
+      }
 
       return {
         config,

@@ -6,7 +6,7 @@
  */
 
 import { fileURLToPath } from 'url';
-import { readFile, readdir, stat } from 'fs/promises';
+import { readFile, readdir, stat, access } from 'fs/promises';
 import { join, basename, extname, dirname } from 'path';
 import { existsSync } from 'fs';
 import * as yaml from 'yaml';
@@ -19,10 +19,8 @@ import { SpecialistDefinition } from '../services/specialist-loader.js';
 import { LayerContentType, EnhancedLayerLoadResult, MultiContentKnowledgeLayer } from '../types/enhanced-layer-types.js';
 
 export class EmbeddedKnowledgeLayer extends BaseKnowledgeLayer {
-  private specialists = new Map<string, SpecialistDefinition>();
-
   // Support for MultiContentKnowledgeLayer interface
-  readonly supported_content_types: LayerContentType[] = ['topics', 'specialists'];
+  override readonly supported_content_types: LayerContentType[] = ['topics', 'specialists', 'methodologies'];
 
   constructor(
     private readonly embeddedPath: string = (() => {
@@ -468,6 +466,22 @@ Expected structure: domains/, specialists/, methodologies/ directories with BC e
   }
 
   /**
+   * Load methodologies from methodologies/ directory
+   */
+  protected async loadMethodologies(): Promise<number> {
+    const methodologiesPath = join(this.embeddedPath, 'methodologies');
+    
+    try {
+      await access(methodologiesPath);
+      // TODO: Implement methodology loading when structure is defined
+    } catch (error) {
+      // methodologies/ directory might not exist - that's okay
+    }
+    
+    return this.methodologies.size;
+  }
+
+  /**
    * Check if the layer has a specific specialist
    */
   hasSpecialist(specialistId: string): boolean {
@@ -498,7 +512,7 @@ Expected structure: domains/, specialists/, methodologies/ directories with BC e
   /**
    * Search for specialists within this layer
    */
-  searchSpecialists(query: string, limit?: number): SpecialistDefinition[] {
+  protected override searchSpecialists(query: string, limit?: number): SpecialistDefinition[] {
     const queryLower = query.toLowerCase();
     const matches: { specialist: SpecialistDefinition; score: number }[] = [];
 

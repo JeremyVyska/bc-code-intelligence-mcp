@@ -11,6 +11,7 @@ import * as yaml from 'yaml';
 
 import { BaseKnowledgeLayer } from './base-layer.js';
 import { AtomicTopic, AtomicTopicFrontmatterSchema } from '../types/bc-knowledge.js';
+import { SpecialistDefinition } from '../services/specialist-loader.js';
 import {
   LayerLoadResult,
   ConfigGitLayerSource,
@@ -60,12 +61,12 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
         await this.checkoutBranch(this.gitConfig.branch);
       }
 
-      // 5. Load knowledge from repository
+      // 5. Load all content types from repository
       const knowledgePath = this.gitConfig.subpath
         ? join(this.localPath, this.gitConfig.subpath)
         : this.localPath;
 
-      const loadResult = await this.loadFromDirectory(knowledgePath);
+      await this.loadFromDirectory(knowledgePath);
 
       if (repoUpdated) {
         this.lastUpdated = new Date();
@@ -255,10 +256,142 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
   private async loadFromDirectory(dirPath: string): Promise<void> {
     try {
       await access(dirPath);
-      await this.loadTopicsFromDirectory(dirPath);
+      
+      // Load all three content types from standard subdirectories
+      await this.loadTopics();        // Loads from domains/
+      await this.loadSpecialists();   // Loads from specialists/
+      await this.loadMethodologies(); // Loads from methodologies/
     } catch (error) {
       throw new Error(`Knowledge directory not found: ${dirPath}`);
     }
+  }
+
+  /**
+   * Load topics from domains/ subdirectories
+   */
+  protected async loadTopics(): Promise<number> {
+    const knowledgePath = this.gitConfig.subpath
+      ? join(this.localPath, this.gitConfig.subpath)
+      : this.localPath;
+    
+    const domainsPath = join(knowledgePath, 'domains');
+    
+    try {
+      await access(domainsPath);
+      await this.loadTopicsFromDirectory(domainsPath);
+    } catch (error) {
+      // domains/ directory doesn't exist - that's okay
+    }
+    
+    return this.topics.size;
+  }
+
+  /**
+   * Load specialists from specialists/ directory
+   */
+  protected async loadSpecialists(): Promise<number> {
+    const knowledgePath = this.gitConfig.subpath
+      ? join(this.localPath, this.gitConfig.subpath)
+      : this.localPath;
+    
+    const specialistsPath = join(knowledgePath, 'specialists');
+    
+    try {
+      await access(specialistsPath);
+      const entries = await readdir(specialistsPath);
+      
+      for (const entry of entries) {
+        if (entry.endsWith('.md')) {
+          const filePath = join(specialistsPath, entry);
+          try {
+            const specialist = await this.loadSpecialist(filePath);
+            if (specialist) {
+              this.specialists.set(specialist.specialist_id, specialist);
+            }
+          } catch (error) {
+            console.error(`Failed to load specialist ${entry}:`, error instanceof Error ? error.message : String(error));
+          }
+        }
+      }
+      
+      console.error(`🎭 Loaded ${this.specialists.size} specialists from ${this.name} layer`);
+    } catch (error) {
+      // specialists/ directory doesn't exist - that's okay
+    }
+    
+    return this.specialists.size;
+  }
+
+  /**
+   * Load methodologies from methodologies/ directory
+   */
+  protected async loadMethodologies(): Promise<number> {
+    const knowledgePath = this.gitConfig.subpath
+      ? join(this.localPath, this.gitConfig.subpath)
+      : this.localPath;
+    
+    const methodologiesPath = join(knowledgePath, 'methodologies');
+    
+    try {
+      await access(methodologiesPath);
+      // TODO: Implement methodology loading when structure is defined
+    } catch (error) {
+      // methodologies/ directory doesn't exist - that's okay
+    }
+    
+    return this.methodologies.size;
+  }
+
+  /**
+   * Load a single specialist from a markdown file
+   */
+  private async loadSpecialist(filePath: string): Promise<SpecialistDefinition | null> {
+    const content = await readFile(filePath, 'utf-8');
+    const normalizedContent = content.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n');
+
+    // Extract YAML frontmatter
+    const frontmatterMatch = normalizedContent.match(/^---\s*\n([\s\S]*?)\n---\s*\n([\s\S]*)$/);
+    if (!frontmatterMatch) {
+      console.error(`⚠️ No frontmatter found in ${filePath}`);
+      return null;
+    }
+
+    const [, frontmatterContent, markdownContent] = frontmatterMatch;
+    const frontmatterData = yaml.parse(frontmatterContent || '');
+    
+    // Validate required fields
+    if (!frontmatterData.specialist_id || !frontmatterData.title) {
+      console.error(`⚠️ Missing required fields in ${filePath}`);
+      return null;
+    }
+
+    // Create specialist definition
+    const specialist: SpecialistDefinition = {
+      title: frontmatterData.title,
+      specialist_id: frontmatterData.specialist_id,
+      emoji: frontmatterData.emoji || '🤖',
+      role: frontmatterData.role || 'Specialist',
+      team: frontmatterData.team || 'General',
+      persona: {
+        personality: frontmatterData.persona?.personality || [],
+        communication_style: frontmatterData.persona?.communication_style || '',
+        greeting: frontmatterData.persona?.greeting || `${frontmatterData.emoji || '🤖'} Hello!`
+      },
+      expertise: {
+        primary: frontmatterData.expertise?.primary || [],
+        secondary: frontmatterData.expertise?.secondary || []
+      },
+      domains: frontmatterData.domains || [],
+      when_to_use: frontmatterData.when_to_use || [],
+      collaboration: {
+        natural_handoffs: frontmatterData.collaboration?.natural_handoffs || [],
+        team_consultations: frontmatterData.collaboration?.team_consultations || []
+      },
+      related_specialists: frontmatterData.related_specialists || [],
+      content: markdownContent.trim()
+    };
+
+    return specialist;
   }
 
   private async loadTopicsFromDirectory(dirPath: string): Promise<void> {
@@ -339,15 +472,6 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
   }
 
   // Implement required abstract methods from BaseKnowledgeLayer
-  protected override async loadTopics(): Promise<number> {
-    const knowledgePath = this.gitConfig.subpath
-      ? join(this.localPath, this.gitConfig.subpath)
-      : this.localPath;
-
-    await this.loadFromDirectory(knowledgePath);
-    return this.topics.size;
-  }
-
   protected override async loadIndexes(): Promise<number> {
     // Git layers don't have separate indexes - everything is loaded as topics
     return 0;
