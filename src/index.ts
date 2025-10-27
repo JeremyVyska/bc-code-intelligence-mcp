@@ -75,6 +75,7 @@ class BCCodeIntelligenceServer {
   private configuration!: BCCodeIntelConfiguration;
   private configLoader: ConfigurationLoader;
   private workspaceRoot: string | null = null;
+  private availableMcps: string[] = [];
   private hasWarnedAboutWorkspace = false;
   private workspaceTools!: WorkspaceTools;
   private servicesInitialized = false;
@@ -122,8 +123,11 @@ class BCCodeIntelligenceServer {
 
     // Initialize workspace tools
     const workspaceContext: WorkspaceToolsContext = {
-      setWorkspaceRoot: this.setWorkspaceRoot.bind(this),
-      getWorkspaceRoot: () => this.workspaceRoot
+      setWorkspaceInfo: this.setWorkspaceInfo.bind(this),
+      getWorkspaceInfo: () => ({
+        workspace_root: this.workspaceRoot,
+        available_mcps: this.availableMcps
+      })
     };
     this.workspaceTools = new WorkspaceTools(workspaceContext);
 
@@ -159,7 +163,7 @@ class BCCodeIntelligenceServer {
 
       try {
         // Workspace tools are always available (no interception)
-        if (['set_workspace_root', 'get_workspace_root'].includes(name)) {
+        if (['set_workspace_info', 'get_workspace_info', 'set_workspace_root', 'get_workspace_root'].includes(name)) {
           return await this.workspaceTools.handleToolCall(request);
         }
 
@@ -170,11 +174,14 @@ class BCCodeIntelligenceServer {
               type: 'text',
               text: `⚠️ **Workspace Not Configured**
 
-The BC Code Intelligence server needs a workspace root to load project-specific configuration and knowledge layers.
+The BC Code Intelligence server needs workspace information to load project-specific configuration and knowledge layers.
 
-**Option 1: Set workspace root** (recommended for project-specific layers)
+**Option 1: Set workspace info** (recommended for project-specific layers and MCP ecosystem awareness)
 \`\`\`
-set_workspace_root({ path: "C:/your/project/path" })
+set_workspace_info({ 
+  workspace_root: "C:/your/project/path",
+  available_mcps: ["bc-telemetry-buddy", "al-objid-mcp-server"]  // Optional: enables ecosystem-aware guidance
+})
 \`\`\`
 
 **Option 2: Use user-level config** (works without workspace)
@@ -184,7 +191,7 @@ Place a configuration file at:
 
 Use absolute paths in the config for git/local layers.
 
-Currently only embedded knowledge is loaded. Call \`set_workspace_root\` to enable project layers.`
+Currently only embedded knowledge is loaded. Call \`set_workspace_info\` to enable project layers and MCP ecosystem awareness.`
             }]
           };
         }
@@ -1168,9 +1175,9 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
   }
 
   /**
-   * Set workspace root and initialize full services
+   * Set workspace root and MCP ecosystem info, initialize full services
    */
-  private async setWorkspaceRoot(path: string): Promise<{ success: boolean; message: string; reloaded: boolean }> {
+  private async setWorkspaceInfo(path: string, availableMcps: string[] = []): Promise<{ success: boolean; message: string; reloaded: boolean }> {
     try {
       // Normalize and validate path
       const { resolve } = await import('path');
@@ -1187,18 +1194,24 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
 
       // Check if this is the same workspace
       if (this.workspaceRoot === resolvedPath) {
+        // Update availableMcps even if workspace unchanged
+        this.availableMcps = availableMcps;
         return {
           success: true,
-          message: `Workspace root already set to: ${resolvedPath}`,
+          message: `Workspace root already set to: ${resolvedPath}${availableMcps.length > 0 ? ` | Updated MCP ecosystem: ${availableMcps.length} servers` : ''}`,
           reloaded: false
         };
       }
 
       console.error(`📁 Setting workspace root to: ${resolvedPath}`);
+      if (availableMcps.length > 0) {
+        console.error(`🔧 MCP Ecosystem: ${availableMcps.join(', ')}`);
+      }
       
       // Change working directory
       process.chdir(resolvedPath);
       this.workspaceRoot = resolvedPath;
+      this.availableMcps = availableMcps;
 
       // Load configuration with new workspace context
       const configResult = await this.configLoader.loadConfiguration();
@@ -1217,27 +1230,22 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
       const specialists = await this.layerService.getAllSpecialists();
       const topics = this.layerService.getAllTopicIds();
 
+      const mcpInfo = availableMcps.length > 0 ? ` | MCP Ecosystem: ${availableMcps.length} servers` : '';
+
       return {
         success: true,
-        message: `Workspace configured successfully. Loaded ${topics.length} topics from ${this.layerService.getLayers().length} layers, ${specialists.length} specialists available.`,
+        message: `Workspace configured successfully. Loaded ${topics.length} topics from ${this.layerService.getLayers().length} layers, ${specialists.length} specialists available.${mcpInfo}`,
         reloaded: true
       };
 
     } catch (error) {
-      console.error('❌ Error setting workspace root:', error);
+      console.error('❌ Error setting workspace info:', error);
       return {
         success: false,
-        message: `Failed to set workspace root: ${error instanceof Error ? error.message : String(error)}`,
+        message: `Failed to set workspace info: ${error instanceof Error ? error.message : String(error)}`,
         reloaded: false
       };
     }
-  }
-
-  /**
-   * Get current workspace root
-   */
-  private getWorkspaceRoot(): string | null {
-    return this.workspaceRoot;
   }
 
   /**
