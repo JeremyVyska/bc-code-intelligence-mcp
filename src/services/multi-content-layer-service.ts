@@ -24,6 +24,7 @@ export class MultiContentLayerService {
   private layerPriorities: string[] = []; // Ordered by priority (high to low)
   private contentCache = new Map<string, Map<string, any>>();
   private initialized = false;
+  private availableMcps: string[] = []; // Track available MCP servers for conditional topics
 
   constructor(
     private readonly specialistResolutionStrategy: SpecialistResolutionStrategy = {
@@ -32,6 +33,41 @@ export class MultiContentLayerService {
       merge_expertise: false
     }
   ) {}
+
+  /**
+   * Set available MCP servers for conditional topic filtering
+   */
+  setAvailableMcps(mcps: string[]): void {
+    this.availableMcps = mcps;
+    this.clearCache(); // Clear cache when MCP availability changes
+  }
+
+  /**
+   * Get currently available MCP servers
+   */
+  getAvailableMcps(): string[] {
+    return [...this.availableMcps];
+  }
+
+  /**
+   * Filter topic based on conditional_mcp frontmatter
+   */
+  private shouldIncludeTopic(topic: AtomicTopic): boolean {
+    const fm = topic.frontmatter;
+    
+    // Positive conditional: include only if MCP present
+    if (fm.conditional_mcp) {
+      return this.availableMcps.includes(fm.conditional_mcp);
+    }
+    
+    // Negative conditional: include only if MCP absent
+    if (fm.conditional_mcp_missing) {
+      return !this.availableMcps.includes(fm.conditional_mcp_missing);
+    }
+    
+    // No conditional: always include
+    return true;
+  }
 
   /**
    * Add a layer to the service
@@ -546,7 +582,7 @@ export class MultiContentLayerService {
         // Load each topic and filter
         for (const topicId of topicIds) {
           const topic = await layer.getContent('topics', topicId);
-          if (topic && this.matchesSearchCriteria(topic, params)) {
+          if (topic && this.shouldIncludeTopic(topic) && this.matchesSearchCriteria(topic, params)) {
             try {
               const score = this.calculateRelevanceScore(topic, params);
 

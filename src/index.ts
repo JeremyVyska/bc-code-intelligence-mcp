@@ -1196,6 +1196,12 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
       if (this.workspaceRoot === resolvedPath) {
         // Update availableMcps even if workspace unchanged
         this.availableMcps = availableMcps;
+        
+        // Update layer service with new MCP availability (dynamic filtering)
+        if (this.layerService) {
+          this.layerService.setAvailableMcps(availableMcps);
+        }
+        
         return {
           success: true,
           message: `Workspace root already set to: ${resolvedPath}${availableMcps.length > 0 ? ` | Updated MCP ecosystem: ${availableMcps.length} servers` : ''}`,
@@ -1212,6 +1218,11 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
       process.chdir(resolvedPath);
       this.workspaceRoot = resolvedPath;
       this.availableMcps = availableMcps;
+
+      // Update layer service with available MCPs for conditional topic filtering
+      if (this.layerService) {
+        this.layerService.setAvailableMcps(availableMcps);
+      }
 
       // Load configuration with new workspace context
       const configResult = await this.configLoader.loadConfiguration();

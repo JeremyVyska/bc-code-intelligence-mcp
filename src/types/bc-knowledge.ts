@@ -36,6 +36,10 @@ export const AtomicTopicFrontmatterSchema = z.object({
   // Workflow-specific properties
   workflow_type: z.string().optional().describe("Type of workflow (checklist, procedure, etc.)"),
   phases: z.array(z.any()).optional().describe("Workflow phases"),
+
+  // Conditional MCP integration
+  conditional_mcp: z.string().optional().describe("MCP server ID required for this topic (show only if MCP present)"),
+  conditional_mcp_missing: z.string().optional().describe("MCP server ID that excludes this topic (show only if MCP absent)"),
 });
 
 export type AtomicTopicFrontmatter = z.infer<typeof AtomicTopicFrontmatterSchema>;
