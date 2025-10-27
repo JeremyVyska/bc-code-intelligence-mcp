@@ -101,6 +101,81 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Supports v1.5.0 workspace management and universal content types
 - Reference architecture for other specialists with extensive knowledge domains
 
+### 🌐 MCP Ecosystem Awareness
+- **⚠️ BREAKING CHANGE**: Workspace tools renamed for generality
+  - `set_workspace_root` → `set_workspace_info`
+  - `get_workspace_root` → `get_workspace_info`
+  - Legacy tool names still intercepted for smooth transition
+- **MCP Discovery**: New `available_mcps` parameter reports other BC MCP servers available in environment
+- **Known BC MCPs Registry**: Built-in registry of 8 BC-related MCP servers:
+  - **AL & BC Development**: bc-code-intelligence-mcp, al-dependency-mcp-server, serena-mcp, al-objid-mcp-server (Object ID Ninja), bc-telemetry-buddy
+  - **DevOps & Productivity**: azure-devops-mcp, clockify-mcp, nab-al-tools-mcp
+- **Conditional Knowledge Topics**: Specialists gain tool-specific expertise when related MCPs detected
+- **Ecosystem-Aware Guidance**: Specialists provide context-aware recommendations based on available tools
+
+**New Conditional Knowledge Topics:**
+- **Alex Architect - Object ID Ninja Integration** (`object-id-ninja-integration.md`, 380 lines)
+  - Detects `al-objid-mcp-server` via workspace info
+  - Delegation patterns: "I see you have Object ID Ninja available - let me use it to find safe IDs..."
+  - LITE mode (individual pools) vs STANDARD mode (team backend coordination)
+  - Tools: `objid_get_next_available`, `objid_reserve_id`, `objid_check_availability`
+  - Fallback strategy: Manual guidance (50000-99999 ranges) when MCP not available
+  - Team collaboration and AppSource publisher range management
+  
+- **Dean Debug - BC Telemetry Buddy Integration** (`bc-telemetry-buddy-integration.md`, 354 lines)
+  - Detects `bc-telemetry-buddy` MCP for real telemetry data access
+  - **11 MCP Tools** documented:
+    - Discovery: `bctb_get_event_catalog`, `bctb_get_event_field_samples`, `bctb_get_event_schema`, `bctb_get_categories`
+    - Execution: `bctb_query_telemetry`
+    - Library: `bctb_get_saved_queries`, `bctb_search_queries`, `bctb_save_query`
+    - Context: `bctb_get_external_queries`, `bctb_get_tenant_mapping`
+    - Analysis: `bctb_get_recommendations`
+  - **Discovery-First Workflow**: Event catalog → Field samples → Targeted KQL query → Recommendations
+  - **Data-Driven Performance Analysis**: "I found 47 database calls taking over 2 seconds - here are the specific targets" vs theoretical guidance
+  - Customer-specific troubleshooting with tenant mapping
+  - Query library for saving and reusing KQL patterns
+  - Fallback to theoretical guidance when telemetry not available
+
+**Usage:**
+```json
+// Configure workspace with available MCP servers
+{
+  "tool": "set_workspace_info",
+  "arguments": {
+    "path": "C:\\Users\\YourName\\Projects\\bc-project",
+    "available_mcps": ["bc-telemetry-buddy", "al-objid-mcp-server"]
+  }
+}
+
+// Server categorizes and responds with ecosystem details
+{
+  "success": true,
+  "workspace_root": "C:\\Users\\YourName\\Projects\\bc-project",
+  "available_mcps": {
+    "known": [
+      "bc-telemetry-buddy: BC Telemetry Buddy - Advanced telemetry analysis for BC",
+      "al-objid-mcp-server: Object ID Ninja - AL object ID management"
+    ],
+    "unknown": []
+  },
+  "message": "Workspace configured. Dean can now use BC Telemetry Buddy for data-driven performance analysis. Alex can delegate to Object ID Ninja for ID collision prevention."
+}
+```
+
+**Why This Matters:**
+- **Data-Driven Debugging**: Dean provides REAL performance numbers instead of theoretical guidance
+- **ID Collision Prevention**: Alex delegates to Object ID Ninja for team coordination
+- **Tool Discovery**: Specialists recommend complementary tools when gaps identified
+- **Graceful Degradation**: Full fallback when MCPs not available
+- **Extensible Registry**: Easy to add new BC MCP servers as ecosystem grows
+
+**Technical Implementation:**
+- `WorkspaceInfo` interface tracks `{ workspace_root, available_mcps }`
+- MCP categorization: Known vs unknown servers with descriptions
+- Conditional knowledge via `conditional_mcp` frontmatter field
+- Specialists check `get_workspace_info()` to detect available tools
+- Backward compatible: `available_mcps` defaults to empty array
+
 ## [1.4.5] - 2025-10-26
 
 ### 📚 Enhanced Knowledge - Alex Architect Copilot Agent Delegation
