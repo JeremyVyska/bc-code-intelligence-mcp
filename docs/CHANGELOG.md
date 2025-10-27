@@ -83,6 +83,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Layer initialization now only logs successful loads and specialist counts
 - Tool call debugging removed from production (kept for diagnostic tools when enabled)
 
+### 📖 Chris Config Knowledge Restructure
+- **Specialist Optimization**: Condensed `chris-config.md` from 541 to 135 lines
+- **Domain Knowledge Architecture**: Moved detailed configuration knowledge to `domains/chris-config/`
+- **New Configuration Topics**:
+  - `configuration-file-formats.md` - Complete guide to creating JSON/YAML configs with schema reference
+  - `configuration-file-discovery.md` - Config search priority and path resolution (env var → workspace → home)
+  - `layer-system-fundamentals.md` - Deep dive into 4-layer architecture and override behavior
+  - `content-types-structure.md` - YAML frontmatter formats for topics, specialists, methodologies
+  - `workspace-detection-solutions.md` - VS Code workspace management integration and troubleshooting
+- **Knowledge-First Pattern**: Chris now references domain topics instead of inline documentation
+- **Improved Discoverability**: Configuration knowledge can be searched and discovered via `find_bc_knowledge`
+
+**Benefits:**
+- Modular, maintainable configuration documentation
+- Easier to update individual topics without specialist file bloat
+- Supports v1.5.0 workspace management and universal content types
+- Reference architecture for other specialists with extensive knowledge domains
+
 ## [1.4.5] - 2025-10-26
 
 ### 📚 Enhanced Knowledge - Alex Architect Copilot Agent Delegation
