@@ -291,7 +291,14 @@ Example: find_bc_knowledge({ query: "AL file naming conventions" }) before writi
     }
 
     // Return agent roleplay instructions (NOT formatted user response)
-    let agentInstructions = response.content;
+    let agentInstructions = '';
+
+    // **CRITICAL**: Include full specialist markdown content as instructions
+    agentInstructions += `SPECIALIST DEFINITION AND INSTRUCTIONS:\n\n`;
+    agentInstructions += specialist.content; // Full markdown content including Phase 0, workflows, etc.
+    agentInstructions += `\n\n${'='.repeat(80)}\n\n`;
+    agentInstructions += `CURRENT CONTEXT:\n\n`;
+    agentInstructions += response.content;
 
     // Add knowledge context for the agent
     if (response.topics_referenced.length > 0) {

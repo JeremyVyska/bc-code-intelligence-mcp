@@ -783,8 +783,20 @@ export class MultiContentLayerService {
 
     // BC version filtering
     if (params.bc_version && topic.frontmatter.bc_versions) {
-      // Simple version check - could be enhanced
-      if (!topic.frontmatter.bc_versions.includes(params.bc_version)) {
+      const bcVersions = topic.frontmatter.bc_versions;
+      const requestedVersion = params.bc_version;
+      
+      // Handle version ranges like "14+", "18+", "BC14+", "BC18+"
+      const rangeMatch = bcVersions.match(/^(?:BC)?(\d+)\+$/);
+      if (rangeMatch) {
+        const minVersion = parseInt(rangeMatch[1], 10);
+        const requestedVersionNum = parseInt(requestedVersion.replace(/^BC/, ''), 10);
+        
+        if (requestedVersionNum < minVersion) {
+          return false; // Requested version is below minimum
+        }
+      } else if (!bcVersions.includes(requestedVersion)) {
+        // Exact version match required if not a range
         return false;
       }
     }
@@ -933,6 +945,21 @@ export class MultiContentLayerService {
       const topicTags = topic.frontmatter.tags || [];
       const matchingTags = params.tags.filter(tag => topicTags.includes(tag));
       score += matchingTags.length * 2;
+    }
+
+    // **NEW**: Boost recommendation topics when their conditional is active
+    // These are high-value suggestions that guide users to install missing tools
+    try {
+      const fm = topic?.frontmatter;
+      if (fm?.conditional_mcp_missing && Array.isArray(this.availableMcps)) {
+        if (!this.availableMcps.includes(fm.conditional_mcp_missing)) {
+          // Recommendation topic is active (tool is missing) - boost HEAVILY to surface prominently
+          score += 150; // Large boost to ensure recommendations surface in top results
+        }
+      }
+    } catch (boostError) {
+      // Silent fail - don't break scoring if boost logic fails
+      console.error('Error applying recommendation boost:', boostError);
     }
 
     return Math.max(score, 0.1); // Ensure minimum score > 0
