@@ -180,9 +180,19 @@ The BC Code Intelligence server needs workspace information to load project-spec
 \`\`\`
 set_workspace_info({ 
   workspace_root: "C:/your/project/path",
-  available_mcps: ["bc-telemetry-buddy", "al-objid-mcp-server"]  // Optional: enables ecosystem-aware guidance
+  available_mcps: []  // REQUIRED: Examine your available tools and infer MCP servers (see tool description)
 })
 \`\`\`
+
+**How to populate available_mcps:**
+Check which tools you have available and add the corresponding MCP server IDs:
+- Have \`search_telemetry_traces\`? Add "bc-telemetry-buddy"
+- Have \`reserve_object_ids\`? Add "al-objid-mcp-server"  
+- Have \`analyze_dependencies\`? Add "al-dependency-mcp-server"
+- Have \`get_lsp_diagnostics\`? Add "serena-mcp"
+- Have \`create_work_item\`? Add "azure-devops-mcp"
+- Have \`track_time_entry\`? Add "clockify-mcp"
+- Have \`translate_xliff\`? Add "nab-al-tools-mcp"
 
 **Option 2: Use user-level config** (works without workspace)
 Place a configuration file at:
