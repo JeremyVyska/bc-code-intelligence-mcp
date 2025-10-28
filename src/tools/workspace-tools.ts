@@ -22,6 +22,45 @@ export const KNOWN_BC_MCPS = {
   'nab-al-tools-mcp': 'XLIFF/XLF translation tooling for AL projects'
 } as const;
 
+/**
+ * Map of signature tools to their MCP server
+ * Use this to discover which MCP servers are available by checking for these tools
+ */
+export const MCP_TOOL_SIGNATURES = {
+  // BC Telemetry Buddy
+  'search_telemetry_traces': 'bc-telemetry-buddy',
+  'generate_kql_query': 'bc-telemetry-buddy',
+  'analyze_performance_traces': 'bc-telemetry-buddy',
+  
+  // AL Object ID Ninja
+  'reserve_object_ids': 'al-objid-mcp-server',
+  'check_object_id_collision': 'al-objid-mcp-server',
+  'get_next_object_id': 'al-objid-mcp-server',
+  
+  // AL Dependency MCP Server
+  'analyze_dependencies': 'al-dependency-mcp-server',
+  'get_workspace_symbols': 'al-dependency-mcp-server',
+  'find_references': 'al-dependency-mcp-server',
+  
+  // Serena MCP
+  'get_lsp_diagnostics': 'serena-mcp',
+  'format_document': 'serena-mcp',
+  'get_code_actions': 'serena-mcp',
+  
+  // Azure DevOps MCP
+  'create_work_item': 'azure-devops-mcp',
+  'query_work_items': 'azure-devops-mcp',
+  'get_pipeline_runs': 'azure-devops-mcp',
+  
+  // Clockify MCP
+  'track_time_entry': 'clockify-mcp',
+  'get_time_entries': 'clockify-mcp',
+  
+  // NAB AL Tools MCP
+  'translate_xliff': 'nab-al-tools-mcp',
+  'export_translations': 'nab-al-tools-mcp'
+} as const;
+
 export type KnownMcpServerId = keyof typeof KNOWN_BC_MCPS;
 
 export interface WorkspaceInfo {
@@ -41,7 +80,18 @@ export class WorkspaceTools {
     return [
       {
         name: 'set_workspace_info',
-        description: 'Set workspace root directory and optionally provide information about available MCP servers in the environment. This enables specialists to recommend appropriate tools and integrations. Call this before other tools if you need project-specific knowledge layers or ecosystem-aware guidance.',
+        description: `Set workspace root directory and list of available MCP servers discovered from your tool inventory.
+
+CRITICAL: You MUST discover available BC MCP servers by examining the tools available in your MCP context:
+- If you see 'search_telemetry_traces' → include "bc-telemetry-buddy"
+- If you see 'reserve_object_ids' → include "al-objid-mcp-server"
+- If you see 'analyze_dependencies' → include "al-dependency-mcp-server"
+- If you see 'get_lsp_diagnostics' → include "serena-mcp"
+- If you see 'create_work_item' → include "azure-devops-mcp"
+- If you see 'track_time_entry' → include "clockify-mcp"
+- If you see 'translate_xliff' → include "nab-al-tools-mcp"
+
+This enables specialists to provide ecosystem-aware recommendations and tool delegation. Call this before other tools if you need project-specific knowledge layers or ecosystem-aware guidance.`,
         inputSchema: {
           type: 'object',
           properties: {
@@ -52,10 +102,10 @@ export class WorkspaceTools {
             available_mcps: {
               type: 'array',
               items: { type: 'string' },
-              description: 'Optional: List of MCP server IDs available in the environment (e.g., ["bc-telemetry-buddy", "al-objid-mcp-server"]). Enables specialists to provide ecosystem-aware recommendations.'
+              description: 'List of MCP server IDs discovered by examining available tools in your MCP context (e.g., ["bc-telemetry-buddy", "al-objid-mcp-server"]). REQUIRED - check which tools are available and infer the MCP servers from them.'
             }
           },
-          required: ['workspace_root']
+          required: ['workspace_root', 'available_mcps']
         }
       },
       {
@@ -86,7 +136,7 @@ export class WorkspaceTools {
   }
 
   private async handleSetWorkspaceInfo(args: { workspace_root: string; available_mcps?: string[] }) {
-    const { workspace_root, available_mcps = [] } = args;
+    const { workspace_root, available_mcps } = args;
 
     if (!workspace_root) {
       return {
@@ -95,6 +145,18 @@ export class WorkspaceTools {
           text: JSON.stringify({
             success: false,
             error: 'workspace_root is required'
+          }, null, 2)
+        }]
+      };
+    }
+
+    if (available_mcps === undefined) {
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            success: false,
+            error: 'available_mcps is required'
           }, null, 2)
         }]
       };

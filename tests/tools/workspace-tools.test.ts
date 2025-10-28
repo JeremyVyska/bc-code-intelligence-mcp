@@ -36,7 +36,8 @@ describe('Workspace Management Tools', () => {
         params: {
           name: 'set_workspace_info',
           arguments: {
-            workspace_root: 'C:/projects/my-bc-app'
+            workspace_root: 'C:/projects/my-bc-app',
+            available_mcps: []
           }
         }
       };
@@ -151,7 +152,8 @@ describe('Workspace Management Tools', () => {
         params: {
           name: 'set_workspace_info',
           arguments: {
-            workspace_root: 'C:/nonexistent/path'
+            workspace_root: 'C:/nonexistent/path',
+            available_mcps: []
           }
         }
       };
@@ -169,7 +171,9 @@ describe('Workspace Management Tools', () => {
         method: 'tools/call',
         params: {
           name: 'set_workspace_info',
-          arguments: {}
+          arguments: {
+            available_mcps: []
+          }
         }
       };
 
@@ -178,6 +182,25 @@ describe('Workspace Management Tools', () => {
 
       expect(response.success).toBe(false);
       expect(response.error).toBe('workspace_root is required');
+      expect(setWorkspaceInfoSpy).not.toHaveBeenCalled();
+    });
+
+    it('should require available_mcps parameter', async () => {
+      const request: CallToolRequest = {
+        method: 'tools/call',
+        params: {
+          name: 'set_workspace_info',
+          arguments: {
+            workspace_root: 'C:/projects/my-bc-app'
+          }
+        }
+      };
+
+      const result = await workspaceTools.handleToolCall(request);
+      const response = JSON.parse(result.content[0].text);
+
+      expect(response.success).toBe(false);
+      expect(response.error).toBe('available_mcps is required');
       expect(setWorkspaceInfoSpy).not.toHaveBeenCalled();
     });
 
@@ -193,7 +216,8 @@ describe('Workspace Management Tools', () => {
         params: {
           name: 'set_workspace_info',
           arguments: {
-            workspace_root: 'C:/projects/my-bc-app'
+            workspace_root: 'C:/projects/my-bc-app',
+            available_mcps: []
           }
         }
       };
@@ -496,7 +520,8 @@ describe('Workspace Management Tools', () => {
         params: {
           name: 'set_workspace_info',
           arguments: {
-            workspace_root: 'C:/projects/my-bc-app'
+            workspace_root: 'C:/projects/my-bc-app',
+            available_mcps: []
           }
         }
       };
