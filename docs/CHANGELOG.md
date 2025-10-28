@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.1] - 2025-10-28
+
+### 🔧 Improved MCP Discovery for Ecosystem-Aware Workflows
+
+**Enhanced `set_workspace_info` Tool** - Supporting v1.5.0 MCP-aware workflows
+
+- **Made `available_mcps` Required**: Changed from optional to required parameter to ensure agents provide MCP ecosystem context
+- **Tool Signature Mapping**: Added `MCP_TOOL_SIGNATURES` constant mapping 42 signature tools to 7 BC MCP servers
+- **Automatic Discovery Instructions**: Updated tool description with explicit guidance on inferring MCP servers from available tools:
+  - If `search_telemetry_traces` exists → bc-telemetry-buddy is available
+  - If `reserve_object_ids` exists → al-objid-mcp-server is available
+  - If `analyze_dependencies` exists → al-dependency-mcp-server is available
+  - If `get_lsp_diagnostics` exists → serena-mcp is available
+  - If `create_work_item` exists → azure-devops-mcp is available
+  - If `track_time_entry` exists → clockify-mcp is available
+  - If `translate_xliff` exists → nab-al-tools-mcp is available
+- **Updated Intercept Message**: Changed workspace configuration prompt from "Optional" to "REQUIRED" with discovery instructions
+- **Consistent Logging**: Fixed server logs to reference `set_workspace_info` instead of legacy `set_workspace_root`
+
+**Why This Matters:**
+- Agents can't see which MCP servers are connected (MCP protocol limitation)
+- Agents CAN list available tools in their context
+- Tool signature matching enables automatic MCP ecosystem discovery
+- Specialists can now provide ecosystem-aware recommendations and tool delegation
+- Prevents agents from skipping MCP ecosystem information
+
+**Migration:**
+All `set_workspace_info` calls now require the `available_mcps` parameter (can be empty array `[]`):
+```typescript
+// Before (v1.5.0):
+set_workspace_info({ workspace_root: "C:/project/path" })
+
+// After (v1.5.1):
+set_workspace_info({ 
+  workspace_root: "C:/project/path",
+  available_mcps: []  // Or discover via tools: ["bc-telemetry-buddy", "al-objid-mcp-server"]
+})
+```
+
 ## [1.5.0] - 2025-10-28
 
 ### 🎯 Workspace Management Tools
