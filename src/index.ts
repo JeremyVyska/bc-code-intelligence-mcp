@@ -1096,7 +1096,7 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
 
       // Initialize ONLY embedded knowledge at startup
       // Project-local layers will be loaded when workspace root is set
-      console.error('📦 Loading embedded knowledge only (workspace-specific layers require set_workspace_root)...');
+      console.error('📦 Loading embedded knowledge only (workspace-specific layers require set_workspace_info)...');
       await this.initializeEmbeddedOnly();
 
       // Start MCP server
@@ -1104,7 +1104,7 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
       await this.server.connect(transport);
 
       console.error(`✅ BC Code Intelligence MCP Server v${this.getPackageVersion()} started successfully`);
-      console.error(`💡 To enable project-specific layers, call set_workspace_root with your project path`);
+      console.error(`💡 To enable project-specific layers, call set_workspace_info with your project path`);
 
     } catch (error) {
       console.error('💥 Fatal error during server startup:', error);
@@ -1181,7 +1181,7 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
 
     // Note: Services and tools are initialized, but servicesInitialized = false 
     // This prevents tools from being called until workspace is set
-    console.error('✅ Embedded knowledge loaded. Workspace-specific services pending set_workspace_root.');
+    console.error('✅ Embedded knowledge loaded. Workspace-specific services pending set_workspace_info.');
   }
 
   /**
