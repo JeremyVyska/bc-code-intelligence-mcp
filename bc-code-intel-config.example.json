@@ -19,6 +19,21 @@
       "enabled": true
     }
   ],
+  "_example_azure_devops_layer": {
+    "_comment": "Example Azure DevOps repository with Azure CLI authentication",
+    "name": "azure-devops-knowledge",
+    "priority": 30,
+    "source": {
+      "type": "git",
+      "url": "https://dev.azure.com/YourOrg/YourProject/_git/bc-knowledge",
+      "branch": "main"
+    },
+    "auth": {
+      "type": "az_cli"
+    },
+    "enabled": true,
+    "cache_duration": "2h"
+  },
   "cache": {
     "strategy": "moderate",
     "ttl": {

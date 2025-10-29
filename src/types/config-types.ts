@@ -77,7 +77,8 @@ export enum AuthType {
   TOKEN = 'token',
   SSH_KEY = 'ssh',
   BASIC = 'basic',
-  OAUTH = 'oauth'
+  OAUTH = 'oauth',
+  AZ_CLI = 'az_cli'
 }
 
 export interface AuthConfiguration {

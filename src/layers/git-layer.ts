@@ -124,6 +124,14 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
     if (!this.auth || !this.git) return;
 
     switch (this.auth.type) {
+      case AuthType.AZ_CLI:
+        // Azure CLI authentication - verify az CLI is installed and user is logged in
+        await this.verifyAzCliInstalled();
+        await this.verifyAzCliAuthenticated();
+        console.log('🔑 Using Azure CLI authentication (Git credential manager will handle tokens)');
+        // No URL modification needed - Git credential manager automatically uses az CLI tokens
+        break;
+
       case AuthType.TOKEN:
         // For GitHub/GitLab token authentication
         const token = this.auth.token ||
@@ -207,6 +215,11 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
   private prepareUrlWithAuth(url: string): string {
     if (!this.auth) return url;
 
+    // Azure CLI handles authentication via Git credential manager - don't modify URL
+    if (this.auth.type === AuthType.AZ_CLI) {
+      return url;
+    }
+
     // Only modify HTTPS URLs for token/basic auth
     if (!url.startsWith('https://')) return url;
 
@@ -232,6 +245,36 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
     }
 
     return url;
+  }
+
+  /**
+   * Verify Azure CLI is installed on the system
+   */
+  private async verifyAzCliInstalled(): Promise<void> {
+    const { execSync } = await import('child_process');
+    try {
+      execSync('az --version', { stdio: 'ignore' });
+    } catch {
+      throw new Error(
+        'Azure CLI not found. Install from https://aka.ms/install-az-cli\n' +
+        'After installation, run: az login'
+      );
+    }
+  }
+
+  /**
+   * Verify user is authenticated with Azure CLI
+   */
+  private async verifyAzCliAuthenticated(): Promise<void> {
+    const { execSync } = await import('child_process');
+    try {
+      execSync('az account show', { stdio: 'ignore' });
+    } catch {
+      throw new Error(
+        'Not logged in to Azure CLI. Run: az login\n' +
+        'For Azure DevOps, you may also need to run: az devops login'
+      );
+    }
   }
 
   private async checkoutBranch(branch: string): Promise<void> {
