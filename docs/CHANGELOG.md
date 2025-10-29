@@ -7,6 +7,66 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.2] - 2025-10-29
+
+### 🔐 Azure CLI Authentication for Azure DevOps Git Layers
+
+**New Authentication Type: `az_cli`** - Simplified Azure DevOps authentication
+
+**Features:**
+- **Azure CLI Authentication**: Use `az login` session for Git layer authentication
+- **No Token Management**: Git credential manager automatically provides tokens from Azure CLI
+- **MFA Support**: Works seamlessly with MFA and conditional access policies
+- **Zero Expiration**: No PAT token expiration headaches
+- **Simple Configuration**: Just set `auth.type` to `"az_cli"` - no tokens or environment variables
+
+**Implementation:**
+- Added `AZ_CLI` to `AuthType` enum in `config-types.ts`
+- Implemented `verifyAzCliInstalled()` - checks for Azure CLI installation
+- Implemented `verifyAzCliAuthenticated()` - verifies user is logged in via `az account show`
+- Updated `configureAuthentication()` to handle Azure CLI authentication flow
+- Updated `prepareUrlWithAuth()` to skip URL modification (Git credential manager handles automatically)
+- Added Azure DevOps configuration examples to `bc-code-intel-config.example.json` and `.yaml`
+
+**Configuration Example:**
+```json
+{
+  "knowledge_layers": [
+    {
+      "name": "Company Standards",
+      "type": "git",
+      "priority": 20,
+      "source": {
+        "repository_url": "https://dev.azure.com/myorg/BC-Knowledge/_git/standards",
+        "branch": "main",
+        "auth": {
+          "type": "az_cli"
+        }
+      }
+    }
+  ]
+}
+```
+
+**Prerequisites:**
+- Azure CLI installed: https://aka.ms/install-az-cli
+- User authenticated: `az login`
+
+**Benefits Over PAT Tokens:**
+- ✅ No token expiration management
+- ✅ Works with MFA and conditional access policies
+- ✅ Single sign-on via `az login`
+- ✅ Simpler configuration (no environment variables)
+- ✅ Automatic token refresh
+
+**Knowledge Updates:**
+- Chris Config specialist documentation updated to prefer Azure CLI authentication
+- All Azure DevOps examples now show `az_cli` as recommended approach
+- PAT token authentication remains available as fallback option
+
+**Technical Details:**
+Leverages Git's built-in credential manager to automatically provide tokens from Azure CLI session. No manual token handling or URL manipulation required.
+
 ## [1.5.1] - 2025-10-28
 
 ### 🔧 Improved MCP Discovery for Ecosystem-Aware Workflows
