@@ -1234,8 +1234,8 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
         this.layerService.setAvailableMcps(availableMcps);
       }
 
-      // Load configuration with new workspace context
-      const configResult = await this.configLoader.loadConfiguration();
+      // Load configuration with workspace context (merges user + project configs)
+      const configResult = await this.configLoader.loadConfiguration(resolvedPath);
 
       if (configResult.validation_errors.length > 0) {
         console.error('⚠️  Configuration validation errors:');

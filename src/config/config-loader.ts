@@ -27,34 +27,39 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 export class ConfigurationLoader {
-  private readonly CONFIG_PATHS = [
-    // Legacy filenames
-    './bckb-config.json',
-    './bckb-config.yaml',
-    './bckb-config.yml',
-    // New preferred filenames (bc-code-intel branding)
-    './bc-code-intel-config.json',
-    './bc-code-intel-config.yaml',
-    './bc-code-intel-config.yml',
-    './.bckb/config.json',
-    './.bckb/config.yaml',
-    './.bckb/config.yml',
-    './.bc-code-intel/config.json',
-    './.bc-code-intel/config.yaml',
-    './.bc-code-intel/config.yml',
-    join(homedir(), '.bckb/config.json'),
-    join(homedir(), '.bckb/config.yaml'),
-    join(homedir(), '.bckb/config.yml'),
-    join(homedir(), '.bc-code-intel/config.json'),
+  // User-level configuration paths (home directory, system-wide)
+  // Chris Config recommends: ~/.bc-code-intel/config.json or config.yaml
+  private readonly USER_CONFIG_PATHS = [
+    join(homedir(), '.bc-code-intel/config.json'),      // RECOMMENDED
     join(homedir(), '.bc-code-intel/config.yaml'),
     join(homedir(), '.bc-code-intel/config.yml'),
+    join(homedir(), '.bckb/config.json'),               // Legacy (deprecated)
+    join(homedir(), '.bckb/config.yaml'),
+    join(homedir(), '.bckb/config.yml'),
     ...(process.platform === 'win32'
-      ? [join(process.env['ProgramData'] || 'C:\\ProgramData', 'bckb', 'config.json')]
-      : ['/etc/bckb/config.json', '/usr/local/etc/bckb/config.json']
+      ? [join(process.env['ProgramData'] || 'C:\\ProgramData', 'bc-code-intel', 'config.json')]
+      : ['/etc/bc-code-intel/config.json', '/usr/local/etc/bc-code-intel/config.json']
     )
   ];
 
-  async loadConfiguration(): Promise<ConfigurationLoadResult> {
+  // Project-level configuration paths (workspace root, relative)
+  // Chris Config recommends: bc-code-intel-config.json or bc-code-intel-config.yaml in project root
+  private readonly PROJECT_CONFIG_PATHS = [
+    'bc-code-intel-config.json',                        // RECOMMENDED
+    'bc-code-intel-config.yaml',
+    'bc-code-intel-config.yml',
+    'bckb-config.json',                                 // Legacy (deprecated)
+    'bckb-config.yaml',
+    'bckb-config.yml',
+    '.bc-code-intel/config.json',
+    '.bc-code-intel/config.yaml',
+    '.bc-code-intel/config.yml',
+    '.bckb/config.json',
+    '.bckb/config.yaml',
+    '.bckb/config.yml'
+  ];
+
+  async loadConfiguration(workspaceRoot?: string): Promise<ConfigurationLoadResult> {
     const sources: ConfigurationSource[] = [];
     const warnings: ConfigurationWarning[] = [];
     const validationErrors: ValidationError[] = [];
@@ -105,20 +110,36 @@ export class ConfigurationLoader {
         }
       }
 
-      // 3. Search for config files in standard locations
-      const fileConfig = await this.loadFromFiles();
-      if (fileConfig.config) {
-        config = this.mergeConfigurations(config, fileConfig.config);
-        sources.push(...fileConfig.sources);
-        if (!loadedFilePath && fileConfig.sources.length > 0) {
-          loadedFilePath = fileConfig.sources[0].path;
-          loadedFileFormat = fileConfig.sources[0].format;
-          console.log(`[config] Loaded configuration file: ${loadedFilePath} (${loadedFileFormat})`);
+      // 3. Load user-level config (home directory, system-wide)
+      const userConfig = await this.loadUserConfig();
+      if (userConfig.config) {
+        config = this.mergeConfigurations(config, userConfig.config);
+        sources.push(...userConfig.sources);
+        if (!loadedFilePath && userConfig.sources.length > 0) {
+          loadedFilePath = userConfig.sources[0].path;
+          loadedFileFormat = userConfig.sources[0].format;
+          console.log(`[config] Loaded user configuration: ${loadedFilePath} (${loadedFileFormat})`);
         }
       }
-      warnings.push(...fileConfig.warnings);
+      warnings.push(...userConfig.warnings);
 
-      // 4. Apply environment variable overrides
+      // 4. Load project-level config (workspace root) - if workspace is known
+      if (workspaceRoot) {
+        const projectConfig = await this.loadProjectConfig(workspaceRoot);
+        if (projectConfig.config) {
+          config = this.mergeConfigurations(config, projectConfig.config);
+          sources.push(...projectConfig.sources);
+          if (projectConfig.sources.length > 0) {
+            const projectFilePath = projectConfig.sources[0].path;
+            const projectFileFormat = projectConfig.sources[0].format;
+            console.log(`[config] Loaded project configuration: ${projectFilePath} (${projectFileFormat})`);
+            console.log(`[config] Merged user + project configs. Active layers: ${config.layers.map(l => `${l.name}(p${l.priority})`).join(', ')}`);
+          }
+        }
+        warnings.push(...projectConfig.warnings);
+      }
+
+      // 5. Apply environment variable overrides
       const envConfig = this.loadFromEnvironment();
       if (envConfig.config) {
         config = this.applyEnvironmentOverrides(config, envConfig.config);
@@ -127,11 +148,11 @@ export class ConfigurationLoader {
           priority: 100
         });
         envOverridesApplied = true;
-        console.log(`[config] Applied environment overrides${loadedFilePath ? '' : ' (no file config found)'}`);
+        console.log(`[config] Applied environment overrides`);
       }
       warnings.push(...envConfig.warnings);
 
-      // 5. Perform basic validation
+      // 6. Perform basic validation
       const validation = this.validateConfiguration(config);
       validationErrors.push(...validation.errors);
       warnings.push(...validation.warnings);
@@ -164,7 +185,10 @@ export class ConfigurationLoader {
     }
   }
 
-  private async loadFromFiles(): Promise<{
+  /**
+   * Load user-level configuration from home directory or system paths
+   */
+  private async loadUserConfig(): Promise<{
     config?: Partial<BCCodeIntelConfiguration>;
     sources: ConfigurationSource[];
     warnings: ConfigurationWarning[];
@@ -173,23 +197,82 @@ export class ConfigurationLoader {
     const warnings: ConfigurationWarning[] = [];
     let config: Partial<BCCodeIntelConfiguration> | undefined;
 
-    for (const configPath of this.CONFIG_PATHS) {
+    for (const configPath of this.USER_CONFIG_PATHS) {
       const result = await this.loadFromFile(configPath);
 
       if (result.success) {
         config = result.config;
+        const isLegacy = configPath.includes('bckb');
         sources.push({
           type: 'file',
           path: resolve(configPath),
           format: this.getFileFormat(configPath),
-          priority: this.getFilePriority(configPath)
+          priority: 10
         });
+        
+        if (isLegacy) {
+          warnings.push({
+            type: 'deprecated',
+            message: `Using legacy config path: ${configPath}`,
+            suggestion: 'Consider moving to ~/.bc-code-intel/config.json or config.yaml'
+          });
+        }
+        
         break; // Use first found config file
       } else if (result.error && !result.error.includes('ENOENT')) {
         // File exists but couldn't be loaded
         warnings.push({
           type: 'invalid_value',
-          message: `Failed to load configuration from ${configPath}: ${result.error}`,
+          message: `Failed to load user configuration from ${configPath}: ${result.error}`,
+          source: configPath,
+          suggestion: 'Check file format and permissions'
+        });
+      }
+    }
+
+    return { config, sources, warnings };
+  }
+
+  /**
+   * Load project-level configuration from workspace root
+   */
+  private async loadProjectConfig(workspaceRoot: string): Promise<{
+    config?: Partial<BCCodeIntelConfiguration>;
+    sources: ConfigurationSource[];
+    warnings: ConfigurationWarning[];
+  }> {
+    const sources: ConfigurationSource[] = [];
+    const warnings: ConfigurationWarning[] = [];
+    let config: Partial<BCCodeIntelConfiguration> | undefined;
+
+    for (const relativeConfigPath of this.PROJECT_CONFIG_PATHS) {
+      const configPath = join(workspaceRoot, relativeConfigPath);
+      const result = await this.loadFromFile(configPath);
+
+      if (result.success) {
+        config = result.config;
+        const isLegacy = configPath.includes('bckb');
+        sources.push({
+          type: 'file',
+          path: resolve(configPath),
+          format: this.getFileFormat(configPath),
+          priority: 20
+        });
+        
+        if (isLegacy) {
+          warnings.push({
+            type: 'deprecated',
+            message: `Using legacy config filename: ${relativeConfigPath}`,
+            suggestion: 'Consider renaming to bc-code-intel-config.json or bc-code-intel-config.yaml'
+          });
+        }
+        
+        break; // Use first found config file
+      } else if (result.error && !result.error.includes('ENOENT')) {
+        // File exists but couldn't be loaded
+        warnings.push({
+          type: 'invalid_value',
+          message: `Failed to load project configuration from ${configPath}: ${result.error}`,
           source: configPath,
           suggestion: 'Check file format and permissions'
         });
@@ -345,22 +428,25 @@ export class ConfigurationLoader {
   ): BCCodeIntelConfiguration {
     const result = this.deepClone(base);
 
-    // Handle layers specially - merge by name
+    // Handle layers with PRIORITY-BASED merge (project overrides user at same priority)
     if (override.layers) {
-      const layerMap = new Map<string, LayerConfiguration>();
+      const layerMap = new Map<number, LayerConfiguration>();
 
-      // Add base layers
-      result.layers.forEach(layer => layerMap.set(layer.name, layer));
-
-      // Add/override with new layers
-      override.layers.forEach(layer => {
-        layerMap.set(layer.name, { ...layerMap.get(layer.name), ...layer });
+      // Add base layers indexed by priority
+      result.layers.forEach(layer => {
+        layerMap.set(layer.priority, layer);
       });
 
+      // Override/add with new layers (same priority = override wins)
+      override.layers.forEach(layer => {
+        layerMap.set(layer.priority, layer); // Later source wins at same priority
+      });
+
+      // Sort by priority (ascending - lower priority number = higher precedence)
       result.layers = Array.from(layerMap.values()).sort((a, b) => a.priority - b.priority);
     }
 
-    // Merge other properties
+    // Merge other properties (override wins)
     if (override.resolution) {
       result.resolution = { ...result.resolution, ...override.resolution };
     }
@@ -478,14 +564,6 @@ export class ConfigurationLoader {
 
   private getFileFormat(filePath: string): 'json' | 'yaml' {
     return filePath.endsWith('.json') ? 'json' : 'yaml';
-  }
-
-  private getFilePriority(filePath: string): number {
-    // Higher priority (lower number) for more specific/local configs
-    if (filePath.includes('./bckb-config')) return 10;
-    if (filePath.includes('./.bckb')) return 20;
-    if (filePath.includes(homedir())) return 30;
-    return 40; // System configs
   }
 
   private deepClone<T>(obj: T): T {

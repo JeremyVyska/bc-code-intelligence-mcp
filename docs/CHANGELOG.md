@@ -7,6 +7,100 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.3] - 2025-10-30
+
+### 🔧 Configuration Discovery Fix: User + Project Config Merge
+
+**Fixed Issue #19: User configuration file not discovered**
+
+**Problem:** 
+- User config at `~/.bc-code-intel/config.json` was not being discovered
+- Only ONE config file loaded (first found wins)
+- Legacy paths (`~/.bckb/`) checked before new branding paths
+- No way to combine user-level and project-level configurations
+
+**Solution: VSCode-Style Config Merge**
+- ✅ Load BOTH user-level AND project-level configurations
+- ✅ Intelligent priority-based merge strategy
+- ✅ Project config overrides user config at same priority
+- ✅ Different priorities combine (all layers included)
+
+**Configuration Loading Flow (v1.5.3):**
+
+**Phase 1: Startup (User Config)**
+```
+MCP Server starts → Load ~/.bc-code-intel/config.json
+User layers available immediately
+```
+
+**Phase 2: Workspace Discovery (User + Project Merge)**
+```
+set_workspace_info called → Load ./bc-code-intel-config.json
+Merge with user config using priority-based strategy
+```
+
+**Merge Strategy:**
+- **Same priority**: Project layer **wins** (overrides user layer)
+- **Different priorities**: Both layers **included** (sorted by priority)
+
+**Example Merge:**
+```
+User config:    [Layer A (priority 20), Layer B (priority 30), Layer C (priority 80)]
+Project config: [Layer X (priority 30), Layer Y (priority 40), Layer Z (priority 50)]
+Result:         [Layer A (20), Layer X (30), Layer Y (40), Layer Z (50), Layer C (80)]
+                               ↑ Project wins conflict at priority 30
+```
+
+**Configuration Path Recommendations:**
+
+**User-Level Config:**
+- ✅ **Recommended**: `~/.bc-code-intel/config.json` or `.yaml`
+- ⚠️ **Legacy (deprecated)**: `~/.bckb/config.json` (shows warning)
+- **Use for**: Company-wide layers, personal auth, default preferences
+
+**Project-Level Config:**
+- ✅ **Recommended**: `bc-code-intel-config.json` or `.yaml` (in workspace root)
+- ⚠️ **Legacy (deprecated)**: `bckb-config.json` (shows warning)
+- **Use for**: Project-specific layers, team-shared config (in repo)
+
+**Implementation Changes:**
+
+**`src/config/config-loader.ts`:**
+- Split `CONFIG_PATHS` into `USER_CONFIG_PATHS` and `PROJECT_CONFIG_PATHS`
+- Updated `loadConfiguration(workspaceRoot?: string)` - now accepts workspace root parameter
+- Added `loadUserConfig()` - searches user-level paths
+- Added `loadProjectConfig(workspaceRoot)` - searches project-level paths
+- Updated `mergeConfigurations()` - changed from name-based to priority-based merge
+  - OLD: `Map<string, LayerConfiguration>` (by layer name)
+  - NEW: `Map<number, LayerConfiguration>` (by priority)
+- Added deprecation warnings for legacy `bckb-*` paths
+
+**`src/index.ts`:**
+- Updated `set_workspace_info` to pass `workspaceRoot` to `loadConfiguration()`
+- Enables project config discovery when workspace becomes known
+
+**Testing:**
+- Added comprehensive integration test suite: `tests/services/config-merge.integration.test.ts`
+- 7 test scenarios covering merge behavior, conflicts, YAML support, deprecation warnings
+- All tests passing ✓
+
+**Documentation Updates:**
+- Chris Config specialist: Complete rewrite of configuration-file-discovery.md
+- Added merge strategy documentation with priority conflict examples
+- Added "When to use User vs Project Config" guidance
+- Updated troubleshooting section for merge-specific issues
+- Updated all scenarios to reflect v1.5.3 behavior
+
+**Benefits:**
+- ✅ User config at `~/.bc-code-intel/config.json` now discovered correctly
+- ✅ Company-wide layers in user config apply to all projects
+- ✅ Project-specific overrides in project config (can be committed to repo)
+- ✅ VSCode-familiar behavior (project overrides user)
+- ✅ Backward compatible (existing single-config setups still work)
+- ✅ Clear migration path from legacy paths with warnings
+
+---
+
 ## [1.5.2] - 2025-10-29
 
 ### 🔐 Azure CLI Authentication for Azure DevOps Git Layers
