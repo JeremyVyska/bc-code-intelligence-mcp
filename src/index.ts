@@ -1352,7 +1352,10 @@ process.on('uncaughtException', (error) => {
 });
 
 // Run server if this is the main module
-if (process.argv[1]?.endsWith('index.js')) {
+// Check both direct execution (index.js) and binary execution (bc-code-intelligence-mcp, bc-code-intel-server)
+if (process.argv[1]?.endsWith('index.js') ||
+    process.argv[1]?.includes('bc-code-intelligence-mcp') ||
+    process.argv[1]?.includes('bc-code-intel-server')) {
   main().catch((error) => {
     console.error('Fatal error in BC Code Intelligence MCP Server:', error);
     process.exit(1);
