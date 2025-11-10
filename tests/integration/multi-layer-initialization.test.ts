@@ -24,7 +24,7 @@ function createTestConfig(localKnowledgePath: string): BCCodeIntelConfiguration 
       {
         name: 'embedded',
         enabled: true,
-        priority: 10,
+        priority: 0,  // Same priority as default - will override
         source: {
           type: LayerSourceType.EMBEDDED,
           path: 'embedded-knowledge'
@@ -81,7 +81,8 @@ function createTestConfig(localKnowledgePath: string): BCCodeIntelConfiguration 
       log_level: 'info',
       profile_performance: false,
       validate_on_startup: true,
-      export_config_schema: false
+      export_config_schema: false,
+      enable_diagnostic_tools: false
     }
   };
 }
@@ -169,6 +170,13 @@ This topic should be loaded when the local layer is configured.
         expect(configResult.config).toBeDefined();
         // Note: Config loader may add default layers, so we check for at least our 2
         expect(configResult.config.layers.length).toBeGreaterThanOrEqual(2);
+        
+        // Debug: Show validation errors if any
+        if (configResult.validation_errors.length > 0) {
+          console.log('❌ Validation errors:', JSON.stringify(configResult.validation_errors, null, 2));
+          console.log('📋 Config layers:', configResult.config.layers.map(l => l.name));
+        }
+        
         expect(configResult.validation_errors).toHaveLength(0);
         
         // Verify our embedded layer is present
@@ -483,7 +491,8 @@ This topic should be loaded when the local layer is configured.
           log_level: 'error',
           profile_performance: false,
           validate_on_startup: true,
-          export_config_schema: false
+          export_config_schema: false,
+          enable_diagnostic_tools: false
         }
       };
       
