@@ -64,7 +64,9 @@ export const streamlinedTools: Tool[] = [
 • UX: AL page/report constraints - BC controls rendering, NOT custom CSS/HTML  
 • Performance: AL optimization, table design, BC server constraints - NOT generic frameworks
 • API: BC API pages, web services, AL integration - NOT generic REST frameworks
-• Always prioritize AL language capabilities and BC platform limitations over generic programming approaches`,
+• Always prioritize AL language capabilities and BC platform limitations over generic programming approaches
+
+🤖 **AUTONOMOUS AGENT MODE**: Set autonomous_mode=true for GitHub Coding Agents and autonomous workflows. Returns structured, actionable JSON with: action_plan (executable steps), confidence scores, blocking_issues, and alternatives. Use for Issue → PR automation.`,
     inputSchema: {
       type: 'object',
       properties: {
@@ -79,6 +81,11 @@ export const streamlinedTools: Tool[] = [
         preferred_specialist: {
           type: 'string',
           description: 'Optional: specific specialist to consult (will auto-detect if not provided)'
+        },
+        autonomous_mode: {
+          type: 'boolean',
+          description: 'Enable autonomous agent mode: returns structured action plan instead of conversational response. For GitHub Coding Agents and automated workflows.',
+          default: false
         }
       },
       required: ['question']
@@ -86,7 +93,7 @@ export const streamlinedTools: Tool[] = [
   },
   {
     name: 'analyze_al_code',
-    description: 'Analyze AL code for issues, patterns, and improvements. Includes workspace analysis and workflow recommendations.',
+    description: 'Analyze AL code for issues, patterns, and improvements. Includes workspace analysis and workflow recommendations. AUTONOMOUS AGENT MODE: Use operation="validate" for automated code validation with compliance checks and auto-fix suggestions. Use operation="suggest_fixes" for code transformation recommendations.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -99,6 +106,12 @@ export const streamlinedTools: Tool[] = [
           enum: ['performance', 'quality', 'security', 'patterns', 'comprehensive'],
           description: 'Type of analysis to perform',
           default: 'comprehensive'
+        },
+        operation: {
+          type: 'string',
+          enum: ['analyze', 'validate', 'suggest_fixes'],
+          description: 'Analysis operation mode: "analyze" (conversational), "validate" (compliance check + auto-fixes), "suggest_fixes" (code transformations)',
+          default: 'analyze'
         },
         bc_version: {
           type: 'string',
@@ -134,7 +147,7 @@ export const streamlinedTools: Tool[] = [
   },
   {
     name: 'start_bc_workflow',
-    description: 'STRUCTURED WORKFLOWS: Start systematic BC development workflows for complex, multi-phase processes. USE FOR STRUCTURED PROCESSES like "optimize my code systematically", "conduct architecture review", "security audit", "performance analysis". DO NOT USE FOR SIMPLE CONVERSATIONS - if user wants to "talk to" or "ask" a specialist, use ask_bc_expert instead.',
+    description: 'STRUCTURED WORKFLOWS: Start systematic BC development workflows for complex, multi-phase processes. USE FOR STRUCTURED PROCESSES like "optimize my code systematically", "conduct architecture review", "security audit", "performance analysis". DO NOT USE FOR SIMPLE CONVERSATIONS - if user wants to "talk to" or "ask" a specialist, use ask_bc_expert instead. 🤖 AUTONOMOUS AGENT MODE: Set execution_mode="autonomous" for GitHub Coding Agents to get next action instead of interactive prompts. Supports checkpoint_id for multi-session execution.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -150,6 +163,16 @@ export const streamlinedTools: Tool[] = [
         bc_version: {
           type: 'string',
           description: 'Business Central version'
+        },
+        execution_mode: {
+          type: 'string',
+          enum: ['interactive', 'autonomous'],
+          description: 'Execution mode: "interactive" (human-in-loop with prompts) or "autonomous" (returns structured next action for automated workflows)',
+          default: 'interactive'
+        },
+        checkpoint_id: {
+          type: 'string',
+          description: 'Resume from saved workflow checkpoint (for multi-session execution). Enables stateful workflow progression across multiple invocations.'
         },
         additional_info: {
           type: 'object',

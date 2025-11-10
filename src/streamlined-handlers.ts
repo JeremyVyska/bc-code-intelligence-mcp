@@ -151,7 +151,7 @@ export function createStreamlinedHandlers(server: any, services: any) {
 
     'ask_bc_expert': async (args: any) => {
       try {
-        const { question, context, preferred_specialist } = args;
+        const { question, context, preferred_specialist, autonomous_mode = false } = args;
         
         // Validate required parameters
         if (!question) {
@@ -196,6 +196,43 @@ export function createStreamlinedHandlers(server: any, services: any) {
         // Normal specialist consultation
         const specialist = await knowledgeService.askSpecialist(question, preferred_specialist);
         
+        // AUTONOMOUS MODE: Return structured action plan
+        if (autonomous_mode) {
+          // Extract actionable steps from consultation
+          const actionPlan = {
+            response_type: 'autonomous_action_plan',
+            specialist: {
+              id: specialist.specialist.id,
+              name: specialist.specialist.name,
+              expertise: specialist.specialist.expertise
+            },
+            action_plan: {
+              primary_action: specialist.consultation.response.split('\n')[0], // First line is usually the main recommendation
+              steps: specialist.consultation.response
+                .split('\n')
+                .filter((line: string) => /^\d+\.|^-|^•/.test(line.trim())) // Extract numbered/bulleted steps
+                .map((step: string) => step.trim()),
+              required_tools: specialist.recommended_topics
+                .filter((t: any) => t.domain === 'tools' || t.domain === 'methodologies')
+                .map((t: any) => t.id),
+              confidence: specialist.consultation.confidence || 0.85,
+              blocking_issues: specialist.consultation.blocking_issues || [],
+              alternatives: specialist.consultation.alternatives || []
+            },
+            recommended_topics: specialist.recommended_topics,
+            next_specialist: specialist.consultation.hand_off_to || null,
+            context: context
+          };
+          
+          return {
+            content: [{
+              type: 'text',
+              text: JSON.stringify(actionPlan, null, 2)
+            }]
+          };
+        }
+        
+        // INTERACTIVE MODE: Return conversational response
         return {
           content: [{
             type: 'text',
@@ -225,7 +262,7 @@ export function createStreamlinedHandlers(server: any, services: any) {
     },
 
     'analyze_al_code': async (args: any) => {
-      const { code, analysis_type = 'comprehensive', bc_version, suggest_workflows = true } = args;
+      const { code, analysis_type = 'comprehensive', operation = 'analyze', bc_version, suggest_workflows = true } = args;
       
       if (code.toLowerCase() === 'workspace') {
         // Workspace analysis using existing method
@@ -242,6 +279,55 @@ export function createStreamlinedHandlers(server: any, services: any) {
           analysisResult.suggested_workflows = workflowSuggestions;
         }
         
+        // VALIDATE OPERATION: Return compliance issues + auto-fix suggestions
+        if (operation === 'validate') {
+          return {
+            content: [{
+              type: 'text',
+              text: JSON.stringify({
+                response_type: 'validation_report',
+                compliance_issues: analysisResult.issues || [],
+                auto_fix_suggestions: analysisResult.patterns
+                  ?.filter((p: any) => p.auto_fixable === true)
+                  .map((p: any) => ({
+                    issue: p.pattern,
+                    fix_action: p.recommended_action,
+                    code_snippet: p.code_snippet,
+                    confidence: p.confidence || 0.9
+                  })) || [],
+                blocking_issues: analysisResult.issues?.filter((i: any) => i.severity === 'critical') || [],
+                warnings: analysisResult.issues?.filter((i: any) => i.severity === 'warning') || [],
+                bc_version: bc_version,
+                analysis_type: analysis_type
+              }, null, 2)
+            }]
+          };
+        }
+        
+        // SUGGEST_FIXES OPERATION: Return code transformations
+        if (operation === 'suggest_fixes') {
+          return {
+            content: [{
+              type: 'text',
+              text: JSON.stringify({
+                response_type: 'code_transformations',
+                transformations: analysisResult.patterns
+                  ?.map((p: any) => ({
+                    pattern: p.pattern,
+                    transformation: p.recommended_action,
+                    before_code: p.code_snippet,
+                    after_code: p.suggested_code || '// Auto-generation not available',
+                    impact: p.impact || 'medium',
+                    confidence: p.confidence || 0.85
+                  })) || [],
+                recommended_workflow: analysisResult.suggested_workflows?.[0] || null,
+                bc_version: bc_version
+              }, null, 2)
+            }]
+          };
+        }
+        
+        // ANALYZE OPERATION: Return conversational analysis
         return {
           content: [{
             type: 'text',
@@ -257,6 +343,55 @@ export function createStreamlinedHandlers(server: any, services: any) {
           bc_version
         });
         
+        // VALIDATE OPERATION: Return compliance issues + auto-fix suggestions
+        if (operation === 'validate') {
+          return {
+            content: [{
+              type: 'text',
+              text: JSON.stringify({
+                response_type: 'validation_report',
+                compliance_issues: analysisResult.issues || [],
+                auto_fix_suggestions: analysisResult.patterns
+                  ?.filter((p: any) => p.auto_fixable === true)
+                  .map((p: any) => ({
+                    issue: p.pattern,
+                    fix_action: p.recommended_action,
+                    code_snippet: p.code_snippet,
+                    confidence: p.confidence || 0.9
+                  })) || [],
+                blocking_issues: analysisResult.issues?.filter((i: any) => i.severity === 'critical') || [],
+                warnings: analysisResult.issues?.filter((i: any) => i.severity === 'warning') || [],
+                bc_version: bc_version,
+                analysis_type: analysis_type
+              }, null, 2)
+            }]
+          };
+        }
+        
+        // SUGGEST_FIXES OPERATION: Return code transformations
+        if (operation === 'suggest_fixes') {
+          return {
+            content: [{
+              type: 'text',
+              text: JSON.stringify({
+                response_type: 'code_transformations',
+                transformations: analysisResult.patterns
+                  ?.map((p: any) => ({
+                    pattern: p.pattern,
+                    transformation: p.recommended_action,
+                    before_code: p.code_snippet,
+                    after_code: p.suggested_code || '// Auto-generation not available',
+                    impact: p.impact || 'medium',
+                    confidence: p.confidence || 0.85
+                  })) || [],
+                recommended_workflow: suggest_workflows ? await methodologyService.findWorkflowsByQuery('code optimization') : null,
+                bc_version: bc_version
+              }, null, 2)
+            }]
+          };
+        }
+        
+        // ANALYZE OPERATION: Return conversational analysis
         return {
           content: [{
             type: 'text',
@@ -280,7 +415,62 @@ export function createStreamlinedHandlers(server: any, services: any) {
     },
 
     'start_bc_workflow': async (args: any) => {
-      const { workflow_type, context, bc_version, additional_info } = args;
+      const { workflow_type, context, bc_version, execution_mode = 'interactive', checkpoint_id, additional_info } = args;
+      
+      // Resume from checkpoint if provided
+      if (checkpoint_id) {
+        try {
+          const session = await workflowService.resumeWorkflow(checkpoint_id);
+          const guidance = await workflowService.getPhaseGuidance(session.id);
+          
+          if (execution_mode === 'autonomous') {
+            return {
+              content: [{
+                type: 'text',
+                text: JSON.stringify({
+                  response_type: 'workflow_next_action',
+                  workflow_id: session.id,
+                  checkpoint_id: checkpoint_id,
+                  current_phase: session.current_phase,
+                  next_action: {
+                    action_type: 'execute_phase',
+                    phase: session.current_phase,
+                    specialist: session.current_specialist,
+                    required_inputs: guidance.required_inputs || [],
+                    expected_outputs: guidance.expected_outputs || [],
+                    guidance: guidance.description
+                  },
+                  can_proceed: !guidance.blocking_issues || guidance.blocking_issues.length === 0,
+                  blocking_issues: guidance.blocking_issues || [],
+                  progress: session.progress || 0
+                }, null, 2)
+              }]
+            };
+          }
+          
+          return {
+            content: [{
+              type: 'text',
+              text: JSON.stringify({
+                workflow_id: session.id,
+                status: 'resumed',
+                current_phase: session.current_phase,
+                specialist: session.current_specialist,
+                guidance
+              }, null, 2)
+            }]
+          };
+        } catch (error) {
+          return {
+            isError: true,
+            error: `Failed to resume workflow from checkpoint: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            content: [{
+              type: 'text',
+              text: `Error resuming workflow: ${error instanceof Error ? error.message : 'Unknown error'}`
+            }]
+          };
+        }
+      }
       
       // Detect if this looks like a specialist conversation request
       const isSpecialistRequest = detectSpecialistConversationRequest(workflow_type, context);
@@ -312,6 +502,36 @@ export function createStreamlinedHandlers(server: any, services: any) {
         });
         const guidance = await workflowService.getPhaseGuidance(session.id);
         
+        // AUTONOMOUS MODE: Return next action instead of interactive guidance
+        if (execution_mode === 'autonomous') {
+          return {
+            content: [{
+              type: 'text',
+              text: JSON.stringify({
+                response_type: 'workflow_next_action',
+                workflow_id: session.id,
+                workflow_type: workflow_type,
+                checkpoint_id: session.id, // Use session ID as checkpoint for resumption
+                current_phase: session.current_phase,
+                next_action: {
+                  action_type: 'execute_phase',
+                  phase: session.current_phase,
+                  specialist: session.current_specialist,
+                  required_inputs: guidance.required_inputs || [],
+                  expected_outputs: guidance.expected_outputs || [],
+                  guidance: guidance.description,
+                  estimated_duration: guidance.estimated_duration || 'unknown'
+                },
+                can_proceed: !guidance.blocking_issues || guidance.blocking_issues.length === 0,
+                blocking_issues: guidance.blocking_issues || [],
+                total_phases: session.total_phases || 5,
+                progress: 0
+              }, null, 2)
+            }]
+          };
+        }
+        
+        // INTERACTIVE MODE: Return conversational workflow guidance
         return {
           content: [{
             type: 'text',
