@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.4] - 2025-01-17
+
 ### 🤖 Phase 1: Autonomous Agent Mode for GitHub Coding Agents
 
 **NEW: Token-Efficient Autonomous Mode Extensions**
