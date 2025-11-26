@@ -299,7 +299,7 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
   private async loadFromDirectory(dirPath: string): Promise<void> {
     try {
       await access(dirPath);
-      
+
       // Load all three content types from standard subdirectories
       await this.loadTopics();        // Loads from domains/
       await this.loadSpecialists();   // Loads from specialists/
@@ -310,22 +310,29 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
   }
 
   /**
-   * Load topics from domains/ subdirectories
+   * Load topics from domains/ subdirectories (or topics/ as fallback)
    */
   protected async loadTopics(): Promise<number> {
     const knowledgePath = this.gitConfig.subpath
       ? join(this.localPath, this.gitConfig.subpath)
       : this.localPath;
-    
+
     const domainsPath = join(knowledgePath, 'domains');
-    
+    const topicsPath = join(knowledgePath, 'topics');
+
     try {
       await access(domainsPath);
       await this.loadTopicsFromDirectory(domainsPath);
     } catch (error) {
-      // domains/ directory doesn't exist - that's okay
+      // Try topics/ as fallback for backward compatibility
+      try {
+        await access(topicsPath);
+        await this.loadTopicsFromDirectory(topicsPath);
+      } catch (fallbackError) {
+        // Neither domains/ nor topics/ exist - that's okay
+      }
     }
-    
+
     return this.topics.size;
   }
 
@@ -336,13 +343,13 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
     const knowledgePath = this.gitConfig.subpath
       ? join(this.localPath, this.gitConfig.subpath)
       : this.localPath;
-    
+
     const specialistsPath = join(knowledgePath, 'specialists');
-    
+
     try {
       await access(specialistsPath);
       const entries = await readdir(specialistsPath);
-      
+
       for (const entry of entries) {
         if (entry.endsWith('.md')) {
           const filePath = join(specialistsPath, entry);
@@ -356,12 +363,12 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
           }
         }
       }
-      
+
       console.error(`🎭 Loaded ${this.specialists.size} specialists from ${this.name} layer`);
     } catch (error) {
       // specialists/ directory doesn't exist - that's okay
     }
-    
+
     return this.specialists.size;
   }
 
@@ -372,16 +379,16 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
     const knowledgePath = this.gitConfig.subpath
       ? join(this.localPath, this.gitConfig.subpath)
       : this.localPath;
-    
+
     const methodologiesPath = join(knowledgePath, 'methodologies');
-    
+
     try {
       await access(methodologiesPath);
       // TODO: Implement methodology loading when structure is defined
     } catch (error) {
       // methodologies/ directory doesn't exist - that's okay
     }
-    
+
     return this.methodologies.size;
   }
 
@@ -401,7 +408,7 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
 
     const [, frontmatterContent, markdownContent] = frontmatterMatch;
     const frontmatterData = yaml.parse(frontmatterContent || '');
-    
+
     // Validate required fields
     if (!frontmatterData.specialist_id || !frontmatterData.title) {
       console.error(`⚠️ Missing required fields in ${filePath}`);

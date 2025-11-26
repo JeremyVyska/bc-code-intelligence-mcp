@@ -60,14 +60,21 @@ SOLUTIONS:
 🔧 For developers: Run: git submodule init && git submodule update  
 🏢 For package maintainers: Ensure submodules are initialized before npm publish
 
-The embedded-knowledge directory should contain BC expertise (domains/, specialists/, methodologies/) required for the MCP server to function.
+The embedded-knowledge directory should contain BC expertise (domains/ or topics/, specialists/, methodologies/) required for the MCP server to function.
         `.trim());
       }
 
-      // Check if directory has the expected structure
-      const expectedDirs = ['domains', 'specialists', 'methodologies'];
-      const missingDirs = expectedDirs.filter(dir => !existsSync(join(this.embeddedPath, dir)));
-      
+      // Check if directory has the expected structure (domains/ or topics/ are both valid)
+      const hasDomains = existsSync(join(this.embeddedPath, 'domains'));
+      const hasTopics = existsSync(join(this.embeddedPath, 'topics'));
+      const hasSpecialists = existsSync(join(this.embeddedPath, 'specialists'));
+      const hasMethodologies = existsSync(join(this.embeddedPath, 'methodologies'));
+
+      const missingDirs: string[] = [];
+      if (!hasDomains && !hasTopics) missingDirs.push('domains/ or topics/');
+      if (!hasSpecialists) missingDirs.push('specialists');
+      if (!hasMethodologies) missingDirs.push('methodologies');
+
       if (missingDirs.length > 0) {
         throw new Error(`
 🚨 BC Code Intelligence MCP Server Setup Issue
@@ -83,7 +90,7 @@ SOLUTIONS:
 🔧 For developers: Run: git submodule update --remote --force
 🏢 For package maintainers: Verify submodule content before npm publish
 
-Expected structure: domains/, specialists/, methodologies/ directories with BC expertise content.
+Expected structure: (domains/ or topics/), specialists/, methodologies/ directories with BC expertise content.
         `.trim());
       }
 
@@ -113,30 +120,38 @@ Expected structure: domains/, specialists/, methodologies/ directories with BC e
   }
 
   /**
-   * Load all atomic topics from embedded knowledge domains
+   * Load all atomic topics from embedded knowledge (supports both domains/ and topics/)
    */
   protected async loadTopics(): Promise<number> {
+    // Support both domains/ and topics/ directory structures
     const domainsPath = join(this.embeddedPath, 'domains');
+    const topicsPath = join(this.embeddedPath, 'topics');
+
+    // Determine which directory exists
+    const useDomainsPath = existsSync(domainsPath);
+    const useTopicsPath = existsSync(topicsPath);
+    const basePath = useDomainsPath ? domainsPath : (useTopicsPath ? topicsPath : domainsPath);
+    const dirType = useDomainsPath ? 'domains' : (useTopicsPath ? 'topics' : 'domains (not found)');
 
     // Diagnostic logging for path resolution across platforms
-    console.error(`📂 Loading topics from: ${domainsPath}`);
+    console.error(`📂 Loading topics from: ${basePath}`);
     console.error(`   Platform: ${process.platform}`);
-    console.error(`   Directory exists: ${existsSync(domainsPath)}`);
+    console.error(`   Directory exists: ${existsSync(basePath)} (using ${dirType})`);
 
-    // Use glob to find all markdown files in domains, excluding samples
+    // Use glob to find all markdown files, excluding samples
     // Normalize path separators for cross-platform compatibility
-    let pattern = join(domainsPath, '**', '*.md');
-    
+    let pattern = join(basePath, '**', '*.md');
+
     // fast-glob expects forward slashes on all platforms
     pattern = pattern.replace(/\\/g, '/');
-    
+
     // Handle Windows drive letter normalization (e.g., /c/ to C:/)
     if (process.platform === 'win32' && pattern.startsWith('/c/')) {
       pattern = 'C:' + pattern.substring(2);
     }
 
     console.error(`🔍 Using glob pattern: ${pattern}`);
-    
+
     try {
       const topicFiles = await glob(pattern, {
         ignore: ['**/samples/**'], // Ignore sample files
@@ -145,7 +160,7 @@ Expected structure: domains/, specialists/, methodologies/ directories with BC e
       });
 
       console.error(`   Found ${topicFiles.length} topic files`);
-      
+
       if (topicFiles.length === 0) {
         console.error(`⚠️  Warning: No topic files found. Check if embedded-knowledge is properly populated.`);
       }
@@ -412,7 +427,7 @@ Expected structure: domains/, specialists/, methodologies/ directories with BC e
 
       // Parse and validate frontmatter
       const frontmatterData = yaml.parse(frontmatterContent || '');
-      
+
       // Validate required fields
       if (!frontmatterData.specialist_id || !frontmatterData.title) {
         console.error(`⚠️ Missing required fields in ${filePath}`);
@@ -470,14 +485,14 @@ Expected structure: domains/, specialists/, methodologies/ directories with BC e
    */
   protected async loadMethodologies(): Promise<number> {
     const methodologiesPath = join(this.embeddedPath, 'methodologies');
-    
+
     try {
       await access(methodologiesPath);
       // TODO: Implement methodology loading when structure is defined
     } catch (error) {
       // methodologies/ directory might not exist - that's okay
     }
-    
+
     return this.methodologies.size;
   }
 
@@ -588,7 +603,7 @@ Expected structure: domains/, specialists/, methodologies/ directories with BC e
   }
 
   // MultiContentKnowledgeLayer interface implementation
-  
+
   /**
    * Check if content exists by type and ID
    */
@@ -607,7 +622,7 @@ Expected structure: domains/, specialists/, methodologies/ directories with BC e
    * Get content by type and ID
    */
   override async getContent<T extends LayerContentType>(
-    type: T, 
+    type: T,
     id: string
   ): Promise<any> {
     switch (type) {
@@ -638,8 +653,8 @@ Expected structure: domains/, specialists/, methodologies/ directories with BC e
    * Search content within this layer by type
    */
   override searchContent<T extends LayerContentType>(
-    type: T, 
-    query: string, 
+    type: T,
+    query: string,
     limit: number = 10
   ): any[] {
     switch (type) {
