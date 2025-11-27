@@ -8,6 +8,15 @@
 
 ---
 
+## 📚 Quick Links
+
+- **[Company Layer Setup Guide](./examples/company-layer-setup.md)** - Add your company's BC standards
+- **[Installation Guide](https://github.com/JeremyVyska/bc-code-intelligence-mcp/wiki/Installation-Guide)** - Install in Claude, Copilot, or any MCP client
+- **[Configuration Examples](./bc-code-intel-config.example.yaml)** - All configuration options
+- **[Specialist Bundle](#-specialist-bundle-experience)** - Meet the 14 BC experts
+
+---
+
 ## ✨ Enhanced Developer Workflows
 
 ### 🎯 Core Features
@@ -188,6 +197,206 @@ get_workflow_status({ workflow_id: "workflow-123" })
 - **`get_configuration_status`** - System configuration and health status
 - **`reload_configuration`** - Reload configuration without restart
 - **`get_system_analytics`** - Usage analytics and performance metrics
+
+## 🏢 Company Layer Setup
+
+Add your company's BC knowledge and standards to the MCP server using the **Company Layer** feature.
+
+> **📖 Complete guide:** See [Company Layer Setup Guide](./examples/company-layer-setup.md) for detailed step-by-step instructions.
+
+### Quick Setup (3 Steps)
+
+**1. Create your configuration directory:**
+```powershell
+# Windows (PowerShell)
+mkdir $env:USERPROFILE\.bc-code-intel
+
+# macOS/Linux (Bash)
+mkdir ~/.bc-code-intel
+```
+
+**2. Create your configuration file:**
+
+Create `~/.bc-code-intel/config.yaml` (Windows: `%USERPROFILE%\.bc-code-intel\config.yaml`)
+
+**3. Add your company layer:**
+
+```yaml
+layers:
+  # Embedded layer (required) - base BC knowledge
+  - name: embedded
+    priority: 0
+    source:
+      type: embedded
+      path: ./embedded-knowledge
+    enabled: true
+
+  # Company layer - YOUR COMPANY STANDARDS
+  - name: company
+    priority: 20
+    source:
+      type: git
+      url: "https://github.com/yourcompany/bc-knowledge"  # Your Git repo URL
+      branch: main                                         # Your branch name
+      subpath: ""                                          # Optional: subdirectory path
+    auth:
+      type: token                    # or: az_cli, ssh_key, basic
+      token_env_var: GITHUB_TOKEN    # Environment variable with token
+    enabled: true
+
+  # Project layer (optional) - local workspace overrides
+  - name: project
+    priority: 100
+    source:
+      type: local
+      path: ./bc-code-intel-overrides
+    enabled: true
+```
+
+### Repository Structure
+
+Your company Git repository should contain:
+
+```
+your-bc-knowledge-repo/
+├── domains/              # OR topics/ (both supported!)
+│   ├── naming-conventions.md
+│   ├── error-handling.md
+│   └── company-patterns.md
+├── specialists/          # Optional: company-specific specialists
+│   └── company-expert.md
+└── methodologies/        # Optional: company workflows
+    └── company-review.md
+```
+
+**Note:** Both `domains/` and `topics/` directory names are supported!
+
+### Authentication Methods
+
+<details>
+<summary><b>GitHub (Personal Access Token)</b></summary>
+
+```yaml
+auth:
+  type: token
+  token_env_var: GITHUB_TOKEN  # Set: export GITHUB_TOKEN="ghp_yourtoken"
+```
+
+Create token at: https://github.com/settings/tokens (needs `repo` scope)
+</details>
+
+<details>
+<summary><b>Azure DevOps (Azure CLI)</b></summary>
+
+```yaml
+auth:
+  type: az_cli  # Uses Azure CLI authentication
+```
+
+Prerequisites:
+```powershell
+az login  # Login once, credentials are cached
+```
+</details>
+
+<details>
+<summary><b>GitLab (Personal Access Token)</b></summary>
+
+```yaml
+auth:
+  type: token
+  token_env_var: GITLAB_TOKEN  # Set: export GITLAB_TOKEN="glpat-yourtoken"
+```
+</details>
+
+<details>
+<summary><b>SSH Key</b></summary>
+
+```yaml
+auth:
+  type: ssh_key
+  ssh_key_path: "~/.ssh/id_rsa"
+```
+</details>
+
+### Configuration Discovery
+
+The MCP server automatically searches for configuration in this order:
+
+1. **User-level** (recommended): `~/.bc-code-intel/config.yaml`
+2. **Project-level**: `./bc-code-intel-config.yaml` (workspace root)
+3. **Environment variable**: `BC_CODE_INTEL_CONFIG_PATH`
+
+**Important:** User-level configuration (including company layers) is **automatically loaded at startup**. No need to call `set_workspace_info` or configure per-workspace - your company standards are available globally across all projects!
+
+### Priority System
+
+Lower numbers = higher priority. Company layers (priority 20) override embedded knowledge (priority 0):
+
+- **Priority 0**: Embedded base knowledge (always loaded)
+- **Priority 20**: Company standards (overrides embedded)
+- **Priority 100**: Project-specific (overrides everything)
+
+When topics have the same ID, the **higher priority layer wins**.
+
+### Example Configurations
+
+**📖 Full Setup Guide:** See [**Company Layer Setup Guide**](./examples/company-layer-setup.md) for complete step-by-step instructions.
+
+**Full Example:**
+See [`bc-code-intel-config.example.yaml`](./bc-code-intel-config.example.yaml) for all configuration options.
+
+**Minimal Company Setup:**
+```yaml
+layers:
+  - name: embedded
+    priority: 0
+    source:
+      type: embedded
+    enabled: true
+
+  - name: company
+    priority: 20
+    source:
+      type: git
+      url: "https://dev.azure.com/YourOrg/YourProject/_git/BCGuidelines"
+      branch: master
+      subpath: "bc-company-guidelines"  # Optional subdirectory
+    auth:
+      type: az_cli
+    enabled: true
+```
+
+### Verification
+
+Test your configuration:
+```bash
+# From the MCP server directory
+npx tsx -e "
+import { ConfigurationLoader } from './src/config/config-loader.js';
+const config = await ConfigurationLoader.loadConfiguration();
+console.log('✅ Config loaded:', config.layers.map(l => l.name));
+"
+```
+
+### Troubleshooting
+
+**Config not loading?**
+- Check file location: `~/.bc-code-intel/config.yaml`
+- Verify YAML syntax (use a YAML validator)
+- Check file permissions
+
+**Git authentication failing?**
+- Token: Verify environment variable is set: `echo $GITHUB_TOKEN`
+- Azure CLI: Run `az login` and verify with `az account show`
+- SSH: Ensure key is added to ssh-agent: `ssh-add ~/.ssh/id_rsa`
+
+**No topics loading from company layer?**
+- Verify repository structure has `domains/` or `topics/` directory
+- Check branch name matches config
+- If using `subpath`, verify the path exists in your repo
+
+For more examples, see the [`examples/`](./examples/) directory.
 
 ## Quick Start
 ```bash

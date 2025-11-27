@@ -13,7 +13,7 @@ import {
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { readFileSync, existsSync } from 'fs';
-import { 
+import {
   getAllToolDefinitions,
   STREAMLINED_TOOL_NAMES,
   SpecialistTools,
@@ -85,15 +85,15 @@ class BCCodeIntelligenceServer {
       const __filename = fileURLToPath(import.meta.url);
       const __dirname = dirname(__filename);
       const packagePath = join(__dirname, '..', 'package.json');
-      
+
       console.error(`🔍 Looking for package.json at: ${packagePath}`);
       console.error(`   Exists: ${existsSync(packagePath)}`);
-      
+
       if (!existsSync(packagePath)) {
         console.error(`⚠️  package.json not found at expected location`);
         return '1.0.0'; // fallback
       }
-      
+
       const packageJson = JSON.parse(readFileSync(packagePath, 'utf8'));
       const version = packageJson.version || '1.0.0';
       console.error(`   Version: ${version}`);
@@ -109,7 +109,7 @@ class BCCodeIntelligenceServer {
     console.error(`[startup] MCP Server starting...`);
     console.error(`[startup] Process CWD: ${process.cwd()}`);
     console.error(`[startup] Node version: ${process.version}`);
-    
+
     // Initialize MCP server
     this.server = new Server(
       {
@@ -145,15 +145,15 @@ class BCCodeIntelligenceServer {
         onboardingTools: this.agentOnboardingTools,
         handoffTools: this.specialistHandoffTools
       });
-      
+
       // Add workspace tools (always available)
       tools.push(...this.workspaceTools.getToolDefinitions() as any);
-      
+
       // Add configuration diagnostic tools if available AND enabled
       if (this.configDiagnosticTools) {
         tools.push(...this.configDiagnosticTools.getToolDefinitions() as any);
       }
-      
+
       return { tools };
     });
 
@@ -472,66 +472,66 @@ Currently only embedded knowledge is loaded. Call \`set_workspace_info\` to enab
     // Register get prompt handler for all workflows
     this.server.setRequestHandler(GetPromptRequestSchema, async (request) => {
       const { name, arguments: args } = request.params;
-      
+
       const prompt = workflowPrompts.find(p => p.name === name);
       if (!prompt) {
         throw new McpError(ErrorCode.InvalidRequest, `Unknown prompt: ${name}`);
       }
 
-        try {
-          // Convert workflow name to type and create start request
-          const workflowTypeMap: Record<string, string> = {
-            'code_optimization': 'new-bc-app',
-            'architecture_review': 'enhance-bc-app',
-            'security_audit': 'debug-bc-issues',
-            'perf_review': 'debug-bc-issues',
-            'integration_design': 'add-ecosystem-features',
-            'upgrade_planning': 'upgrade-bc-version',
-            'testing_strategy': 'modernize-bc-code',
-            'dev_onboarding': 'onboard-developer',
-            'app_takeover': 'enhance-bc-app',
-            'spec_analysis': 'review-bc-code',
-            'bug_investigation': 'debug-bc-issues',
-            'monolith_to_modules': 'modernize-bc-code',
-            'data_flow_tracing': 'review-bc-code',
-            'full_review': 'review-bc-code'
-          };
-          
-          const workflowType = workflowTypeMap[name] as any;
-          if (!workflowType) {
-            throw new Error(`Unknown workflow type: ${name}`);
-          }
-          
-          const startRequest = {
-            workflow_type: workflowType,
-            project_context: args?.code_location || args?.scope || args?.audit_scope || 
-                           args?.performance_concern || args?.integration_type || 
-                           args?.testing_scope || args?.review_target || 
-                           'General workflow request',
-            bc_version: args?.target_version || args?.current_version,
-            additional_context: args
-          };
-          
-          // Start the workflow session
-          const session = await this.workflowService.startWorkflow(startRequest);
-          
-          // Get the initial guidance for this workflow
-          const initialGuidance = await this.workflowService.getPhaseGuidance(session.id);
-          
-          // Enhance with specialist routing
-          const userContext = args?.code_location || args?.scope || args?.audit_scope || 
-                             args?.performance_concern || args?.integration_type || 
-                             args?.testing_scope || args?.review_target || 
-                             'General workflow request';
-          
-          const enhancedResult = await this.enhancedPromptService.enhanceWorkflowPrompt(
-            name,
-            userContext,
-            initialGuidance
-          );
-          
-          // Construct explicit prompt that bypasses VS Code prompt creation
-          const promptContent = `# ${prompt.description}
+      try {
+        // Convert workflow name to type and create start request
+        const workflowTypeMap: Record<string, string> = {
+          'code_optimization': 'new-bc-app',
+          'architecture_review': 'enhance-bc-app',
+          'security_audit': 'debug-bc-issues',
+          'perf_review': 'debug-bc-issues',
+          'integration_design': 'add-ecosystem-features',
+          'upgrade_planning': 'upgrade-bc-version',
+          'testing_strategy': 'modernize-bc-code',
+          'dev_onboarding': 'onboard-developer',
+          'app_takeover': 'enhance-bc-app',
+          'spec_analysis': 'review-bc-code',
+          'bug_investigation': 'debug-bc-issues',
+          'monolith_to_modules': 'modernize-bc-code',
+          'data_flow_tracing': 'review-bc-code',
+          'full_review': 'review-bc-code'
+        };
+
+        const workflowType = workflowTypeMap[name] as any;
+        if (!workflowType) {
+          throw new Error(`Unknown workflow type: ${name}`);
+        }
+
+        const startRequest = {
+          workflow_type: workflowType,
+          project_context: args?.code_location || args?.scope || args?.audit_scope ||
+            args?.performance_concern || args?.integration_type ||
+            args?.testing_scope || args?.review_target ||
+            'General workflow request',
+          bc_version: args?.target_version || args?.current_version,
+          additional_context: args
+        };
+
+        // Start the workflow session
+        const session = await this.workflowService.startWorkflow(startRequest);
+
+        // Get the initial guidance for this workflow
+        const initialGuidance = await this.workflowService.getPhaseGuidance(session.id);
+
+        // Enhance with specialist routing
+        const userContext = args?.code_location || args?.scope || args?.audit_scope ||
+          args?.performance_concern || args?.integration_type ||
+          args?.testing_scope || args?.review_target ||
+          'General workflow request';
+
+        const enhancedResult = await this.enhancedPromptService.enhanceWorkflowPrompt(
+          name,
+          userContext,
+          initialGuidance
+        );
+
+        // Construct explicit prompt that bypasses VS Code prompt creation
+        const promptContent = `# ${prompt.description}
 
 **IMPORTANT: This is a complete, ready-to-use prompt. Do not create additional prompts or ask for more information. Proceed directly with the requested workflow.**
 
@@ -544,22 +544,22 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
 
 **Remember:** You have access to 20+ MCP tools from bc-code-intelligence-mcp. Use them actively for specialist consultation and knowledge access.`;
 
-          return {
-            description: `Starting ${workflowType} workflow with specialist guidance`,
-            messages: [
-              {
-                role: 'user',
-                content: {
-                  type: 'text',
-                  text: promptContent
-                }
+        return {
+          description: `Starting ${workflowType} workflow with specialist guidance`,
+          messages: [
+            {
+              role: 'user',
+              content: {
+                type: 'text',
+                text: promptContent
               }
-            ]
-          };
-        } catch (error) {
-          throw new McpError(ErrorCode.InternalError, `Failed to start workflow: ${error instanceof Error ? error.message : String(error)}`);
-        }
-      });
+            }
+          ]
+        };
+      } catch (error) {
+        throw new McpError(ErrorCode.InternalError, `Failed to start workflow: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    });
 
     console.error('✅ MCP Prompts configured for workflow orchestration');
   }
@@ -601,7 +601,7 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
       }
 
       let layer;
-      
+
       switch (layerConfig.source.type) {
         case LayerSourceType.EMBEDDED: {
           // Embedded layer
@@ -612,7 +612,7 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
           layer = new EmbeddedKnowledgeLayer(embeddedPath);
           break;
         }
-        
+
         case LayerSourceType.LOCAL: {
           // Local filesystem layer - use ProjectKnowledgeLayer
           const { ProjectKnowledgeLayer } = await import('./layers/project-layer.js');
@@ -622,7 +622,7 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
           (layer as any).priority = layerConfig.priority;
           break;
         }
-        
+
         case LayerSourceType.GIT: {
           // Git repository layer
           const { GitKnowledgeLayer } = await import('./layers/git-layer.js');
@@ -640,7 +640,7 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
           );
           break;
         }
-        
+
         case LayerSourceType.HTTP:
         case LayerSourceType.NPM: {
           // Future layer types - not yet implemented
@@ -649,12 +649,12 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
           console.warn(`⚠️  Layer type '${layerConfig.source.type}' not yet implemented - skipping ${layerConfig.name}`);
           continue;
         }
-        
+
         default:
           console.error(`❌ Unknown layer type: ${(layerConfig.source as any).type} - skipping ${layerConfig.name}`);
           continue;
       }
-      
+
       console.error(`📋 Initializing layer: ${layerConfig.name}`);
       this.layerService.addLayer(layer as any);
     }
@@ -677,17 +677,17 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
 
     // Get session storage configuration from layer service
     const sessionStorageConfig = this.layerService.getSessionStorageConfig();
-    
+
     this.specialistSessionManager = new SpecialistSessionManager(
-      this.layerService, 
+      this.layerService,
       sessionStorageConfig
     );
     this.specialistTools = new SpecialistTools(
-      this.layerService, 
+      this.layerService,
       this.specialistSessionManager,
       this.knowledgeService
     );
-    
+
     // Initialize specialist discovery service and tools
     this.specialistDiscoveryService = new SpecialistDiscoveryService(this.layerService);
     this.specialistDiscoveryTools = new SpecialistDiscoveryTools(
@@ -695,27 +695,27 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
       this.specialistSessionManager,
       this.layerService
     );
-    
+
     // Initialize enhanced prompt service for specialist routing
     this.enhancedPromptService = new EnhancedPromptService(
       this.specialistDiscoveryService,
       this.specialistSessionManager,
       this.workflowService
     );
-    
+
     // Initialize agent onboarding tools for natural specialist introduction
     this.agentOnboardingTools = new AgentOnboardingTools(
       this.specialistDiscoveryService,
       this.layerService
     );
-    
+
     // Initialize specialist handoff tools for seamless transitions
     this.specialistHandoffTools = new SpecialistHandoffTools(
       this.specialistSessionManager,
       this.specialistDiscoveryService,
       this.layerService
     );
-    
+
     // Initialize configuration diagnostic tools ONLY if enabled (reduces token overhead)
     if (this.configuration.developer.enable_diagnostic_tools) {
       this.configDiagnosticTools = new ConfigDiagnosticTools(this.layerService, this.configLoader);
@@ -723,7 +723,7 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
     } else {
       console.error('💡 Tip: Set developer.enable_diagnostic_tools=true for git layer diagnostics');
     }
-    
+
     // Initialize workflow service with specialist discovery
     const specialistDiscoveryService = new SpecialistDiscoveryService(this.layerService);
     this.workflowService = new WorkflowService(this.knowledgeService, this.methodologyService, specialistDiscoveryService);
@@ -731,7 +731,7 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
     // Report final totals
     const specialists = await this.layerService.getAllSpecialists();
     console.error(`📊 Total: ${totalTopics} topics, ${specialists.length} specialists`);
-    
+
     // Validate tool contracts at startup
     await this.validateToolContracts();
   }
@@ -748,16 +748,16 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
         workflowService: this.workflowService,
         layerService: this.layerService
       }) as any;
-      
+
       const tools = getAllToolDefinitions({
         specialistTools: this.specialistTools,
         specialistDiscoveryTools: this.specialistDiscoveryTools,
         onboardingTools: this.agentOnboardingTools,
         handoffTools: this.specialistHandoffTools
       });
-      
+
       let hasIssues = false;
-      
+
       for (const tool of tools) {
         // Only validate core streamlined tools (others handle their own routing)
         if (Object.values(STREAMLINED_TOOL_NAMES).includes(tool.name as any)) {
@@ -767,7 +767,7 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
           }
         }
       }
-      
+
       if (hasIssues) {
         console.error('💥 Contract validation failed! Server may have dead ends.');
         // Don't fail startup, but warn loudly
@@ -854,8 +854,8 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
       coverage_insights: {
         domains_covered: Object.keys(domainDistribution).length,
         difficulty_levels: Object.keys(difficultyDistribution).length,
-        most_common_domain: Object.entries(domainDistribution).sort(([,a], [,b]) => b - a)[0]?.[0] || 'N/A',
-        most_common_difficulty: Object.entries(difficultyDistribution).sort(([,a], [,b]) => b - a)[0]?.[0] || 'N/A'
+        most_common_domain: Object.entries(domainDistribution).sort(([, a], [, b]) => b - a)[0]?.[0] || 'N/A',
+        most_common_difficulty: Object.entries(difficultyDistribution).sort(([, a], [, b]) => b - a)[0]?.[0] || 'N/A'
       }
     };
   }
@@ -965,7 +965,7 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
   private async generateOptimizationWorkflow(params: OptimizationWorkflowParams) {
     // Use domain workflows for comprehensive scenario coverage
     const baseWorkflows = domainWorkflows;
-    
+
     // Additional legacy workflow mapping
     const legacyWorkflows: Record<string, any> = {
       'slow report': {
@@ -1008,14 +1008,14 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
         common_pitfalls: ['Not enabling MaintainSIFTIndex', 'Loading unnecessary fields', 'Missing performance baselines']
       }
     };
-    
+
     // Merge domain workflows with legacy workflows
     const allWorkflows = { ...baseWorkflows, ...legacyWorkflows };
 
     // Find matching workflow or create generic one
     const scenario = params.scenario.toLowerCase();
     let workflow = null;
-    
+
     for (const [key, value] of Object.entries(allWorkflows)) {
       if (scenario.includes(key)) {
         workflow = value;
@@ -1075,7 +1075,7 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
       console.error(`Architecture: ${process.arch}`);
       console.error(`Working directory: ${process.cwd()}`);
       console.error(`Script path: ${process.argv[1]}`);
-      
+
       const version = this.getPackageVersion();
       console.error(`🚀 BC Code Intelligence MCP Server v${version} starting...`);
 
@@ -1085,7 +1085,7 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
       const embeddedPath = join(__dirname, '..', 'embedded-knowledge');
       console.error(`Embedded knowledge path: ${embeddedPath}`);
       console.error(`Embedded knowledge exists: ${existsSync(embeddedPath)}`);
-      
+
       if (existsSync(embeddedPath)) {
         const expectedDirs = ['domains', 'specialists', 'methodologies'];
         for (const dir of expectedDirs) {
@@ -1094,12 +1094,27 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
         }
       }
 
-      // Initialize ONLY embedded knowledge at startup
-      // Project-local layers will be loaded when workspace root is set
-      console.error('📦 Loading embedded knowledge only (workspace-specific layers require set_workspace_info)...');
-      await this.initializeEmbeddedOnly();
+      // Try to load user-level configuration first (company layers)
+      // If no user config exists, fall back to embedded-only mode
+      console.error('📦 Checking for user-level configuration (company layers)...');
 
-      // Start MCP server
+      try {
+        const userConfigResult = await this.configLoader.loadConfiguration();
+
+        if (userConfigResult.config.layers && userConfigResult.config.layers.length > 1) {
+          // User has configured layers (embedded + company/git layers)
+          console.error(`✅ Found user-level configuration with ${userConfigResult.config.layers.length} layers`);
+          this.configuration = userConfigResult.config;
+          await this.initializeWithConfiguration(userConfigResult);
+        } else {
+          // No user config or only embedded layer - use embedded-only mode
+          console.error('📦 No user-level configuration found, loading embedded knowledge only...');
+          await this.initializeEmbeddedOnly();
+        }
+      } catch (error) {
+        console.error('⚠️  Failed to load user configuration, falling back to embedded-only:', error instanceof Error ? error.message : String(error));
+        await this.initializeEmbeddedOnly();
+      }      // Start MCP server
       const transport = new StdioServerTransport();
       await this.server.connect(transport);
 
@@ -1123,10 +1138,10 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
 
     // Initialize minimal layer service with only embedded
     this.layerService = new MultiContentLayerService();
-    
+
     const { EmbeddedKnowledgeLayer } = await import('./layers/embedded-layer.js');
     const embeddedLayer = new EmbeddedKnowledgeLayer(embeddedPath);
-    
+
     this.layerService.addLayer(embeddedLayer as any);
     await this.layerService.initialize();
 
@@ -1147,7 +1162,7 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
 
     this.codeAnalysisService = new CodeAnalysisService(this.knowledgeService);
     this.methodologyService = new MethodologyService(this.knowledgeService);
-    
+
     const specialistDiscoveryService = new SpecialistDiscoveryService(this.layerService);
     this.workflowService = new WorkflowService(this.knowledgeService, this.methodologyService, specialistDiscoveryService);
 
@@ -1185,6 +1200,28 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
   }
 
   /**
+   * Initialize with user-level configuration (company layers from ~/.bc-code-intel/config.yaml)
+   */
+  private async initializeWithConfiguration(configResult: ConfigurationLoadResult): Promise<void> {
+    console.error(`🚀 Initializing with user-level configuration...`);
+
+    this.configuration = configResult.config;    // Initialize services with the loaded configuration
+    await this.initializeServices(configResult);
+
+    this.servicesInitialized = true;
+
+    const specialists = await this.layerService.getAllSpecialists();
+    const topics = this.layerService.getAllTopicIds();
+    const layers = this.layerService.getLayers();
+
+    console.error(`✅ User configuration loaded: ${topics.length} topics from ${layers.length} layers, ${specialists.length} specialists`);
+    layers.forEach(layer => {
+      const topicCount = layer.getTopicIds().length;
+      console.error(`   📚 ${layer.name}: ${topicCount} topics (priority ${layer.priority})`);
+    });
+  }
+
+  /**
    * Set workspace root and MCP ecosystem info, initialize full services
    */
   private async setWorkspaceInfo(path: string, availableMcps: string[] = []): Promise<{ success: boolean; message: string; reloaded: boolean }> {
@@ -1206,12 +1243,12 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
       if (this.workspaceRoot === resolvedPath) {
         // Update availableMcps even if workspace unchanged
         this.availableMcps = availableMcps;
-        
+
         // Update layer service with new MCP availability (dynamic filtering)
         if (this.layerService) {
           this.layerService.setAvailableMcps(availableMcps);
         }
-        
+
         return {
           success: true,
           message: `Workspace root already set to: ${resolvedPath}${availableMcps.length > 0 ? ` | Updated MCP ecosystem: ${availableMcps.length} servers` : ''}`,
@@ -1223,7 +1260,7 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
       if (availableMcps.length > 0) {
         console.error(`🔧 MCP Ecosystem: ${availableMcps.join(', ')}`);
       }
-      
+
       // Change working directory
       process.chdir(resolvedPath);
       this.workspaceRoot = resolvedPath;
@@ -1294,7 +1331,7 @@ async function main() {
     console.error(`Platform: ${process.platform} (${process.arch})`);
     console.error(`PWD: ${process.cwd()}`);
     console.error(`Script: ${process.argv[1]}`);
-    
+
     // Check for workspace root argument (e.g., "." passed from MCP client)
     const workspaceArg = process.argv[2];
     if (workspaceArg) {
@@ -1302,12 +1339,12 @@ async function main() {
       const { resolve } = await import('path');
       const resolvedPath = resolve(workspaceArg);
       console.error(`Resolved to: ${resolvedPath}`);
-      
+
       // Override process.cwd() for config/layer discovery
       process.chdir(resolvedPath);
       console.error(`Changed working directory to: ${process.cwd()}`);
     }
-    
+
     const server = new BCCodeIntelligenceServer();
     await server.run();
   } catch (error) {

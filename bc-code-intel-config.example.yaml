@@ -1,76 +1,95 @@
 # BC Code Intelligence Configuration Example (YAML format)
-# Copy to bc-code-intel-config.yaml and customize for your needs
+# 
+# QUICK SETUP:
+# 1. Copy to: ~/.bc-code-intel/config.yaml (Windows: %USERPROFILE%\.bc-code-intel\config.yaml)
+# 2. Update the "company-standards" layer with your Git repository URL
+# 3. Configure authentication (token, az_cli, ssh_key, or basic)
+# 4. Done! The MCP server will auto-discover and load your configuration
+#
+# For complete setup guide, see: examples/company-layer-setup.md
 
 layers:
+  # Embedded Layer (Required) - Base BC knowledge from submodule
   - name: embedded
     priority: 0
     source:
       type: embedded
     enabled: true
 
+  # Company Layer (Example) - YOUR COMPANY STANDARDS GO HERE
   - name: company-standards
     priority: 20
     source:
       type: git
-      url: "https://github.com/yourcompany/bc-knowledge-base"
-      branch: main
-      subpath: knowledge
+      url: "https://github.com/yourcompany/bc-knowledge-base"  # ← CHANGE THIS
+      branch: main                                              # ← Verify branch name
+      subpath: ""  # Optional: subdirectory path (e.g., "bc-knowledge")
     auth:
-      type: token
-      token_env_var: GITHUB_TOKEN
+      type: token           # Options: token, az_cli, ssh_key, basic
+      token_env_var: GITHUB_TOKEN  # Environment variable containing your token
     enabled: true
-    cache_duration: "2h"
+    cache_duration: "2h"    # How often to check for updates
 
-  # Example: Azure DevOps repository with Azure CLI authentication
+  # Azure DevOps Example (Commented Out)
+  # Uncomment and configure for Azure DevOps repositories
   # - name: azure-devops-knowledge
   #   priority: 30
   #   source:
   #     type: git
   #     url: "https://dev.azure.com/YourOrg/YourProject/_git/bc-knowledge"
-  #     branch: main
+  #     branch: master  # Azure DevOps often uses "master" instead of "main"
+  #     subpath: ""     # Optional: subdirectory containing domains/
   #   auth:
-  #     type: az_cli  # Uses 'az login' authentication
+  #     type: az_cli  # Uses 'az login' authentication (no tokens needed!)
   #   enabled: true
   #   cache_duration: "2h"
 
+  # Project Layer (Optional) - Local workspace overrides
   - name: project
     priority: 100
     source:
       type: local
-      path: "./bc-code-intel-overrides"
+      path: "./bc-code-intel-overrides"  # Relative to workspace root
     enabled: true
 
+# Resolution Strategy
 resolution:
   strategy: best_match
-  conflict_resolution: priority_wins
+  conflict_resolution: priority_wins  # Higher priority number wins
   enable_fallback: true
 
+# Cache Configuration
 cache:
   strategy: moderate
   ttl:
-    git: "1h"
-    local: immediate
-    embedded: permanent
+    git: "1h"        # Git repositories: check for updates every hour
+    local: immediate # Local files: always fresh
+    embedded: permanent  # Embedded: never expires
   max_size_mb: 100
   background_refresh: true
 
+# Security Settings
 security:
   validate_sources: true
-  allow_http_sources: false
+  allow_http_sources: false  # Only HTTPS git URLs
   trusted_domains:
     - github.com
     - gitlab.com
-    - internal-gitlab.company.com
+    # Add your internal Git domains:
+    # - dev.azure.com
+    # - internal-gitlab.company.com
 
+# Performance Tuning
 performance:
   max_concurrent_loads: 5
   load_timeout_ms: 30000
   lazy_loading: true
   preload_embedded: true
 
+# Developer Settings
 developer:
   debug_layers: false
   hot_reload: false
-  log_level: info
+  log_level: info  # Options: error, warn, info, debug
   validate_on_startup: true
   enable_diagnostic_tools: false  # Set to true for git layer auth diagnostics (adds 4 tools)
