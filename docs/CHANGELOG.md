@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.5] - 2025-11-27
+
+### 🚀 Features
+
+**Auto-load User-Level Company Layers at Startup** (PR #22 - @waldo1001)
+- Server now automatically checks for `~/.bc-code-intel/config.yaml` at startup
+- Company Git layers are loaded automatically if configured - no workspace-specific setup needed
+- Graceful fallback to embedded-only mode if no user config exists
+- Company BC standards are now truly global across all workspaces
+
+**Support Both `domains/` and `topics/` Directory Names**
+- `embedded-layer.ts` and `git-layer.ts` now accept both `domains/` and `topics/` directories
+- Resolves confusion from mixed guidance in documentation
+
+**Comprehensive Company Layer Documentation**
+- New `examples/company-layer-setup.md`: 20+ page detailed setup guide with:
+  - Step-by-step configuration instructions
+  - All authentication methods (GitHub, Azure DevOps, GitLab, SSH)
+  - Real-world examples and troubleshooting
+  - Repository structure requirements
+- Enhanced `bc-code-intel-config.example.yaml` with better comments
+
+### 🐛 Bug Fixes
+
+**MCP Server Fails to Start When Installed Globally via npm** (PR #21 - @StefanMaron)
+- Fixed condition checks for server execution in main module
+- Server now starts correctly when executed as a globally installed binary (e.g., `bc-code-intelligence-mcp`)
+- Previously only matched when running the file directly with `index.js`
+- Fixes Issue #20
+
+### 📦 Maintenance
+
+- Updated Node.js dependencies
+
 ## [1.5.4] - 2025-01-17
 
 ### 🤖 Phase 1: Autonomous Agent Mode for GitHub Coding Agents
