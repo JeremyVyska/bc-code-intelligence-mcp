@@ -602,61 +602,78 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
 
       let layer;
 
-      switch (layerConfig.source.type) {
-        case LayerSourceType.EMBEDDED: {
-          // Embedded layer
-          const embeddedPath = layerConfig.source.path === 'embedded-knowledge'
-            ? join(__dirname, '../embedded-knowledge')
-            : (layerConfig.source.path || join(__dirname, '../embedded-knowledge'));
-          const { EmbeddedKnowledgeLayer } = await import('./layers/embedded-layer.js');
-          layer = new EmbeddedKnowledgeLayer(embeddedPath);
-          break;
+      try {
+        switch (layerConfig.source.type) {
+          case LayerSourceType.EMBEDDED: {
+            // Embedded layer - ALWAYS use the server's embedded knowledge directory
+            // The 'path' field is ignored for embedded layers since they reference the built-in knowledge
+            const embeddedPath = join(__dirname, '../embedded-knowledge');
+            
+            console.error(`📋 Embedded layer using built-in knowledge: ${embeddedPath}`);
+            
+            const { EmbeddedKnowledgeLayer } = await import('./layers/embedded-layer.js');
+            layer = new EmbeddedKnowledgeLayer(embeddedPath);
+            break;
+          }
+
+          case LayerSourceType.LOCAL: {
+            // Local filesystem layer - use ProjectKnowledgeLayer
+            const { ProjectKnowledgeLayer } = await import('./layers/project-layer.js');
+            layer = new ProjectKnowledgeLayer(layerConfig.source.path!);
+            // Override name and priority from config
+            (layer as any).name = layerConfig.name;
+            (layer as any).priority = layerConfig.priority;
+            break;
+          }
+
+          case LayerSourceType.GIT: {
+            // Git repository layer
+            const { GitKnowledgeLayer } = await import('./layers/git-layer.js');
+            const gitSource = layerConfig.source as any; // GitLayerSource
+            layer = new GitKnowledgeLayer(
+              layerConfig.name,
+              layerConfig.priority,
+              {
+                type: LayerSourceType.GIT,
+                url: gitSource.url,
+                branch: gitSource.branch,
+                subpath: gitSource.subpath
+              },
+              layerConfig.auth
+            );
+            break;
+          }
+
+          case LayerSourceType.HTTP:
+          case LayerSourceType.NPM: {
+            // Future layer types - not yet implemented
+            // HTTP: Would load knowledge from HTTP endpoints (ZIP/tarball downloads)
+            // NPM: Would load knowledge from NPM packages
+            console.warn(`⚠️  Layer type '${layerConfig.source.type}' not yet implemented - skipping ${layerConfig.name}`);
+            continue;
+          }
+
+          default:
+            console.error(`❌ Unknown layer type: ${(layerConfig.source as any).type} - skipping ${layerConfig.name}`);
+            continue;
         }
 
-        case LayerSourceType.LOCAL: {
-          // Local filesystem layer - use ProjectKnowledgeLayer
-          const { ProjectKnowledgeLayer } = await import('./layers/project-layer.js');
-          layer = new ProjectKnowledgeLayer(layerConfig.source.path!);
-          // Override name and priority from config
-          (layer as any).name = layerConfig.name;
-          (layer as any).priority = layerConfig.priority;
-          break;
+        console.error(`📋 Successfully instantiated layer: ${layerConfig.name}`);
+        this.layerService.addLayer(layer as any);
+      } catch (layerError) {
+        // CRITICAL FIX: Handle individual layer instantiation failures gracefully
+        // This prevents one failing layer (e.g. git auth issues) from breaking the entire service
+        console.error(`❌ Failed to instantiate layer '${layerConfig.name}': ${layerError instanceof Error ? layerError.message : String(layerError)}`);
+        
+        if (layerConfig.source.type === LayerSourceType.GIT) {
+          console.error(`💡 Git layer '${layerConfig.name}' failed - check repository URL, authentication, or network connection`);
+        } else if (layerConfig.source.type === LayerSourceType.LOCAL) {
+          console.error(`💡 Local layer '${layerConfig.name}' failed - check that path '${layerConfig.source.path}' exists and is readable`);
         }
-
-        case LayerSourceType.GIT: {
-          // Git repository layer
-          const { GitKnowledgeLayer } = await import('./layers/git-layer.js');
-          const gitSource = layerConfig.source as any; // GitLayerSource
-          layer = new GitKnowledgeLayer(
-            layerConfig.name,
-            layerConfig.priority,
-            {
-              type: LayerSourceType.GIT,
-              url: gitSource.url,
-              branch: gitSource.branch,
-              subpath: gitSource.subpath
-            },
-            layerConfig.auth
-          );
-          break;
-        }
-
-        case LayerSourceType.HTTP:
-        case LayerSourceType.NPM: {
-          // Future layer types - not yet implemented
-          // HTTP: Would load knowledge from HTTP endpoints (ZIP/tarball downloads)
-          // NPM: Would load knowledge from NPM packages
-          console.warn(`⚠️  Layer type '${layerConfig.source.type}' not yet implemented - skipping ${layerConfig.name}`);
-          continue;
-        }
-
-        default:
-          console.error(`❌ Unknown layer type: ${(layerConfig.source as any).type} - skipping ${layerConfig.name}`);
-          continue;
+        
+        // Continue to next layer instead of aborting entire initialization
+        continue;
       }
-
-      console.error(`📋 Initializing layer: ${layerConfig.name}`);
-      this.layerService.addLayer(layer as any);
     }
 
     await this.layerService.initialize();
@@ -1105,7 +1122,16 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
           // User has configured layers (embedded + company/git layers)
           console.error(`✅ Found user-level configuration with ${userConfigResult.config.layers.length} layers`);
           this.configuration = userConfigResult.config;
-          await this.initializeWithConfiguration(userConfigResult);
+          
+          try {
+            await this.initializeWithConfiguration(userConfigResult);
+          } catch (configError) {
+            // CRITICAL FIX: If user config initialization fails (e.g. git layer auth failure),
+            // fall back to embedded-only mode instead of crashing the server
+            console.error('❌ Failed to initialize with user configuration:', configError instanceof Error ? configError.message : String(configError));
+            console.error('🔄 Falling back to embedded-only mode...');
+            await this.initializeEmbeddedOnly();
+          }
         } else {
           // No user config or only embedded layer - use embedded-only mode
           console.error('📦 No user-level configuration found, loading embedded knowledge only...');

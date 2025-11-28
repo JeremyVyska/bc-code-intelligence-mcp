@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.6] - 2025-11-28
+
+### 🐛 Bug Fixes
+
+**Fixed Embedded Layer Loading Issue with Git Repo Configurations**
+- **BREAKING LOGIC CHANGE**: `type: embedded` now always uses server's built-in knowledge directory, ignoring user-specified `path` field
+- Resolves issue where embedded layers showed 0 topics when users had git repo layers configured with paths like `./embedded-knowledge`
+- Simplifies configuration: `type: embedded` now clearly means "use built-in knowledge regardless of path"
+- Eliminates path resolution confusion that could break embedded layer loading
+- **User Impact**: Users with `type: embedded` layers will no longer experience 0 topic counts due to path resolution issues
+
+**Enhanced Path Resolution Logic**
+- Embedded layers now consistently resolve to server's `embedded-knowledge/` directory
+- Removes ambiguity between relative paths (`./embedded-knowledge`) and server paths (`embedded-knowledge`)
+- Improves reliability when mixing embedded layers with git/local layers
+
+### 🧪 Testing
+
+**Comprehensive Test Coverage for Path Resolution**
+- Added integration tests specifically for embedded layer path resolution scenarios
+- Validates fix works correctly with user configs containing various path formats
+- Ensures embedded layers load properly regardless of git layer configuration
+
 ## [1.5.5] - 2025-11-27
 
 ### 🚀 Features
