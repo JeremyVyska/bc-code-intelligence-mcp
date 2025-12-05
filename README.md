@@ -3,7 +3,7 @@
 [![Install with NPX in VS Code](https://img.shields.io/badge/Install%20with%20NPX-VS%20Code-blue?style=for-the-badge&logo=visual-studio-code)](https://vscode.dev/redirect/mcp/install?name=bc-code-intel&config=%7B%22type%22%3A%22stdio%22%2C%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22bc-code-intelligence-mcp%22%5D%7D)
 [![Installation Guide](https://img.shields.io/badge/Installation%20Guide-All%20Platforms-green?style=for-the-badge&logo=github)](https://github.com/JeremyVyska/bc-code-intelligence-mcp/wiki/Installation-Guide)
 
-**Get instant help from 14 Business Central experts** right in your favorite AI tool. No more searching docs - just ask and get expert guidance tailored to your specific BC development challenges.
+**Get instant help from AI Business Central experts** right in your favorite AI tool. No more searching docs - just ask and get expert guidance tailored to your specific BC development challenges.
 
 ---
 
@@ -14,6 +14,25 @@
 3. **Just ask!** - Start with any prompt below
 
 > **Other platforms?** See the [Installation Guide](https://github.com/JeremyVyska/bc-code-intelligence-mcp/wiki/Installation-Guide) for Claude Desktop, Cursor, and more.
+
+---
+
+## 🤝 New to AI-Assisted Development? Start with Parker
+
+If you're not sure how to work with AI tools, or you're skeptical about letting AI touch your code—**that's exactly why Parker exists**.
+
+Parker is a grizzled veteran who helps you work WITH AI safely:
+- Creates **reviewable proposals** instead of making direct changes
+- **Explains AI reasoning** so you understand what's happening and why
+- **Coordinates other specialists** to validate suggestions before you commit
+- Builds trust **gradually** through transparency and verification
+
+**Just say:**
+- "Parker, I'm new to AI development tools. Help me understand how this works."
+- "Parker, I don't trust AI to write my code. What's a safe way to start?"
+- "Parker, review what the AI just suggested before I accept it."
+
+Once you're comfortable, you can work directly with any specialist—but Parker's always there when you want that extra layer of verification and explanation.
 
 ---
 
@@ -96,6 +115,7 @@ The BC Code Intelligence specialists are ready to help. Just type naturally - he
 
 | Specialist | Expertise | Best For |
 |------------|-----------|----------|
+| **🤝 Parker** | AI Trust & Transparency | New to AI tools, safe collaboration, verification-first |
 | **🏗️ Alex** | Architecture & Design | Solution design, extension structure, integration patterns |
 | **💻 Sam** | Expert Coder | Writing AL code, implementation patterns, coding questions |
 | **🔍 Dean** | Debugging & Performance | Errors, slow queries, troubleshooting |
@@ -110,6 +130,7 @@ The BC Code Intelligence specialists are ready to help. Just type naturally - he
 | **👩‍🏫 Maya** | Mentoring | Learning concepts, explanations, training |
 | **📚 Taylor** | Documentation | Code docs, READMEs, knowledge sharing |
 | **🤖 Casey** | AI Development | Using AI tools, prompt engineering |
+| **⚙️ Chris** | MCP Configuiration | Company/Project MCP knowledge layer help|
 
 ---
 
