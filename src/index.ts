@@ -110,11 +110,17 @@ class BCCodeIntelligenceServer {
     console.error(`[startup] Process CWD: ${process.cwd()}`);
     console.error(`[startup] Node version: ${process.version}`);
 
-    // Initialize MCP server
+    // Initialize MCP server with capabilities declaration (required by SDK 1.x)
     this.server = new Server(
       {
         name: 'bc-code-intelligence-mcp',
         version: this.getPackageVersion(),
+      },
+      {
+        capabilities: {
+          tools: {},
+          prompts: {}
+        }
       }
     );
 

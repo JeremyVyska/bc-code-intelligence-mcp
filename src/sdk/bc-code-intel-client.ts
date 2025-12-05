@@ -95,7 +95,8 @@ export class BCCodeIntelClient extends EventEmitter {
     super();
 
     this.client = new Client(
-      { name: 'bc-code-intel-client', version: '1.0.0', capabilities: {} }
+      { name: 'bc-code-intel-client', version: '1.0.0' },
+      { capabilities: {} }
     );
 
     if (this.config.debug_logging) {
