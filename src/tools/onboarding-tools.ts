@@ -175,9 +175,18 @@ export class AgentOnboardingTools {
   }
 
   private async introduceBCSpecialists(request: CallToolRequest): Promise<CallToolResult> {
-    // Implementation delegates to existing service logic
     const validated = IntroduceBCSpecialistsArgsSchema.parse(request.params.arguments);
     
+    // First, check if a specific specialist is mentioned by name
+    const allSpecialists = await this.layerService.getAllSpecialists();
+    const mentionedSpecialist = this.findMentionedSpecialist(validated.conversation_context, allSpecialists);
+    
+    if (mentionedSpecialist) {
+      // Direct specialist request - return just that specialist
+      return this.formatSingleSpecialistIntroduction(mentionedSpecialist);
+    }
+    
+    // Fall back to content-based suggestions
     const suggestions = await this.discoveryService.suggestSpecialists({
       query: validated.conversation_context,
       user_preferences: validated.user_expertise_level ? {
@@ -208,6 +217,130 @@ export class AgentOnboardingTools {
         }
       }
     }
+
+    return {
+      content: [{ type: 'text', text: response }]
+    };
+  }
+
+  /**
+   * Find if a specific specialist is mentioned by name in the conversation context
+   */
+  private findMentionedSpecialist(context: string, specialists: any[]): any | null {
+    const contextLower = context.toLowerCase();
+    
+    // Look for direct request patterns first (e.g., "get Morgan online", "talk to Sam", "connect with Dean")
+    const directRequestPatterns = [
+      /\b(?:get|bring|connect|talk to|chat with|need|want|ask)\s+(\w+)\s*(?:online|here|to help|about|for)/i,
+      /\b(\w+)\s+(?:online|here|to help)\b/i,
+      /\b(?:I need|need to|want to)\s+(\w+)/i
+    ];
+
+    for (const pattern of directRequestPatterns) {
+      const match = context.match(pattern);
+      if (match) {
+        const mentionedName = match[1].toLowerCase();
+        const specialist = specialists.find(s => 
+          s.specialist_id.split('-')[0].toLowerCase() === mentionedName
+        );
+        if (specialist) {
+          return specialist;
+        }
+      }
+    }
+
+    // Look for specialist names in context with priority scoring
+    const candidates: Array<{ specialist: any; score: number; reasons: string[] }> = [];
+    
+    for (const specialist of specialists) {
+      const firstName = specialist.specialist_id.split('-')[0].toLowerCase();
+      const fullId = specialist.specialist_id.toLowerCase();
+      let score = 0;
+      const reasons: string[] = [];
+      
+      // Check for first name match
+      const firstNameRegex = new RegExp(`\\b${firstName}\\b`, 'i');
+      if (firstNameRegex.test(context)) {
+        score += 1;
+        reasons.push('name mentioned');
+        
+        // Boost score if mentioned with action words
+        if (/\b(?:get|bring|connect|talk to|chat with|need|want|ask)\s+\w*${firstName}/i.test(context)) {
+          score += 3;
+          reasons.push('direct request');
+        }
+      }
+      
+      // Check for full specialist ID match
+      const fullIdRegex = new RegExp(`\\b${fullId.replace('-', '[\\s-]')}\\b`, 'i');
+      if (fullIdRegex.test(context)) {
+        score += 4;
+        reasons.push('full ID mentioned');
+      }
+      
+      // Check for domain-specific keywords that align with specialist expertise
+      if (specialist.expertise?.primary) {
+        for (const expertise of specialist.expertise.primary) {
+          const expertiseKeywords = expertise.toLowerCase().split(/\s+/);
+          if (expertiseKeywords.some(keyword => keyword.length > 4 && contextLower.includes(keyword))) {
+            score += 0.5;
+            reasons.push(`${expertise} expertise match`);
+          }
+        }
+      }
+      
+      // Check when_to_use scenarios
+      if (specialist.when_to_use) {
+        for (const scenario of specialist.when_to_use) {
+          const scenarioKeywords = scenario.toLowerCase().split(/\s+/);
+          if (scenarioKeywords.some(keyword => keyword.length > 4 && contextLower.includes(keyword))) {
+            score += 0.5;
+            reasons.push(`${scenario} scenario match`);
+          }
+        }
+      }
+      
+      if (score > 0) {
+        candidates.push({ specialist, score, reasons });
+      }
+    }
+    
+    // Sort by score and return the highest scoring candidate if it has a clear name mention
+    candidates.sort((a, b) => b.score - a.score);
+    
+    // Only return a specialist if they have a clear name mention (score >= 1)
+    if (candidates.length > 0 && candidates[0].score >= 1) {
+      return candidates[0].specialist;
+    }
+    
+    return null;
+  }
+
+  /**
+   * Format introduction for a single specifically requested specialist
+   */
+  private formatSingleSpecialistIntroduction(specialist: any): CallToolResult {
+    let response = `# ${specialist.emoji} ${specialist.title}\n\n`;
+    response += `${specialist.persona?.greeting || 'Hello!'}\n\n`;
+    response += `**Role:** ${specialist.role}\n\n`;
+    
+    if (specialist.expertise?.primary && specialist.expertise.primary.length > 0) {
+      response += `**Primary Expertise:**\n`;
+      specialist.expertise.primary.forEach((exp: string) => {
+        response += `- ${exp}\n`;
+      });
+      response += `\n`;
+    }
+    
+    if (specialist.when_to_use && specialist.when_to_use.length > 0) {
+      response += `**When to use ${specialist.specialist_id.split('-')[0]}:**\n`;
+      specialist.when_to_use.slice(0, 3).forEach((scenario: string) => {
+        response += `- ${scenario}\n`;
+      });
+      response += `\n`;
+    }
+    
+    response += `Ready to help! What would you like to work on?`;
 
     return {
       content: [{ type: 'text', text: response }]
