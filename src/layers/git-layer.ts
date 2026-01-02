@@ -24,6 +24,7 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
   private git: SimpleGit | null = null;
   private localPath: string;
   private lastUpdated?: Date;
+  private initializationPromise: Promise<LayerLoadResult> | null = null;
 
   constructor(
     name: string,
@@ -40,10 +41,31 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
   }
 
   async initialize(): Promise<LayerLoadResult> {
-    // Prevent re-initialization
+    // If initialization is in progress, wait for it (MUTEX - must be first!)
+    if (this.initializationPromise) {
+      console.error(`⏳ Git layer ${this.name} initialization in progress, waiting...`);
+      return this.initializationPromise;
+    }
+
+    // Return cached result if already initialized
     if (this.initialized && this.loadResult) {
+      console.error(`📦 Git layer ${this.name} already initialized, returning cached result`);
       return this.loadResult;
     }
+
+    // Start new initialization and store promise (mutex)
+    this.initializationPromise = this.performInitialization();
+
+    try {
+      const result = await this.initializationPromise;
+      return result;
+    } finally {
+      // Clear the promise after completion (success or failure)
+      this.initializationPromise = null;
+    }
+  }
+
+  private async performInitialization(): Promise<LayerLoadResult> {
 
     const startTime = Date.now();
     const errors: string[] = [];
@@ -523,7 +545,15 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
   async refresh(): Promise<boolean> {
     console.log(`🔄 Refreshing Git layer: ${this.name}`);
 
-    // Clear existing topics
+    // Wait for any in-progress initialization to complete
+    if (this.initializationPromise) {
+      console.error(`⏳ Waiting for current initialization to complete before refresh...`);
+      await this.initializationPromise;
+    }
+
+    // Clear state to force re-initialization
+    this.initialized = false;
+    this.loadResult = undefined;
     this.topics.clear();
 
     // Re-initialize

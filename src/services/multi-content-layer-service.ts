@@ -24,6 +24,7 @@ export class MultiContentLayerService {
   private layerPriorities: string[] = []; // Ordered by priority (high to low)
   private contentCache = new Map<string, Map<string, any>>();
   private initialized = false;
+  private initializationPromise?: Promise<Map<string, EnhancedLayerLoadResult>>;
   private availableMcps: string[] = []; // Track available MCP servers for conditional topics
 
   constructor(
@@ -82,6 +83,38 @@ export class MultiContentLayerService {
    * Initialize all layers
    */
   async initialize(): Promise<Map<string, EnhancedLayerLoadResult>> {
+    // If initialization is in progress, wait for it (MUTEX - must be first!)
+    if (this.initializationPromise) {
+      console.error('⏳ Layer service initialization already in progress, waiting...');
+      return this.initializationPromise;
+    }
+
+    // Return cached results if already initialized
+    if (this.initialized) {
+      console.error('📦 Multi-content layer service already initialized');
+      // Create a resolved promise with empty results (already cached in memory)
+      return Promise.resolve(new Map<string, EnhancedLayerLoadResult>());
+    }
+
+    // Create initialization promise to act as mutex
+    this.initializationPromise = this.performInitialization();
+
+    try {
+      const result = await this.initializationPromise;
+      return result;
+    } catch (error) {
+      console.error('❌ Multi-content layer service initialization failed:', error);
+      throw error;
+    } finally {
+      // Clear the promise after completion (success or failure)
+      this.initializationPromise = undefined;
+    }
+  }
+
+  /**
+   * Perform the actual initialization work
+   */
+  private async performInitialization(): Promise<Map<string, EnhancedLayerLoadResult>> {
     const results = new Map<string, EnhancedLayerLoadResult>();
     
     console.error('🚀 Initializing multi-content layer service...');
