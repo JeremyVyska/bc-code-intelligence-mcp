@@ -40,6 +40,11 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
   }
 
   async initialize(): Promise<LayerLoadResult> {
+    // Prevent re-initialization
+    if (this.initialized && this.loadResult) {
+      return this.loadResult;
+    }
+
     const startTime = Date.now();
     const errors: string[] = [];
     const warnings: string[] = [];
@@ -75,7 +80,8 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
         console.log(`📦 Git layer ${this.name} using cached version`);
       }
 
-      return {
+      this.initialized = true;
+      this.loadResult = {
         layerName: this.name,
         topicsLoaded: this.topics.size,
         indexesLoaded: 0,
@@ -83,12 +89,14 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
         success: true
       };
 
+      return this.loadResult;
+
     } catch (error) {
       const errorMessage = `Failed to initialize Git layer: ${error instanceof Error ? error.message : String(error)}`;
       errors.push(errorMessage);
       console.error(`❌ ${errorMessage}`);
 
-      return {
+      this.loadResult = {
         layerName: this.name,
         topicsLoaded: 0,
         indexesLoaded: 0,
@@ -96,6 +104,8 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
         success: false,
         error: errorMessage
       };
+
+      return this.loadResult;
     }
   }
 
