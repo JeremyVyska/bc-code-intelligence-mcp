@@ -72,7 +72,7 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
     const warnings: string[] = [];
 
     try {
-      console.log(`🔄 Initializing Git layer: ${this.name} from ${this.gitConfig.url}`);
+      console.error(`🔄 Initializing Git layer: ${this.name} from ${this.gitConfig.url}`);
 
       // 1. Ensure local cache directory exists
       await this.ensureCacheDirectory();
@@ -97,9 +97,9 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
 
       if (repoUpdated) {
         this.lastUpdated = new Date();
-        console.log(`✅ Git layer ${this.name} updated successfully`);
+        console.error(`✅ Git layer ${this.name} updated successfully`);
       } else {
-        console.log(`📦 Git layer ${this.name} using cached version`);
+        console.error(`📦 Git layer ${this.name} using cached version`);
       }
 
       this.initialized = true;
@@ -160,7 +160,7 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
         // Azure CLI authentication - verify az CLI is installed and user is logged in
         await this.verifyAzCliInstalled();
         await this.verifyAzCliAuthenticated();
-        console.log('🔑 Using Azure CLI authentication (Git credential manager will handle tokens)');
+        console.error('🔑 Using Azure CLI authentication (Git credential manager will handle tokens)');
         // No URL modification needed - Git credential manager automatically uses az CLI tokens
         break;
 
@@ -176,7 +176,7 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
           // For HTTPS URLs, we'll modify the URL to include credentials
           if (this.gitConfig.url.startsWith('https://')) {
             // This will be handled in clone/pull operations
-            console.log('🔑 Configured token authentication');
+            console.error('🔑 Configured token authentication');
           }
         } else {
           throw new Error('Token not found for git authentication');
@@ -188,7 +188,7 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
         if (this.auth.key_path) {
           // Set SSH command to use specific key
           process.env['GIT_SSH_COMMAND'] = `ssh -i ${this.auth.key_path} -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no`;
-          console.log(`🔑 Configured SSH key authentication: ${this.auth.key_path}`);
+          console.error(`🔑 Configured SSH key authentication: ${this.auth.key_path}`);
         }
         break;
 
@@ -199,7 +199,7 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
           (this.auth.password_env_var ? process.env[this.auth.password_env_var] : undefined);
 
         if (username && password) {
-          console.log('🔑 Configured basic authentication');
+          console.error('🔑 Configured basic authentication');
           // This will be handled in the URL modification
         } else {
           throw new Error('Username/password not found for basic authentication');
@@ -218,7 +218,7 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
 
     if (repositoryExists) {
       // Repository exists, pull latest changes
-      console.log(`📥 Pulling latest changes for ${this.name}...`);
+      console.error(`📥 Pulling latest changes for ${this.name}...`);
       await this.git.cwd(this.localPath);
 
       try {
@@ -230,7 +230,7 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
       }
     } else {
       // Repository doesn't exist, clone it
-      console.log(`📦 Cloning repository ${this.gitConfig.url}...`);
+      console.error(`📦 Cloning repository ${this.gitConfig.url}...`);
 
       const cloneUrl = this.prepareUrlWithAuth(this.gitConfig.url);
 
@@ -312,7 +312,7 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
   private async checkoutBranch(branch: string): Promise<void> {
     if (!this.git) throw new Error('Git not initialized');
 
-    console.log(`🔄 Checking out branch: ${branch}`);
+    console.error(`🔄 Checking out branch: ${branch}`);
     await this.git.cwd(this.localPath);
 
     try {
@@ -543,7 +543,7 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
   }
 
   async refresh(): Promise<boolean> {
-    console.log(`🔄 Refreshing Git layer: ${this.name}`);
+    console.error(`🔄 Refreshing Git layer: ${this.name}`);
 
     // Wait for any in-progress initialization to complete
     if (this.initializationPromise) {
