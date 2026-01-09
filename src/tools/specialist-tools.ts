@@ -403,6 +403,16 @@ Example: find_bc_knowledge({ query: "AL file naming conventions" }) before writi
     response += `• Use \`get_specialist_advice\` with a specialist_id to start a conversation\n`;
     response += `• Sessions are automatically managed for multi-turn conversations`;
 
+    // Check if workspace is configured - company/project specialists might be missing
+    const layersInfo = this.layerService.getLayers();
+    const hasProjectOrCompanyLayers = layersInfo.some(layer => 
+      layer.name.includes('company') || layer.name.includes('project') || layer.name.includes('team')
+    );
+
+    if (!hasProjectOrCompanyLayers) {
+      response += `\n\n⚠️ **Note:** Only embedded specialists shown. Company/project specialists require \`set_workspace_info\` to load custom layers.`;
+    }
+
     return {
       content: [{ type: 'text', text: response }]
     };

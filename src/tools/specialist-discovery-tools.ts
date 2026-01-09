@@ -214,6 +214,16 @@ export class SpecialistDiscoveryTools {
 
     result += '💬 **To interact:** Use `discover_specialists` with your specific question or `get_specialist_info` for details.\n';
 
+    // Check if workspace is configured - company/project specialists might be missing
+    const layersInfo = this.layerService.getLayers();
+    const hasProjectOrCompanyLayers = layersInfo.some(layer => 
+      layer.name.includes('company') || layer.name.includes('project') || layer.name.includes('team')
+    );
+
+    if (!hasProjectOrCompanyLayers) {
+      result += '\n⚠️ **Note:** Only embedded specialists shown. Company/project specialists require `set_workspace_info` to load custom layers.\n';
+    }
+
     return {
       content: [
         {
