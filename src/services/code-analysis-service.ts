@@ -3,6 +3,7 @@ import {
   CodeAnalysisResult,
   TopicSearchResult,
   ALCodePattern,
+  AtomicTopic,
   getDomainList
 } from '../types/bc-knowledge.js';
 import { KnowledgeService } from './knowledge-service.js';
@@ -131,21 +132,6 @@ export class CodeAnalysisService {
         }
       }
     });
-
-    // Also check frontmatter for explicit guidelines
-    if (topic.frontmatter.guidelines && Array.isArray(topic.frontmatter.guidelines)) {
-      topic.frontmatter.guidelines.forEach((guideline: string) => {
-        guidelines.push({
-          name: `company-standard-${topic.id}`,
-          pattern_type: 'unknown',
-          regex_patterns: [],
-          description: `${topic.title}: ${guideline}`,
-          related_topics: [topic.id],
-          severity: 'medium',
-          category: 'company-standard'
-        });
-      });
-    }
 
     return guidelines;
   }
@@ -575,8 +561,14 @@ export class CodeAnalysisService {
       }
     }
 
-    // Add company standards violations
-    result.issues.push(...standardsViolations);
+    // Add company standards violations (convert to proper issue format)
+    result.issues.push(...standardsViolations.map(v => ({
+      type: 'warning' as const,
+      severity: v.severity,
+      description: v.description,
+      suggestion: v.suggestion,
+      related_topics: v.related_topics
+    })));
 
     // Generate optimization opportunities
     result.optimization_opportunities = await this.findOptimizationOpportunities(code, detectedPatterns);
