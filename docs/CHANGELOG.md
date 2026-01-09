@@ -7,6 +7,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.8] - 2026-01-09
+
+### 🚀 Features
+
+**Intelligent Topic ID Resolution with Multi-Level Fallbacks**
+- `get_bc_topic` now never returns null - provides actionable guidance instead
+- **Level 1**: Exact match - returns full topic content
+- **Level 2**: Partial match - suggests topics ending with search term (e.g., "configuration-file-formats" finds "chris-config/configuration-file-formats")
+- **Level 3**: Domain listing - shows all topics in specified domain when topic not found
+- **Level 4**: Specialist context - shows topics from active specialist's domain
+- **Level 5**: Grouped fallback - displays topics organized by domain for easy navigation
+- Agents always get actionable information to find the right topic
+
+**Dynamic Specialist Auto-Routing**
+- Workflow requests mentioning specialist names automatically route to specialist consultation
+- "I want to talk to chris" → automatically consults chris-config specialist
+- "ask sam about code" → automatically consults sam-coder specialist
+- Works with any specialist in any layer (embedded or custom company specialists)
+- No hardcoded specialist list - dynamically built from loaded knowledge
+- Case-insensitive matching with intelligent caching
+- Better UX: users get consultation instead of "wrong tool" errors
+
+**Specialist Context-Aware Topic Suggestions**
+- `get_bc_topic` now accepts optional `specialist_context` parameter
+- When active specialist is known, topic suggestions are scoped to that specialist's domain
+- Working with Chris Config? Get chris-config topic suggestions
+- Improves topic discovery when agents are working with specific specialists
+
+### 🐛 Bug Fixes
+
+**Fixed Topic ID Format Requirements**
+- Topic IDs require domain prefix (e.g., "chris-config/configuration-file-formats")
+- System now guides users to correct format instead of failing silently
+- Partial matching helps users discover correct topic IDs
+
+**Enhanced Knowledge Discovery**
+- Multi-layer fallback system ensures agents never get stuck
+- Context-aware suggestions improve topic discovery accuracy
+- Domain-grouped listings help navigate large knowledge bases
+
+### 🔧 Improvements
+
+**Better Error Messages and Guidance**
+- Topic not found errors now include specific suggestions
+- Clear hints about topic ID format (domain/topic-name)
+- Sample topics provided when no matches found
+
+**Performance Optimizations**
+- Specialist name mappings cached across requests
+- Single lookup build per handler instance
+- Efficient string matching without regex overhead
+
 ## [1.5.6] - 2025-11-28
 
 ### 🐛 Bug Fixes

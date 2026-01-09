@@ -116,14 +116,88 @@ export class KnowledgeService {
   /**
    * Get a specific topic by ID with layer resolution
    */
-  async getTopic(topicId: string, includeSamples = false): Promise<AtomicTopic | null> {
+  async getTopic(topicId: string, includeSamples = false, contextDomain?: string): Promise<AtomicTopic | null> {
     if (!this.initialized) {
       await this.initialize();
     }
 
     // Resolve topic through layer system
     const resolution = await this.layerService.resolveTopic(topicId);
-    if (!resolution) return null;
+    if (!resolution) {
+      // If exact match fails, suggest similar topics
+      const suggestions = await this.layerService.findPartialTopicMatches(topicId);
+      if (suggestions.length > 0) {
+        const error = {
+          error: 'Topic not found',
+          message: `Topic ID '${topicId}' not found. Did you mean one of these?`,
+          suggestions: suggestions.map(s => ({
+            topic_id: s.id,
+            title: s.title,
+            domain: s.domain
+          }))
+        };
+        // Return error object disguised as a topic for better UX
+        return error as any;
+      }
+      
+      // No partial matches found - try to extract domain from topic_id and show domain topics
+      const domainMatch = topicId.match(/^([^/]+)\//);
+      if (domainMatch) {
+        const domain = domainMatch[1];
+        const domainTopics = await this.layerService.getTopicsByDomain(domain);
+        if (domainTopics.length > 0) {
+          return {
+            error: 'Topic not found',
+            message: `Topic ID '${topicId}' not found in domain '${domain}'. Available topics in this domain:`,
+            available_topics: domainTopics.map(t => ({
+              topic_id: t.id,
+              title: t.title
+            }))
+          } as any;
+        }
+      }
+      
+      // If we have context domain (from active specialist), show topics from that domain
+      if (contextDomain) {
+        const domainTopics = await this.layerService.getTopicsByDomain(contextDomain);
+        if (domainTopics.length > 0) {
+          return {
+            error: 'Topic not found',
+            message: `Topic ID '${topicId}' not found. Available topics in '${contextDomain}' domain:`,
+            available_topics: domainTopics.map(t => ({
+              topic_id: t.id,
+              title: t.title
+            })),
+            hint: `You are currently working with the '${contextDomain}' specialist. Use full topic IDs like '${contextDomain}/topic-name'`
+          } as any;
+        }
+      }
+      
+      // Last resort: show topics grouped by domain for easy navigation
+      const allTopicIds = this.layerService.getAllTopicIds();
+      const topicsByDomain: Record<string, string[]> = {};
+      
+      for (const id of allTopicIds) {
+        const domain = id.split('/')[0];
+        if (!topicsByDomain[domain]) topicsByDomain[domain] = [];
+        topicsByDomain[domain].push(id);
+      }
+      
+      // Show max 3 topics per domain, max 10 domains
+      const domainSample: Record<string, string[]> = {};
+      const domains = Object.keys(topicsByDomain).slice(0, 10);
+      for (const domain of domains) {
+        domainSample[domain] = topicsByDomain[domain].slice(0, 3);
+      }
+      
+      return {
+        error: 'Topic not found',
+        message: `Topic ID '${topicId}' not found. Available topics by domain (showing ${domains.length} domains):`,
+        topics_by_domain: domainSample,
+        total_topics: allTopicIds.length,
+        hint: 'Topic IDs follow the format: domain/topic-name. Use the domain that matches your current specialist.'
+      } as any;
+    }
 
     // Return copy to prevent mutation
     const result = { ...resolution.topic };

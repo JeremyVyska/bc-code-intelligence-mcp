@@ -140,6 +140,10 @@ export const streamlinedTools: Tool[] = [
           type: 'boolean',
           description: 'Include companion AL code samples if available',
           default: true
+        },
+        specialist_context: {
+          type: 'string',
+          description: 'Optional: Current specialist ID (e.g., "sam-coder", "chris-config") to provide domain-specific suggestions if topic is not found'
         }
       },
       required: ['topic_id']

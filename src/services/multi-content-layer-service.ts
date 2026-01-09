@@ -1064,6 +1064,76 @@ export class MultiContentLayerService {
   }
 
   /**
+   * Find topics that partially match the given topic ID (e.g., missing domain prefix)
+   */
+  async findPartialTopicMatches(partialId: string): Promise<Array<{ id: string; title: string; domain: string }>> {
+    if (!this.initialized) {
+      await this.initialize();
+    }
+
+    const matches: Array<{ id: string; title: string; domain: string }> = [];
+    const normalizedPartial = partialId.replace(/^domains?[/\\]/, '').toLowerCase();
+
+    // Search through all layers for partial matches
+    for (const layerName of this.layerPriorities) {
+      const layer = this.layers.get(layerName);
+      if (layer && 'getTopicIds' in layer) {
+        const topicIds = (layer as any).getTopicIds() as string[];
+        for (const fullId of topicIds) {
+          const normalizedFull = fullId.toLowerCase();
+          // Match if the full ID ends with the partial ID (e.g., "chris-config/configuration-file-formats" matches "configuration-file-formats")
+          if (normalizedFull.endsWith(normalizedPartial) || normalizedFull.endsWith(`/${normalizedPartial}`)) {
+            const topic = await (layer as any).getTopic(fullId);
+            if (topic) {
+              matches.push({
+                id: fullId,
+                title: topic.title || fullId,
+                domain: topic.domain || 'unknown'
+              });
+            }
+          }
+        }
+      }
+    }
+
+    return matches;
+  }
+
+  /**
+   * Get all topics from a specific domain
+   */
+  async getTopicsByDomain(domain: string): Promise<Array<{ id: string; title: string }>> {
+    if (!this.initialized) {
+      await this.initialize();
+    }
+
+    const domainTopics: Array<{ id: string; title: string }> = [];
+    const normalizedDomain = domain.toLowerCase();
+
+    // Search through all layers for topics in this domain
+    for (const layerName of this.layerPriorities) {
+      const layer = this.layers.get(layerName);
+      if (layer && 'getTopicIds' in layer) {
+        const topicIds = (layer as any).getTopicIds() as string[];
+        for (const fullId of topicIds) {
+          // Check if topic ID starts with the domain
+          if (fullId.toLowerCase().startsWith(`${normalizedDomain}/`)) {
+            const topic = await (layer as any).getTopic(fullId);
+            if (topic) {
+              domainTopics.push({
+                id: fullId,
+                title: topic.title || fullId
+              });
+            }
+          }
+        }
+      }
+    }
+
+    return domainTopics;
+  }
+
+  /**
    * Get all resolved topics (adapted from LayerService)
    */
   async getAllResolvedTopics(): Promise<AtomicTopic[]> {

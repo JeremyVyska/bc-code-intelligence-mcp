@@ -17,54 +17,59 @@ function mapWorkflowType(streamlinedType: string): string {
   return workflowMapping[streamlinedType] || streamlinedType;
 }
 
-// Detect if a workflow request is actually a specialist conversation request
-function detectSpecialistConversationRequest(workflowType: string, context?: string): 
-  { intent: string; specialist: string } | null {
-  
-  const fullText = `${workflowType} ${context || ''}`.toLowerCase();
-  
-  // Common conversation patterns
-  const conversationPatterns = [
-    { pattern: /talk.*to.*sam|sam.*talk/i, specialist: 'sam-coder', intent: 'conversation' },
-    { pattern: /talk.*to.*dean|dean.*talk/i, specialist: 'dean-debug', intent: 'conversation' },
-    { pattern: /talk.*to.*alex|alex.*talk/i, specialist: 'alex-architect', intent: 'conversation' },
-    { pattern: /talk.*to.*eva|eva.*talk/i, specialist: 'eva-errors', intent: 'conversation' },
-    { pattern: /talk.*to.*quinn|quinn.*talk/i, specialist: 'quinn-tester', intent: 'conversation' },
-    { pattern: /talk.*to.*roger|roger.*talk/i, specialist: 'roger-reviewer', intent: 'conversation' },
-    { pattern: /talk.*to.*seth|seth.*talk/i, specialist: 'seth-security', intent: 'conversation' },
-    { pattern: /talk.*to.*jordan|jordan.*talk/i, specialist: 'jordan-bridge', intent: 'conversation' },
-    { pattern: /talk.*to.*logan|logan.*talk/i, specialist: 'logan-legacy', intent: 'conversation' },
-    { pattern: /talk.*to.*uma|uma.*talk/i, specialist: 'uma-ux', intent: 'conversation' },
-    { pattern: /talk.*to.*morgan|morgan.*talk/i, specialist: 'morgan-market', intent: 'conversation' },
-    { pattern: /talk.*to.*taylor|taylor.*talk/i, specialist: 'taylor-docs', intent: 'conversation' },
-    { pattern: /talk.*to.*maya|maya.*talk/i, specialist: 'maya-mentor', intent: 'conversation' },
-    { pattern: /talk.*to.*casey|casey.*talk/i, specialist: 'casey-copilot', intent: 'conversation' },
+// Cache for specialist name mappings
+let cachedSpecialistMappings: Map<string, string> | null = null;
+
+// Build specialist name lookup from loaded specialists
+async function buildSpecialistNameLookup(layerService: any): Promise<Map<string, string>> {
+  try {
+    const specialists = await layerService.getAllSpecialists();
+    const lookup = new Map<string, string>();
     
-    // Ask patterns
-    { pattern: /ask.*sam|sam.*question/i, specialist: 'sam-coder', intent: 'question' },
-    { pattern: /ask.*dean|dean.*question/i, specialist: 'dean-debug', intent: 'question' },
-    { pattern: /ask.*alex|alex.*question/i, specialist: 'alex-architect', intent: 'question' },
+    for (const specialist of specialists) {
+      const id = specialist.specialist_id || specialist.id;
+      if (!id) continue;
+      
+      // Extract first name from specialist ID (e.g., "sam-coder" -> "sam", "chris-config" -> "chris")
+      const firstName = id.split('-')[0].toLowerCase();
+      
+      // Map first name to full ID
+      lookup.set(firstName, id);
+      
+      // Also map full ID to itself for exact matches
+      lookup.set(id.toLowerCase(), id);
+      
+      // Map specialist name if available
+      if (specialist.name) {
+        const nameFirstWord = specialist.name.split(' ')[0].toLowerCase();
+        lookup.set(nameFirstWord, id);
+      }
+    }
     
-    // Specialist names in workflow type
-    { pattern: /^sam/i, specialist: 'sam-coder', intent: 'direct-reference' },
-    { pattern: /^dean/i, specialist: 'dean-debug', intent: 'direct-reference' },
-    { pattern: /^alex/i, specialist: 'alex-architect', intent: 'direct-reference' },
-    { pattern: /^eva/i, specialist: 'eva-errors', intent: 'direct-reference' },
-    { pattern: /^quinn/i, specialist: 'quinn-tester', intent: 'direct-reference' },
-    { pattern: /^roger/i, specialist: 'roger-reviewer', intent: 'direct-reference' },
-    { pattern: /^seth/i, specialist: 'seth-security', intent: 'direct-reference' },
-    { pattern: /^jordan/i, specialist: 'jordan-bridge', intent: 'direct-reference' },
-    { pattern: /^logan/i, specialist: 'logan-legacy', intent: 'direct-reference' },
-    { pattern: /^uma/i, specialist: 'uma-ux', intent: 'direct-reference' },
-    { pattern: /^morgan/i, specialist: 'morgan-market', intent: 'direct-reference' },
-    { pattern: /^taylor/i, specialist: 'taylor-docs', intent: 'direct-reference' },
-    { pattern: /^maya/i, specialist: 'maya-mentor', intent: 'direct-reference' },
-    { pattern: /^casey/i, specialist: 'casey-copilot', intent: 'direct-reference' }
-  ];
+    return lookup;
+  } catch (error) {
+    console.error('Error building specialist lookup:', error);
+    return new Map();
+  }
+}
+
+// Extract specialist reference from text and return specialist ID
+async function extractSpecialistFromText(
+  text: string,
+  layerService: any
+): Promise<string | null> {
   
-  for (const { pattern, specialist, intent } of conversationPatterns) {
-    if (pattern.test(fullText)) {
-      return { intent, specialist };
+  // Build specialist lookup (cached)
+  if (!cachedSpecialistMappings) {
+    cachedSpecialistMappings = await buildSpecialistNameLookup(layerService);
+  }
+  
+  const lowerText = text.toLowerCase();
+  
+  // Check each specialist name to see if it's mentioned
+  for (const [name, specialistId] of cachedSpecialistMappings.entries()) {
+    if (lowerText.includes(name)) {
+      return specialistId;
     }
   }
   
@@ -402,9 +407,12 @@ export function createStreamlinedHandlers(server: any, services: any) {
     },
 
     'get_bc_topic': async (args: any) => {
-      const { topic_id, include_samples = true } = args;
+      const { topic_id, include_samples = true, specialist_context } = args;
       
-      const topic = await knowledgeService.getTopic(topic_id, include_samples);
+      // Extract domain from specialist_context if provided (e.g., "sam-coder" -> "sam-coder")
+      const contextDomain = specialist_context?.replace(/^(.*?)-.*/, '$1-$2')?.toLowerCase();
+      
+      const topic = await knowledgeService.getTopic(topic_id, include_samples, contextDomain);
       
       return {
         content: [{
@@ -472,22 +480,42 @@ export function createStreamlinedHandlers(server: any, services: any) {
         }
       }
       
-      // Detect if this looks like a specialist conversation request
-      const isSpecialistRequest = detectSpecialistConversationRequest(workflow_type, context);
-      if (isSpecialistRequest) {
-        return {
-          content: [{
-            type: 'text',
-            text: JSON.stringify({
-              error: 'Workflow type appears to be a specialist conversation request',
-              suggestion: 'Use ask_bc_expert tool instead for direct specialist conversations',
-              detected_intent: isSpecialistRequest.intent,
-              recommended_specialist: isSpecialistRequest.specialist,
-              correct_usage: `ask_bc_expert({ question: "${context || workflow_type}", preferred_specialist: "${isSpecialistRequest.specialist}" })`
-            }, null, 2)
-          }],
-          isError: true
-        };
+      // Check if this looks like a specialist conversation request - if so, auto-route to ask_bc_expert
+      const specialistId = await extractSpecialistFromText(`${workflow_type} ${context || ''}`, layerService);
+      if (specialistId) {
+        // User wants to talk to a specialist - route to ask_bc_expert automatically
+        const question = context || workflow_type;
+        
+        try {
+          const specialist = await knowledgeService.askSpecialist(question, specialistId);
+          
+          return {
+            content: [{
+              type: 'text',
+              text: JSON.stringify({
+                response_type: 'specialist_consultation',
+                note: `Detected request for ${specialistId} - automatically routed to specialist consultation`,
+                specialist: {
+                  id: specialist.specialist.id,
+                  name: specialist.specialist.name,
+                  expertise: specialist.specialist.expertise
+                },
+                consultation: specialist.consultation,
+                recommended_topics: specialist.recommended_topics,
+                context: context
+              }, null, 2)
+            }]
+          };
+        } catch (error) {
+          return {
+            isError: true,
+            error: `Failed to consult specialist ${specialistId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            content: [{
+              type: 'text',
+              text: `Error consulting specialist: ${error instanceof Error ? error.message : 'Unknown error'}`
+            }]
+          };
+        }
       }
       
       // Map streamlined workflow type to existing workflow type
