@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 🐛 Bug Fixes
+
+**Fixed Git Layer Token Authentication**
+- Resolved issue where GitHub authentication popups appeared after first successful MCP call
+- Token and basic authentication now embed credentials directly in git URLs
+- Removed unreliable credential helper configuration that caused authentication failures
+- Pull operations now update remote URL to ensure consistent authentication
+- Affects: GitHub, GitLab, Bitbucket, and other HTTPS git services with token/basic auth
+- See [docs/GIT-AUTH-FIX.md](./GIT-AUTH-FIX.md) for detailed technical explanation
+
 ## [1.5.8] - 2026-01-09
 
 ### 🚀 Features

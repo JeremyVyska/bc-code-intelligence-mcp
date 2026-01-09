@@ -1,6 +1,15 @@
 /**
  * Git Knowledge Layer - Load knowledge from Git repositories
  * Supports authentication, branch selection, and caching
+ * 
+ * AUTHENTICATION STRATEGY:
+ * - TOKEN/BASIC: Credentials embedded directly in git URLs (https://token@github.com/...)
+ *   - Avoids git credential helper issues that caused repeated auth prompts
+ *   - Remote URL updated before each pull to ensure consistent authentication
+ * - SSH: Uses SSH keys via GIT_SSH_COMMAND environment variable
+ * - AZURE_CLI: Delegates to Git Credential Manager (no URL modification)
+ * 
+ * See docs/GIT-AUTH-FIX.md for detailed explanation of authentication fix
  */
 
 import { access, mkdir, stat, readdir, readFile } from 'fs/promises';
@@ -138,14 +147,9 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
           (this.auth.token_env_var ? process.env[this.auth.token_env_var] : undefined);
 
         if (token) {
-          // Configure git to use token authentication
-          await this.git.addConfig('credential.helper', 'store --file=.git-credentials');
-
-          // For HTTPS URLs, we'll modify the URL to include credentials
-          if (this.gitConfig.url.startsWith('https://')) {
-            // This will be handled in clone/pull operations
-            console.log('🔑 Configured token authentication');
-          }
+          // For token authentication, we embed credentials directly in URLs
+          // This avoids issues with git credential helpers and ensures consistent auth
+          console.log('🔑 Configured token authentication (embedded in URLs)');
         } else {
           throw new Error('Token not found for git authentication');
         }
@@ -167,7 +171,7 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
           (this.auth.password_env_var ? process.env[this.auth.password_env_var] : undefined);
 
         if (username && password) {
-          console.log('🔑 Configured basic authentication');
+          console.log('🔑 Configured basic authentication (embedded in URLs)');
           // This will be handled in the URL modification
         } else {
           throw new Error('Username/password not found for basic authentication');
@@ -190,6 +194,12 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
       await this.git.cwd(this.localPath);
 
       try {
+        // For authenticated pulls, we need to update the remote URL with auth
+        if (this.auth && (this.auth.type === AuthType.TOKEN || this.auth.type === AuthType.BASIC)) {
+          const authenticatedUrl = this.prepareUrlWithAuth(this.gitConfig.url);
+          await this.git.remote(['set-url', 'origin', authenticatedUrl]);
+        }
+
         const pullResult = await this.git.pull('origin', this.gitConfig.branch || 'main');
         return pullResult.summary.changes > 0;
       } catch (error) {
