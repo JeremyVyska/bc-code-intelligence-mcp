@@ -15,8 +15,7 @@ import { Tool } from '@modelcontextprotocol/sdk/types.js';
 // Core BC Knowledge Tools
 export { streamlinedTools, STREAMLINED_TOOL_NAMES } from './core-tools.js';
 
-// Specialist Interaction Tools
-export { SpecialistTools } from './specialist-tools.js';
+// Specialist Discovery Tools (browse and search specialists)
 export { SpecialistDiscoveryTools, SPECIALIST_DISCOVERY_TOOLS } from './specialist-discovery-tools.js';
 
 // Agent Onboarding Tools
@@ -29,7 +28,6 @@ export { SpecialistHandoffTools, HANDOFF_TOOLS } from './handoff-tools.js';
 export type { HandoffType } from './handoff-tools.js';
 
 // Import types for function signature
-import type { SpecialistTools } from './specialist-tools.js';
 import type { SpecialistDiscoveryTools } from './specialist-discovery-tools.js';
 import type { AgentOnboardingTools } from './onboarding-tools.js';
 import type { SpecialistHandoffTools } from './handoff-tools.js';
@@ -42,17 +40,12 @@ import { streamlinedTools } from './core-tools.js';
  * Tool instances (classes) are instantiated in index.ts with proper service dependencies.
  */
 export function getAllToolDefinitions(params: {
-  specialistTools?: SpecialistTools;
   specialistDiscoveryTools?: SpecialistDiscoveryTools;
   onboardingTools?: AgentOnboardingTools;
   handoffTools?: SpecialistHandoffTools;
 }): Tool[] {
-  const { specialistTools, specialistDiscoveryTools, onboardingTools, handoffTools } = params;
+  const { specialistDiscoveryTools, onboardingTools, handoffTools } = params;
   const tools: Tool[] = [...streamlinedTools];
-  
-  if (specialistTools) {
-    tools.push(...specialistTools.getToolDefinitions());
-  }
   
   if (specialistDiscoveryTools) {
     tools.push(...specialistDiscoveryTools.getToolDefinitions());
@@ -73,7 +66,7 @@ export function getAllToolDefinitions(params: {
  * Tool name constants for easy reference and type safety
  */
 export const TOOL_NAMES = {
-  // Core knowledge tools
+  // Core knowledge tools (now includes list_specialists)
   FIND_BC_KNOWLEDGE: 'find_bc_knowledge',
   ASK_BC_EXPERT: 'ask_bc_expert',
   ANALYZE_AL_CODE: 'analyze_al_code',
@@ -82,13 +75,9 @@ export const TOOL_NAMES = {
   NEXT_WORKFLOW_STEP: 'next_workflow_step',
   GET_BC_METHODOLOGY: 'get_bc_methodology',
   LIST_BC_DOMAINS: 'list_bc_domains',
-  
-  // Specialist tools
-  SUGGEST_SPECIALIST: 'suggest_specialist',
-  GET_SPECIALIST_ADVICE: 'get_specialist_advice',
   LIST_SPECIALISTS: 'list_specialists',
   
-  // Discovery tools
+  // Discovery tools (for browsing and searching)
   DISCOVER_SPECIALISTS: 'discover_specialists',
   BROWSE_SPECIALISTS: 'browse_specialists',
   GET_SPECIALIST_INFO: 'get_specialist_info',

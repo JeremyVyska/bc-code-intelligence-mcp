@@ -237,21 +237,31 @@ export function createStreamlinedHandlers(server: any, services: any) {
           };
         }
         
-        // INTERACTIVE MODE: Return conversational response
+        // INTERACTIVE MODE: Return full specialist content as agent instructions
+        let agentInstructions = '';
+        
+        agentInstructions += `SPECIALIST DEFINITION AND INSTRUCTIONS:\n\n`;
+        agentInstructions += specialist.specialist_full_content || specialist.consultation_guidance || '';
+        agentInstructions += `\n\n${'='.repeat(80)}\n\n`;
+        agentInstructions += `USER QUESTION: ${question}\n`;
+        if (context) {
+          agentInstructions += `CONTEXT: ${context}\n`;
+        }
+        agentInstructions += `\n`;
+        agentInstructions += `GUIDANCE: ${specialist.response}\n\n`;
+        agentInstructions += `CRITICAL: You ARE ${specialist.specialist.name}. Respond directly as this specialist, not as an AI assistant describing what they would say. Use their communication style, expertise, and personality.\n\n`;
+        
+        if (specialist.follow_up_suggestions && specialist.follow_up_suggestions.length > 0) {
+          agentInstructions += `HANDOFF OPPORTUNITIES:\n`;
+          specialist.follow_up_suggestions.forEach((s: string) => {
+            agentInstructions += `- Consider involving ${s} if needed\n`;
+          });
+        }
+        
         return {
           content: [{
             type: 'text',
-            text: JSON.stringify({
-              response_type: 'specialist_consultation',
-              specialist: {
-                id: specialist.specialist.id,
-                name: specialist.specialist.name,
-                expertise: specialist.specialist.expertise
-              },
-              consultation: specialist.consultation,
-              recommended_topics: specialist.recommended_topics,
-              context: context
-            }, null, 2)
+            text: agentInstructions
           }]
         };
       } catch (error) {
@@ -705,55 +715,85 @@ export function createStreamlinedHandlers(server: any, services: any) {
       }
     },
 
-    'get_bc_help': async (args: any) => {
-      const { current_situation, workspace_context } = args;
+    'list_specialists': async (args: any) => {
+      const { domain, expertise } = args;
       
-      // Basic situation analysis using existing methods
-      const searchResults = await knowledgeService.searchTopics({ 
-        query: current_situation, 
-        limit: 5 
-      });
+      const specialists = await layerService.getAllSpecialists();
       
-      const specialists = await knowledgeService.findSpecialistsByQuery(current_situation);
-      const workflows = await methodologyService.findWorkflowsByQuery(current_situation);
+      // Apply filters
+      let filteredSpecialists = specialists;
       
-      // Basic analysis and suggestions
-      const suggestions = {
-        analysis: `Based on your situation: "${current_situation}", I've analyzed available resources.`,
-        tools: [
-          {
-            tool: 'find_bc_knowledge',
-            reason: 'Search for specific BC topics related to your situation',
-            usage: `find_bc_knowledge({ query: "${current_situation}" })`
-          },
-          {
-            tool: 'ask_bc_expert', 
-            reason: 'Get expert consultation with automatic specialist selection',
-            usage: `ask_bc_expert({ question: "${current_situation}" })`
+      if (domain) {
+        filteredSpecialists = specialists.filter(s => 
+          s.domains.some(d => d.toLowerCase().includes(domain.toLowerCase()))
+        );
+      }
+      
+      if (expertise) {
+        filteredSpecialists = filteredSpecialists.filter(s =>
+          [...s.expertise.primary, ...s.expertise.secondary].some(e =>
+            e.toLowerCase().includes(expertise.toLowerCase())
+          )
+        );
+      }
+
+      if (filteredSpecialists.length === 0) {
+        return {
+          content: [{
+            type: 'text',
+            text: '❌ No specialists found matching your criteria. Try different filters or remove them to see all specialists.'
+          }]
+        };
+      }
+
+      // Group by domain for better organization
+      const specialistsByDomain = new Map();
+      
+      filteredSpecialists.forEach(specialist => {
+        specialist.domains.forEach(d => {
+          if (!specialistsByDomain.has(d)) {
+            specialistsByDomain.set(d, []);
           }
-        ],
-        workflows: workflows.slice(0, 3),
-        specialists: specialists.slice(0, 3),
-        related_topics: searchResults,
-        next_steps: [
-          'Start with ask_bc_expert for immediate consultation',
-          'Use find_bc_knowledge to explore related topics',
-          'Consider starting a workflow if this is a complex task'
-        ]
-      };
+          if (!specialistsByDomain.get(d).includes(specialist)) {
+            specialistsByDomain.get(d).push(specialist);
+          }
+        });
+      });
+
+      let response = `👥 **BC Code Intelligence Specialists** ${domain || expertise ? '(filtered)' : ''}\\n\\n`;
       
+      // Show specialists organized by domain
+      for (const [domainName, domainSpecialists] of specialistsByDomain.entries()) {
+        response += `## 🏷️ ${domainName.charAt(0).toUpperCase() + domainName.slice(1)}\\n\\n`;
+        
+        for (const specialist of domainSpecialists) {
+          response += `**${specialist.title}** (\`${specialist.specialist_id}\`)\\n`;
+          response += `💬 ${specialist.persona.greeting}\\n`;
+          response += `🎯 **Primary Expertise:** ${specialist.expertise.primary.join(', ')}\\n`;
+          if (specialist.expertise.secondary.length > 0) {
+            response += `🔧 **Also helps with:** ${specialist.expertise.secondary.slice(0, 3).join(', ')}\\n`;
+          }
+          response += `\\n`;
+        }
+      }
+
+      response += `\\n💡 **Getting Started:**\\n`;
+      response += `• Use \`ask_bc_expert\` with preferred_specialist parameter to connect with a specific specialist\\n`;
+      response += `• Example: ask_bc_expert({ question: "Help with caching", preferred_specialist: "sam-coder" })\\n`;
+      response += `• Or let ask_bc_expert auto-route based on your question`;
+
+      // Check if workspace is configured - company/project specialists might be missing
+      const layersInfo = layerService.getLayers();
+      const hasProjectOrCompanyLayers = layersInfo.some(layer => 
+        layer.name.includes('company') || layer.name.includes('project') || layer.name.includes('team')
+      );
+
+      if (!hasProjectOrCompanyLayers) {
+        response += `\\n\\n⚠️ **Note:** Only embedded specialists shown. Company/project specialists require workspace configuration.`;
+      }
+
       return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            situation_analysis: suggestions.analysis,
-            recommended_tools: suggestions.tools,
-            suggested_workflows: suggestions.workflows,
-            available_specialists: suggestions.specialists,
-            related_topics: suggestions.related_topics,
-            next_steps: suggestions.next_steps
-          }, null, 2)
-        }]
+        content: [{ type: 'text', text: response }]
       };
     }
   };

@@ -24,21 +24,23 @@ This made it difficult for developers and AI agents to discover and understand a
 ### Tool Categories
 
 #### Core Tools (`core-tools.ts`)
-The fundamental 8-tool interface:
+The essential 8-tool interface (consolidated specialist tools into core):
 1. `find_bc_knowledge` - Search BC knowledge, specialists, workflows
-2. `ask_bc_expert` - Direct specialist consultation
+2. `ask_bc_expert` - Direct specialist consultation (auto-routes or accepts preferred_specialist)
 3. `analyze_al_code` - Code analysis
 4. `get_bc_topic` - Detailed topic content
 5. `start_bc_workflow` - Structured workflows
 6. `advance_workflow` - Progress workflows
 7. `get_workflow_help` - Workflow guidance
-8. `get_bc_help` - Meta-tool for suggestions
+8. `list_specialists` - Directory of available specialists
 
-#### Specialist Tools (`specialist-tools.ts`)
-Direct specialist interaction:
-- `suggest_specialist` - Find appropriate specialist
-- `get_specialist_advice` - Get specialist advice
-- `list_specialists` - List available specialists
+**SIMPLIFIED MODEL**: The core tools now handle ALL direct specialist interactions. The deprecated `suggest_specialist` and `get_specialist_advice` tools have been removed - use `ask_bc_expert` for all specialist consultations.
+
+#### Specialist Tools ~~(`specialist-tools.ts`)~~ - DEPRECATED & REMOVED
+These tools have been consolidated into `ask_bc_expert`:
+- ~~`suggest_specialist`~~ → Use `ask_bc_expert` (auto-routes)
+- ~~`get_specialist_advice`~~ → Use `ask_bc_expert` with `preferred_specialist` parameter
+- ~~`list_specialists`~~ → Moved to core-tools.ts
 
 #### Discovery Tools (`specialist-discovery-tools.ts`)
 Specialist discovery and browsing:

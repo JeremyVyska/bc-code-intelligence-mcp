@@ -19,7 +19,7 @@ export const STREAMLINED_TOOL_NAMES = {
   START_BC_WORKFLOW: 'start_bc_workflow',
   ADVANCE_WORKFLOW: 'advance_workflow',
   GET_WORKFLOW_HELP: 'get_workflow_help',
-  GET_BC_HELP: 'get_bc_help'
+  LIST_SPECIALISTS: 'list_specialists'
 } as const;
 
 /**
@@ -151,7 +151,24 @@ export const streamlinedTools: Tool[] = [
   },
   {
     name: 'start_bc_workflow',
-    description: 'STRUCTURED WORKFLOWS: Start systematic BC development workflows for complex, multi-phase processes. USE FOR STRUCTURED PROCESSES like "optimize my code systematically", "conduct architecture review", "security audit", "performance analysis". DO NOT USE FOR SIMPLE CONVERSATIONS - if user wants to "talk to" or "ask" a specialist, use ask_bc_expert instead. 🤖 AUTONOMOUS AGENT MODE: Set execution_mode="autonomous" for GitHub Coding Agents to get next action instead of interactive prompts. Supports checkpoint_id for multi-session execution.',
+    description: `LONG-RUNNING ANALYTICAL WORKFLOWS: Use for large-scale, multi-phase work that spans multiple files/sessions and requires systematic progress tracking with checkpoint/resume support.
+
+USE WORKFLOWS FOR:
+✅ Large-scale analysis: "Analyze my 1000-file BC app for performance issues"
+✅ Complete audits: "Security audit of entire extension" or "Review all code for BC23 compatibility"
+✅ Multi-session work: Tasks that take hours/days and need resume capability
+✅ Systematic reviews: Full codebase analysis requiring structured methodology
+✅ GitHub Coding Agents: Autonomous execution with checkpoints across multiple invocations
+
+DO NOT USE FOR CONVERSATIONS:
+❌ "Help me add caching to this API" → Use ask_bc_expert instead
+❌ "Talk to Sam about performance" → Use ask_bc_expert instead
+❌ "Review this one function" → Use ask_bc_expert instead
+❌ "I need guidance on X" → Use ask_bc_expert instead
+
+KEY FEATURES: State persistence, progress tracking, multi-phase coordination, checkpoint resume, constitutional gate validation, artifact accumulation across phases.
+
+🤖 AUTONOMOUS MODE: Set execution_mode="autonomous" for GitHub Coding Agents - returns structured action plans with checkpoint IDs for resumption.`,
     inputSchema: {
       type: 'object',
       properties: {
@@ -228,21 +245,21 @@ export const streamlinedTools: Tool[] = [
     }
   },
   {
-    name: 'get_bc_help',
-    description: 'Meta-tool that analyzes your current context and suggests what BC tools or workflows to use next. Use when unsure what to do.',
+    name: 'list_specialists',
+    description: 'Browse available BC specialists and their expertise areas. Useful for discovering the specialist team and understanding who helps with what. After browsing, use ask_bc_expert with preferred_specialist parameter to connect with a specific specialist.',
     inputSchema: {
       type: 'object',
       properties: {
-        current_situation: {
+        domain: {
           type: 'string',
-          description: 'Description of your current situation, challenge, or what you\'re trying to accomplish'
+          description: 'Filter by domain (e.g., performance, security, api-design) - optional'
         },
-        workspace_context: {
+        expertise: {
           type: 'string',
-          description: 'Optional: information about your current AL workspace or project'
+          description: 'Filter by expertise area (e.g., caching, authentication) - optional'
         }
       },
-      required: ['current_situation']
+      required: []
     }
   }
 ];

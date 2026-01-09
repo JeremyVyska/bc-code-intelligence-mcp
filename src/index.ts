@@ -16,7 +16,6 @@ import { readFileSync, existsSync } from 'fs';
 import {
   getAllToolDefinitions,
   STREAMLINED_TOOL_NAMES,
-  SpecialistTools,
   SpecialistDiscoveryTools,
   AgentOnboardingTools,
   SpecialistHandoffTools
@@ -65,7 +64,6 @@ class BCCodeIntelligenceServer {
   private workflowService!: WorkflowService;
   private layerService!: MultiContentLayerService;
   private specialistSessionManager!: SpecialistSessionManager;
-  private specialistTools!: SpecialistTools;
   private specialistDiscoveryService!: SpecialistDiscoveryService;
   private specialistDiscoveryTools!: SpecialistDiscoveryTools;
   private enhancedPromptService!: EnhancedPromptService;
@@ -146,7 +144,6 @@ class BCCodeIntelligenceServer {
     // List available tools - now using centralized registry
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
       const tools = getAllToolDefinitions({
-        specialistTools: this.specialistTools,
         specialistDiscoveryTools: this.specialistDiscoveryTools,
         onboardingTools: this.agentOnboardingTools,
         handoffTools: this.specialistHandoffTools
@@ -210,11 +207,6 @@ Use absolute paths in the config for git/local layers.
 Currently only embedded knowledge is loaded. Call \`set_workspace_info\` to enable project layers and MCP ecosystem awareness.`
             }]
           };
-        }
-
-        // Check if it's a specialist tool
-        if (this.specialistTools && ['suggest_specialist', 'get_specialist_advice', 'list_specialists'].includes(name)) {
-          return await this.specialistTools.handleToolCall(request);
         }
 
         // Check if it's a specialist discovery tool
@@ -705,11 +697,6 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
       this.layerService,
       sessionStorageConfig
     );
-    this.specialistTools = new SpecialistTools(
-      this.layerService,
-      this.specialistSessionManager,
-      this.knowledgeService
-    );
 
     // Initialize specialist discovery service and tools
     this.specialistDiscoveryService = new SpecialistDiscoveryService(this.layerService);
@@ -773,7 +760,6 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
       }) as any;
 
       const tools = getAllToolDefinitions({
-        specialistTools: this.specialistTools,
         specialistDiscoveryTools: this.specialistDiscoveryTools,
         onboardingTools: this.agentOnboardingTools,
         handoffTools: this.specialistHandoffTools
@@ -1204,11 +1190,6 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
     this.specialistSessionManager = new SpecialistSessionManager(
       this.layerService,
       sessionStorageConfig
-    );
-    this.specialistTools = new SpecialistTools(
-      this.layerService,
-      this.specialistSessionManager,
-      this.knowledgeService
     );
     this.specialistDiscoveryService = new SpecialistDiscoveryService(this.layerService);
     this.specialistDiscoveryTools = new SpecialistDiscoveryTools(

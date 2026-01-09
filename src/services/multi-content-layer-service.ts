@@ -703,16 +703,19 @@ export class MultiContentLayerService {
       throw new Error('No suitable specialist found for this question');
     }
 
-    // Return a consultation response
+    // Return full specialist definition for agent roleplay
     return {
       specialist: {
         id: specialist.specialist_id,
         name: specialist.title,
-        role: specialist.role
+        role: specialist.role,
+        expertise: specialist.expertise
       },
+      specialist_full_content: specialist.content, // CRITICAL: Full markdown content for agent instructions
       response: `${specialist.title} would approach this question: "${question}" using their expertise in ${specialist.expertise?.primary?.join(', ') || 'general BC development'}.`,
       consultation_guidance: specialist.content.substring(0, 200) + '...' || 'General BC development guidance',
-      follow_up_suggestions: specialist.related_specialists || []
+      follow_up_suggestions: specialist.related_specialists || [],
+      domains: specialist.domains
     };
   }
 
