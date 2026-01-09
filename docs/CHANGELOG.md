@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.9] - 2026-01-09
+
+### 🚀 Features
+
+**Proactive Code Validation Workflow**
+- Enhanced `analyze_al_code` tool with proactive validation guidance
+- Agents now encouraged to validate generated code BEFORE presenting to users
+- Catches company standards, naming conventions, and best practices early
+- Gentle nudge approach - allows organic discovery rather than enforced workflow
+- Improves code quality by consulting knowledge layers during generation, not after
+
+**Organization Standards Integration in Code Analysis**
+- `CodeAnalysisService` now loads standards from both company AND project layers
+- Renamed `loadCompanyStandards()` → `loadOrganizationStandards()` for accuracy
+- Project layer standards automatically override company layer (higher priority: p30-100 vs p20-50)
+- Semantic matching detects when policy-based standards apply to code
+- Supports standards like "ToolTips must be on tables not pages", naming conventions, language requirements
+- Falls back to 300+ hardcoded patterns when no custom standards found
+
+**Enhanced Specialist Discovery Visibility**
+- `list_specialists` and `browse_specialists` show workspace context warnings
+- Alerts agents when only embedded specialists loaded (company/project layers not initialized)
+- Helps diagnose why custom organization specialists may not be visible
+- Improves discoverability of company-specific specialist expertise
+
 ### 🐛 Bug Fixes
 
 **Fixed Git Layer Token Authentication**
@@ -15,7 +40,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed unreliable credential helper configuration that caused authentication failures
 - Pull operations now update remote URL to ensure consistent authentication
 - Affects: GitHub, GitLab, Bitbucket, and other HTTPS git services with token/basic auth
-- See [docs/GIT-AUTH-FIX.md](./GIT-AUTH-FIX.md) for detailed technical explanation
+
+### 🔧 Technical Improvements
+
+- Layer system properly queries ALL initialized layers (embedded, user, company, project)
+- Enhanced logging shows "organization standards (company + project)" for clarity
+- All 256 tests passing with new organization standards architecture
 
 ## [1.5.8] - 2026-01-09
 
