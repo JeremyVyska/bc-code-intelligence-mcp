@@ -50,15 +50,104 @@ export class CodeAnalysisService {
         };
       });
 
-      // Update cache
-      this.patternCache = patterns;
+      // Load organization standards/guidelines from company + project layers
+      const orgStandards = await this.loadOrganizationStandards();
+      
+      // Update cache with both pattern-based and standards-based rules
+      this.patternCache = [...patterns, ...orgStandards];
       this.cacheExpiry = Date.now() + this.CACHE_TTL;
 
-      return patterns;
+      return this.patternCache;
     } catch (error) {
       console.warn('Failed to load code patterns from knowledge base:', error);
       return this.getFallbackPatterns();
     }
+  }
+
+  /**
+   * Load organization standards and guidelines from knowledge layers
+   * Searches company AND project layers - project layer overrides company layer
+   * These are policy-based rules that may not have regex patterns
+   */
+  private async loadOrganizationStandards(): Promise<ALCodePattern[]> {
+    try {
+      // Search for company/project standards, coding guidelines, naming conventions
+      const standardsTopics = await this.knowledgeService.searchTopics({
+        code_context: 'company standards coding guidelines naming conventions best practices policy rules',
+        limit: 50
+      });
+
+      const standards: ALCodePattern[] = [];
+
+      for (const topicResult of standardsTopics) {
+        const topic = await this.knowledgeService.getTopic(topicResult.id);
+        if (!topic) continue;
+
+        // Extract guidelines from content
+        const guidelines = this.extractGuidelinesFromContent(topic);
+        standards.push(...guidelines);
+      }
+
+      console.log(`📋 Loaded ${standards.length} organization standards from knowledge layers (company + project)`);
+      return standards;
+    } catch (error) {
+      console.warn('Failed to load organization standards:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Extract actionable guidelines from topic content
+   * Looks for patterns like "must", "should", "required", "mandatory"
+   */
+  private extractGuidelinesFromContent(topic: AtomicTopic): ALCodePattern[] {
+    const guidelines: ALCodePattern[] = [];
+    const content = topic.content;
+
+    // Look for common guideline patterns
+    const guidelinePatterns = [
+      /(?:must|required|mandatory):\s*(.+?)(?:\n|$)/gi,
+      /(?:should|recommended):\s*(.+?)(?:\n|$)/gi,
+      /(?:do not|don't|avoid):\s*(.+?)(?:\n|$)/gi,
+      /(?:always|never):\s*(.+?)(?:\n|$)/gi
+    ];
+
+    guidelinePatterns.forEach(pattern => {
+      let match;
+      while ((match = pattern.exec(content)) !== null) {
+        const guideline = match[1].trim();
+        if (guideline.length > 10 && guideline.length < 200) {
+          guidelines.push({
+            name: `company-standard-${topic.id}`,
+            pattern_type: 'unknown', // Will be evaluated based on code context
+            regex_patterns: [], // No regex for policy-based rules
+            description: `${topic.title}: ${guideline}`,
+            related_topics: [topic.id],
+            severity: match[0].toLowerCase().includes('must') || match[0].toLowerCase().includes('required') 
+              ? 'high' 
+              : 'medium',
+            category: 'company-standard'
+          });
+        }
+      }
+    });
+
+    // Also check frontmatter for explicit guidelines
+    if (topic.frontmatter.guidelines && Array.isArray(topic.frontmatter.guidelines)) {
+      topic.frontmatter.guidelines.forEach((guideline: string) => {
+        guidelines.push({
+          name: `company-standard-${topic.id}`,
+          pattern_type: 'unknown',
+          regex_patterns: [],
+          description: `${topic.title}: ${guideline}`,
+          related_topics: [topic.id],
+          severity: 'medium',
+          category: 'company-standard'
+        });
+      });
+    }
+
+    return guidelines;
   }
 
   /**
@@ -458,6 +547,9 @@ export class CodeAnalysisService {
     // Detect patterns in the code
     const detectedPatterns = await this.detectPatterns(code);
     
+    // Check company standards (policy-based rules without regex)
+    const standardsViolations = await this.checkCompanyStandards(code, params.bc_version);
+    
     // Filter patterns based on analysis type
     const filteredPatterns = this.filterPatternsByAnalysisType(detectedPatterns, analysisType);
     result.patterns_detected = filteredPatterns.map(p => p.name);
@@ -482,6 +574,9 @@ export class CodeAnalysisService {
         });
       }
     }
+
+    // Add company standards violations
+    result.issues.push(...standardsViolations);
 
     // Generate optimization opportunities
     result.optimization_opportunities = await this.findOptimizationOpportunities(code, detectedPatterns);
@@ -511,6 +606,88 @@ export class CodeAnalysisService {
     }
 
     return detected;
+  }
+
+  /**
+   * Check organization standards and guidelines (policy-based, not regex-based)
+   * These are extracted from company AND project knowledge layers and evaluated semantically
+   * Project layer standards override company layer standards due to higher priority
+   */
+  private async checkCompanyStandards(code: string, bcVersion?: string): Promise<Array<{
+    type: string;
+    severity: 'low' | 'medium' | 'high' | 'critical';
+    description: string;
+    suggestion: string;
+    related_topics: string[];
+  }>> {
+    const violations: Array<{
+      type: string;
+      severity: 'low' | 'medium' | 'high' | 'critical';
+      description: string;
+      suggestion: string;
+      related_topics: string[];
+    }> = [];
+
+    try {
+      // Get organization standards from patterns cache (company + project layers)
+      const allPatterns = await this.loadPatterns();
+      const companyStandards = allPatterns.filter(p => p.category === 'company-standard');
+
+      for (const standard of companyStandards) {
+        // Semantic matching - check if code relates to the standard
+        const isRelevant = this.isStandardRelevantToCode(standard, code);
+        
+        if (isRelevant) {
+          // This is a guideline that applies to this code
+          violations.push({
+            type: 'company-standard',
+            severity: (standard.severity as any) || 'medium',
+            description: standard.description,
+            suggestion: `Review organization standard: ${standard.description}`,
+            related_topics: standard.related_topics
+          });
+        }
+      }
+
+      console.log(`✅ Checked ${companyStandards.length} organization standards (company + project), found ${violations.length} relevant guidelines`);
+    } catch (error) {
+      console.warn('Failed to check company standards:', error);
+    }
+
+    return violations;
+  }
+
+  /**
+   * Determine if a company standard is relevant to the given code
+   * Uses keyword matching and context analysis
+   */
+  private isStandardRelevantToCode(standard: ALCodePattern, code: string): boolean {
+    const description = standard.description.toLowerCase();
+    const codeLower = code.toLowerCase();
+
+    // Extract key terms from the standard description
+    const keywords = [
+      'tooltip', 'caption', 'field', 'table', 'page', 'naming', 'convention',
+      'variable', 'procedure', 'function', 'codeunit', 'report', 'query',
+      'english', 'dutch', 'language', 'comment', 'documentation'
+    ];
+
+    // Check if standard mentions specific AL constructs present in code
+    for (const keyword of keywords) {
+      if (description.includes(keyword) && codeLower.includes(keyword)) {
+        return true;
+      }
+    }
+
+    // Check for object type matches
+    const objectTypes = ['table', 'page', 'codeunit', 'report', 'query', 'xmlport'];
+    for (const objType of objectTypes) {
+      if (description.includes(objType) && new RegExp(`\\b${objType}\\b`, 'i').test(code)) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   /**
