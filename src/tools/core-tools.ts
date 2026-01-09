@@ -93,7 +93,7 @@ export const streamlinedTools: Tool[] = [
   },
   {
     name: 'analyze_al_code',
-    description: 'Analyze AL code for issues, patterns, and improvements. Includes workspace analysis and workflow recommendations. AUTONOMOUS AGENT MODE: Use operation="validate" for automated code validation with compliance checks and auto-fix suggestions. Use operation="suggest_fixes" for code transformation recommendations.',
+    description: 'Analyze AL code for issues, patterns, and improvements. Includes workspace analysis and workflow recommendations. BEST PRACTICE: When generating new AL code, use operation="validate" on your draft BEFORE presenting to user - this catches company standards, naming conventions, and best practices early. AUTONOMOUS AGENT MODE: Use operation="validate" for automated code validation with compliance checks and auto-fix suggestions. Use operation="suggest_fixes" for code transformations recommendations.',
     inputSchema: {
       type: 'object',
       properties: {
