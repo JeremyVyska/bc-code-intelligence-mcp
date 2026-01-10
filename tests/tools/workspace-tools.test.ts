@@ -1,10 +1,23 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { WorkspaceTools, WorkspaceToolsContext, KNOWN_BC_MCPS } from '../../src/tools/workspace-tools.js';
-import { CallToolRequest } from '@modelcontextprotocol/sdk/types.js';
+import { KNOWN_BC_MCPS } from '../../src/tools/_shared/workspace-constants.js';
+import { createSetWorkspaceInfoHandler } from '../../src/tools/set_workspace_info/handler.js';
+import { createGetWorkspaceInfoHandler } from '../../src/tools/get_workspace_info/handler.js';
+import { setWorkspaceInfoTool, getWorkspaceInfoTool } from '../../src/tools/index.js';
+import type { WorkspaceContext } from '../../src/tools/handlers.js';
+
+// Define CallToolRequest type for tests
+interface CallToolRequest {
+  method: string;
+  params: {
+    name: string;
+    arguments: any;
+  };
+}
 
 describe('Workspace Management Tools', () => {
-  let workspaceTools: WorkspaceTools;
-  let mockContext: WorkspaceToolsContext;
+  let setWorkspaceInfoHandler: any;
+  let getWorkspaceInfoHandler: any;
+  let mockContext: WorkspaceContext;
   let setWorkspaceInfoSpy: any;
   let getWorkspaceInfoSpy: any;
 
@@ -26,7 +39,8 @@ describe('Workspace Management Tools', () => {
       getWorkspaceInfo: getWorkspaceInfoSpy
     };
 
-    workspaceTools = new WorkspaceTools(mockContext);
+    setWorkspaceInfoHandler = createSetWorkspaceInfoHandler(mockContext);
+    getWorkspaceInfoHandler = createGetWorkspaceInfoHandler(mockContext);
   });
 
   describe('set_workspace_info', () => {
@@ -42,7 +56,7 @@ describe('Workspace Management Tools', () => {
         }
       };
 
-      const result = await workspaceTools.handleToolCall(request);
+      const result = await setWorkspaceInfoHandler(request.params.arguments);
 
       expect(result).toBeDefined();
       expect(result.content).toBeDefined();
@@ -67,7 +81,7 @@ describe('Workspace Management Tools', () => {
         }
       };
 
-      const result = await workspaceTools.handleToolCall(request);
+      const result = await setWorkspaceInfoHandler(request.params.arguments);
       const response = JSON.parse(result.content[0].text);
 
       expect(response.success).toBe(true);
@@ -94,7 +108,7 @@ describe('Workspace Management Tools', () => {
         }
       };
 
-      const result = await workspaceTools.handleToolCall(request);
+      const result = await setWorkspaceInfoHandler(request.params.arguments);
       const response = JSON.parse(result.content[0].text);
 
       expect(response.mcp_ecosystem.total_available).toBe(4);
@@ -131,7 +145,7 @@ describe('Workspace Management Tools', () => {
         }
       };
 
-      const result = await workspaceTools.handleToolCall(request);
+      const result = await setWorkspaceInfoHandler(request.params.arguments);
       const response = JSON.parse(result.content[0].text);
 
       expect(response.success).toBe(true);
@@ -158,7 +172,7 @@ describe('Workspace Management Tools', () => {
         }
       };
 
-      const result = await workspaceTools.handleToolCall(request);
+      const result = await setWorkspaceInfoHandler(request.params.arguments);
       const response = JSON.parse(result.content[0].text);
 
       expect(response.success).toBe(false);
@@ -177,7 +191,7 @@ describe('Workspace Management Tools', () => {
         }
       };
 
-      const result = await workspaceTools.handleToolCall(request);
+      const result = await setWorkspaceInfoHandler(request.params.arguments);
       const response = JSON.parse(result.content[0].text);
 
       expect(response.success).toBe(false);
@@ -196,7 +210,7 @@ describe('Workspace Management Tools', () => {
         }
       };
 
-      const result = await workspaceTools.handleToolCall(request);
+      const result = await setWorkspaceInfoHandler(request.params.arguments);
       const response = JSON.parse(result.content[0].text);
 
       expect(response.success).toBe(false);
@@ -222,7 +236,7 @@ describe('Workspace Management Tools', () => {
         }
       };
 
-      const result = await workspaceTools.handleToolCall(request);
+      const result = await setWorkspaceInfoHandler(request.params.arguments);
       const response = JSON.parse(result.content[0].text);
 
       expect(response.success).toBe(true);
@@ -242,7 +256,7 @@ describe('Workspace Management Tools', () => {
         }
       };
 
-      const result = await workspaceTools.handleToolCall(request);
+      const result = await setWorkspaceInfoHandler(request.params.arguments);
       const response = JSON.parse(result.content[0].text);
 
       expect(response.success).toBe(true);
@@ -267,7 +281,7 @@ describe('Workspace Management Tools', () => {
         }
       };
 
-      const result = await workspaceTools.handleToolCall(request);
+      const result = await getWorkspaceInfoHandler(request.params.arguments);
       const response = JSON.parse(result.content[0].text);
 
       expect(response.workspace_root).toBeNull();
@@ -291,7 +305,7 @@ describe('Workspace Management Tools', () => {
         }
       };
 
-      const result = await workspaceTools.handleToolCall(request);
+      const result = await getWorkspaceInfoHandler(request.params.arguments);
       const response = JSON.parse(result.content[0].text);
 
       expect(response.workspace_root).toBe('C:/projects/my-bc-app');
@@ -317,7 +331,7 @@ describe('Workspace Management Tools', () => {
         }
       };
 
-      const result = await workspaceTools.handleToolCall(request);
+      const result = await getWorkspaceInfoHandler(request.params.arguments);
       const response = JSON.parse(result.content[0].text);
 
       expect(response.mcp_ecosystem.known_bc_mcps).toHaveLength(1);
@@ -340,7 +354,7 @@ describe('Workspace Management Tools', () => {
         }
       };
 
-      const result = await workspaceTools.handleToolCall(request);
+      const result = await getWorkspaceInfoHandler(request.params.arguments);
       const response = JSON.parse(result.content[0].text);
 
       expect(response.workspace_root).toBe('C:/projects/my-bc-app');
@@ -352,24 +366,20 @@ describe('Workspace Management Tools', () => {
 
   describe('Tool Definitions', () => {
     it('should provide set_workspace_info tool definition', () => {
-      const definitions = workspaceTools.getToolDefinitions();
-      const setTool = definitions.find(t => t.name === 'set_workspace_info');
-
-      expect(setTool).toBeDefined();
-      expect(setTool?.description).toContain('workspace root');
-      expect(setTool?.inputSchema.properties.workspace_root).toBeDefined();
-      expect(setTool?.inputSchema.properties.available_mcps).toBeDefined();
-      expect(setTool?.inputSchema.required).toContain('workspace_root');
+      expect(setWorkspaceInfoTool).toBeDefined();
+      expect(setWorkspaceInfoTool.name).toBe('set_workspace_info');
+      expect(setWorkspaceInfoTool.description).toContain('workspace root');
+      expect(setWorkspaceInfoTool.inputSchema.properties.workspace_root).toBeDefined();
+      expect(setWorkspaceInfoTool.inputSchema.properties.available_mcps).toBeDefined();
+      expect(setWorkspaceInfoTool.inputSchema.required).toContain('workspace_root');
     });
 
     it('should provide get_workspace_info tool definition', () => {
-      const definitions = workspaceTools.getToolDefinitions();
-      const getTool = definitions.find(t => t.name === 'get_workspace_info');
-
-      expect(getTool).toBeDefined();
-      expect(getTool?.description).toContain('workspace root');
-      expect(getTool?.inputSchema.properties).toEqual({});
-      expect(getTool?.inputSchema.required).toEqual([]);
+      expect(getWorkspaceInfoTool).toBeDefined();
+      expect(getWorkspaceInfoTool.name).toBe('get_workspace_info');
+      expect(getWorkspaceInfoTool.description).toContain('workspace root');
+      expect(getWorkspaceInfoTool.inputSchema.properties).toEqual({});
+      expect(getWorkspaceInfoTool.inputSchema.required).toEqual([]);
     });
   });
 
@@ -422,7 +432,7 @@ describe('Workspace Management Tools', () => {
         }
       };
 
-      const result = workspaceTools.handleToolCall(request);
+      const result = getWorkspaceInfoHandler(request.params.arguments);
       return result.then(res => {
         const response = JSON.parse(res.content[0].text);
 
@@ -451,7 +461,7 @@ describe('Workspace Management Tools', () => {
         }
       };
 
-      const result = workspaceTools.handleToolCall(request);
+      const result = getWorkspaceInfoHandler(request.params.arguments);
       return result.then(res => {
         const response = JSON.parse(res.content[0].text);
 
@@ -481,7 +491,7 @@ describe('Workspace Management Tools', () => {
         }
       };
 
-      const result = workspaceTools.handleToolCall(request);
+      const result = getWorkspaceInfoHandler(request.params.arguments);
       return result.then(res => {
         const response = JSON.parse(res.content[0].text);
 
@@ -500,18 +510,6 @@ describe('Workspace Management Tools', () => {
   });
 
   describe('Error Handling', () => {
-    it('should handle unknown tool names', async () => {
-      const request: CallToolRequest = {
-        method: 'tools/call',
-        params: {
-          name: 'unknown_workspace_tool',
-          arguments: {}
-        }
-      };
-
-      await expect(workspaceTools.handleToolCall(request)).rejects.toThrow('Unknown workspace tool');
-    });
-
     it('should handle context errors gracefully', async () => {
       setWorkspaceInfoSpy.mockRejectedValue(new Error('Context error'));
 
@@ -526,7 +524,7 @@ describe('Workspace Management Tools', () => {
         }
       };
 
-      await expect(workspaceTools.handleToolCall(request)).rejects.toThrow('Context error');
+      await expect(setWorkspaceInfoHandler(request.params.arguments)).rejects.toThrow('Context error');
     });
   });
 
@@ -550,7 +548,7 @@ describe('Workspace Management Tools', () => {
         }
       };
 
-      const setResult = await workspaceTools.handleToolCall(setRequest);
+      const setResult = await setWorkspaceInfoHandler(setRequest.params.arguments);
       const setResponse = JSON.parse(setResult.content[0].text);
       expect(setResponse.success).toBe(true);
 
@@ -568,7 +566,7 @@ describe('Workspace Management Tools', () => {
         }
       };
 
-      const getResult = await workspaceTools.handleToolCall(getRequest);
+      const getResult = await getWorkspaceInfoHandler(getRequest.params.arguments);
       const getResponse = JSON.parse(getResult.content[0].text);
 
       expect(getResponse.workspace_root).toBe('C:/projects/my-bc-app');
@@ -595,7 +593,7 @@ describe('Workspace Management Tools', () => {
         }
       };
 
-      await workspaceTools.handleToolCall(firstRequest);
+      await setWorkspaceInfoHandler(firstRequest.params.arguments);
 
       // Update with 3 MCPs
       const secondRequest: CallToolRequest = {
@@ -609,7 +607,7 @@ describe('Workspace Management Tools', () => {
         }
       };
 
-      const result = await workspaceTools.handleToolCall(secondRequest);
+      const result = await setWorkspaceInfoHandler(secondRequest.params.arguments);
       const response = JSON.parse(result.content[0].text);
 
       expect(response.mcp_ecosystem.total_available).toBe(3);

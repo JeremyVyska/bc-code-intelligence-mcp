@@ -7,18 +7,70 @@ import {
   getDomainList
 } from '../types/bc-knowledge.js';
 import { KnowledgeService } from './knowledge-service.js';
-import { BCCodeIntelTopic } from '../sdk/bc-code-intel-client.js';
 
 /**
  * AL Code Analysis Service
  *
  * Analyzes AL code for performance issues, anti-patterns, and optimization
  * opportunities. Dynamically loads patterns from the layered knowledge system.
+ *
+ * ## Suggestion Loading Strategy
+ *
+ * This service now supports dynamic loading of code analysis suggestions from
+ * the layered knowledge system:
+ *
+ * 1. **Dynamic Loading (Primary)**: Loads suggestions from layer topics
+ *    - Topic path pattern: `code-analysis/suggestions/{pattern-name}`
+ *    - Example: `code-analysis/suggestions/manual-summation-instead-of-sift`
+ *    - Supports layer overrides (project > team > company > embedded)
+ *    - Cached for 5 minutes to avoid repeated queries
+ *
+ * 2. **Fallback (Secondary)**: Uses hardcoded suggestions if topic not found
+ *    - Maintains backward compatibility
+ *    - Prevents runtime crashes when topics are missing
+ *    - TODO: Migrate these to embedded-knowledge topics
+ *
+ * ## Topic Structure for Suggestions
+ *
+ * Each suggestion topic should be a markdown file in:
+ * `embedded-knowledge/topics/code-analysis/suggestions/{pattern-name}.md`
+ *
+ * Example topic structure:
+ * ```markdown
+ * ---
+ * title: Manual Summation Instead of SIFT
+ * domain: performance
+ * difficulty: intermediate
+ * tags: [performance, sift, optimization]
+ * ---
+ *
+ * Replace manual summation loops with SIFT CalcSums method for better performance.
+ * Example: Record.CalcSums(Amount) instead of looping through records.
+ *
+ * ## Why This Matters
+ * Manual summation can be 10-100x slower than SIFT indexes...
+ * ```
+ *
+ * The first paragraph becomes the inline suggestion text.
+ *
+ * ## Migration Path
+ *
+ * To migrate hardcoded suggestions to topics:
+ * 1. Create markdown file in embedded-knowledge/topics/code-analysis/suggestions/
+ * 2. Use the pattern name as the filename (e.g., `manual-summation-instead-of-sift.md`)
+ * 3. Add frontmatter with metadata
+ * 4. Write suggestion text as first paragraph
+ * 5. Test that the service loads the topic correctly
+ * 6. Remove from fallback dictionary once confirmed working
  */
 export class CodeAnalysisService {
   private patternCache: ALCodePattern[] | null = null;
   private cacheExpiry: number = 0;
   private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+  // Cache for dynamically loaded suggestions from layer topics
+  private suggestionsCache: Map<string, string> | null = null;
+  private suggestionsCacheExpiry: number = 0;
 
   constructor(private knowledgeService: KnowledgeService) {}
 
@@ -736,10 +788,112 @@ export class CodeAnalysisService {
   }
 
   /**
+   * Load code analysis suggestions dynamically from layer topics
+   *
+   * Searches for topics with path: code-analysis/suggestions/{suggestion-id}
+   * Falls back to hardcoded suggestions if topic not found
+   */
+  private async loadSuggestions(): Promise<Map<string, string>> {
+    // Check cache first
+    if (this.suggestionsCache && Date.now() < this.suggestionsCacheExpiry) {
+      return this.suggestionsCache;
+    }
+
+    const suggestions = new Map<string, string>();
+
+    try {
+      // Search for all code-analysis suggestion topics across all layers
+      const layerService = (this.knowledgeService as any).layerService;
+
+      if (layerService) {
+        // Get all topic IDs and filter for code-analysis/suggestions/*
+        const allTopicIds = layerService.getAllTopicIds();
+        const suggestionTopicIds = allTopicIds.filter((id: string) =>
+          id.startsWith('code-analysis/suggestions/') ||
+          id.includes('/code-analysis/suggestions/')
+        );
+
+        console.log(`🔍 Found ${suggestionTopicIds.length} code analysis suggestion topics in layers`);
+
+        // Load each suggestion topic
+        for (const topicId of suggestionTopicIds) {
+          const resolution = await layerService.resolveTopic(topicId);
+          if (resolution && resolution.topic) {
+            const topic = resolution.topic;
+
+            // Extract suggestion ID from topic path
+            // Supports both: "code-analysis/suggestions/manual-summation-instead-of-sift"
+            // and: "performance/code-analysis/suggestions/manual-summation-instead-of-sift"
+            const suggestionIdMatch = topicId.match(/code-analysis\/suggestions\/([^/]+)$/);
+            if (suggestionIdMatch) {
+              const suggestionId = suggestionIdMatch[1];
+
+              // Extract suggestion text from topic content
+              // Look for first paragraph or use full content
+              const suggestionText = this.extractSuggestionText(topic.content);
+
+              suggestions.set(suggestionId, suggestionText);
+              console.log(`  ✓ Loaded suggestion: ${suggestionId} from layer ${resolution.sourceLayer}`);
+            }
+          }
+        }
+
+        console.log(`📋 Loaded ${suggestions.size} code analysis suggestions from layers`);
+      }
+    } catch (error) {
+      console.warn('Failed to load suggestions from knowledge layers:', error);
+    }
+
+    // Update cache
+    this.suggestionsCache = suggestions;
+    this.suggestionsCacheExpiry = Date.now() + this.CACHE_TTL;
+
+    return suggestions;
+  }
+
+  /**
+   * Extract suggestion text from topic content
+   * Extracts the main suggestion text, typically from the first paragraph
+   */
+  private extractSuggestionText(content: string): string {
+    // Remove YAML frontmatter if present
+    const contentWithoutFrontmatter = content.replace(/^---[\s\S]*?---\n*/m, '');
+
+    // Split into paragraphs
+    const paragraphs = contentWithoutFrontmatter
+      .split(/\n\n+/)
+      .map(p => p.trim())
+      .filter(p => p.length > 0 && !p.startsWith('#'));
+
+    // Return first non-heading paragraph, or first 500 chars
+    const suggestionText = paragraphs[0] || contentWithoutFrontmatter.substring(0, 500);
+
+    // Clean up any remaining markdown formatting for inline use
+    return suggestionText
+      .replace(/\n+/g, ' ')
+      .replace(/\*\*/g, '')
+      .replace(/`/g, "'")
+      .trim();
+  }
+
+  /**
    * Generate improvement suggestions
+   *
+   * Dynamically loads suggestions from layer topics with fallback to hardcoded values
    */
   private async generateSuggestion(pattern: ALCodePattern): Promise<string> {
-    const suggestions: Record<string, string> = {
+    // Try to load from layers first
+    const dynamicSuggestions = await this.loadSuggestions();
+
+    if (dynamicSuggestions.has(pattern.name)) {
+      return dynamicSuggestions.get(pattern.name)!;
+    }
+
+    // Fallback to hardcoded suggestions
+    // TODO: These hardcoded suggestions should be migrated to embedded-knowledge/topics/code-analysis/suggestions/
+    // Each suggestion should be a separate markdown file with naming pattern: {pattern-name}.md
+    // Example: embedded-knowledge/topics/code-analysis/suggestions/manual-summation-instead-of-sift.md
+    const fallbackSuggestions: Record<string, string> = {
       // Performance suggestions
       'manual-summation-instead-of-sift': 'Replace manual summation loop with SIFT CalcSums method. Example: Record.CalcSums(Amount) instead of looping through records.',
       'missing-setloadfields': 'Add SetLoadFields before FindSet to only load required fields. Example: SetLoadFields("No.", "Name") before accessing these fields.',
@@ -779,7 +933,7 @@ export class CodeAnalysisService {
       'inconsistent-api-design': 'Standardize API naming conventions. Use consistent Get/Find patterns across procedures.'
     };
 
-    return suggestions[pattern.name] || 'Consider reviewing this pattern for optimization opportunities.';
+    return fallbackSuggestions[pattern.name] || 'Consider reviewing this pattern for optimization opportunities.';
   }
 
   /**

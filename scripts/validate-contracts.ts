@@ -5,8 +5,8 @@
  * Run this during CI/CD and at server startup to catch dead ends early.
  */
 
-import { streamlinedTools } from '../src/tools/core-tools.ts';
-import { createStreamlinedHandlers } from '../src/streamlined-handlers.ts';
+import { allTools } from '../src/tools/index.ts';
+import { createToolHandlers, type HandlerServices, type WorkspaceContext } from '../src/tools/handlers.ts';
 
 interface ValidationResult {
   toolName: string;
@@ -27,9 +27,15 @@ async function validateContracts(): Promise<ValidationResult[]> {
   };
 
   try {
-    const handlers = createStreamlinedHandlers(null, mockServices) as any;
-    
-    for (const tool of streamlinedTools) {
+    // Create mock workspace context
+    const mockWorkspaceContext: WorkspaceContext = {
+      setWorkspaceInfo: async () => ({ success: true, message: 'test', reloaded: false }),
+      getWorkspaceInfo: () => ({ workspace_root: null, available_mcps: [] })
+    };
+
+    const handlers = createToolHandlers(mockServices, mockWorkspaceContext);
+
+    for (const tool of allTools) {
       const validation: ValidationResult = {
         toolName: tool.name,
         issues: [],
@@ -37,18 +43,19 @@ async function validateContracts(): Promise<ValidationResult[]> {
       };
 
       // Check if handler exists
-      if (!handlers[tool.name]) {
+      const handler = handlers.get(tool.name);
+      if (!handler) {
         validation.issues.push(`No handler found for tool: ${tool.name}`);
         results.push(validation);
         continue;
       }
 
       // Validate enum options in schema
-      await validateEnumOptions(tool, handlers[tool.name], validation);
-      
+      await validateEnumOptions(tool, handler, validation);
+
       // Test basic handler execution
-      await testHandlerExecution(tool, handlers[tool.name], validation);
-      
+      await testHandlerExecution(tool, handler, validation);
+
       results.push(validation);
     }
   } catch (error) {
@@ -171,19 +178,27 @@ function createTestValue(propSchema: any): any {
     }
     return 'test-value';
   }
-  
+
+  if (propSchema.type === 'array') {
+    // For arrays, return empty array or array with test items based on item schema
+    if (propSchema.items?.type === 'string') {
+      return ['test-item'];
+    }
+    return [];
+  }
+
   if (propSchema.type === 'number') {
     return propSchema.default || 10;
   }
-  
+
   if (propSchema.type === 'boolean') {
     return propSchema.default || false;
   }
-  
+
   if (propSchema.type === 'object') {
     return {};
   }
-  
+
   return 'test';
 }
 
@@ -221,7 +236,10 @@ function createMockWorkflowService() {
 }
 
 function createMockLayerService() {
-  return {};
+  return {
+    getAllSpecialists: async () => [],
+    getLayers: () => []
+  };
 }
 
 // Main execution

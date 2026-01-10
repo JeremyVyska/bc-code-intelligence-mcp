@@ -38,6 +38,7 @@ export interface SpecialistDefinition {
   when_to_use: string[];
   collaboration: SpecialistCollaboration;
   related_specialists: string[];
+  methodologies?: string[]; // IDs of methodologies this specialist uses
   content: string; // The markdown content after frontmatter
 }
 
@@ -151,6 +152,7 @@ export class SpecialistLoader {
           team_consultations: frontmatter.collaboration?.team_consultations || []
         },
         related_specialists: frontmatter.related_specialists || [],
+        methodologies: frontmatter.methodologies || undefined,
         content: markdownContent.trim()
       };
 

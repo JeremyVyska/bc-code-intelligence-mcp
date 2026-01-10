@@ -7,6 +7,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 🧹 Cleanup
+
+**Removed CLI and SDK Components**
+- **REMOVED** `src/cli/` directory - Command-line interface
+- **REMOVED** `src/sdk/` directory - TypeScript SDK client
+- **REMOVED** `bc-code-intel` binary from package.json (kept `bc-code-intel-server` and `bc-code-intelligence-mcp`)
+- **REMOVED** Unused `BCCodeIntelTopic` import from `code-analysis-service.ts`
+- **UPDATED** `docs/integration-ecosystem.md` - Removed SDK and CLI sections, updated architecture diagram
+- **UPDATED** `docs/inventory.md` - Removed SDK and CLI folder documentation
+- **REASON**: Focus on MCP server as the primary integration interface. CLI/SDK can be restored from git tag v1.5.9 if needed.
+- **IMPACT**: Users should interact via MCP protocol instead of CLI commands or SDK clients. Simplifies codebase and reduces maintenance burden.
+- **ROLLBACK**: To restore CLI/SDK, checkout `git checkout v1.5.9 -- src/cli src/sdk` and restore package.json bin entry
+
+### 🔧 Refactoring
+
+**Renamed EnhancedPromptService to WorkflowSpecialistRouter**
+- **RENAMED** `src/services/enhanced-prompt-service.ts` → `src/services/workflow-specialist-router.ts`
+- **RENAMED** Class `EnhancedPromptService` → `WorkflowSpecialistRouter`
+- **REASON**: The previous name was misleading - this service doesn't enhance user prompts or perform MCP prompt engineering. Instead, it routes workflow requests to appropriate BC specialists based on context analysis. The new name accurately reflects its core responsibility: analyzing workflow context and routing to the right specialist.
+- **IMPACT**: No behavioral changes, only improved code clarity and reduced confusion for contributors
+
+### 🧹 Cleanup
+
+**Legacy Code Removal and Reorganization**
+- **REMOVED** `src/layers/layer-service.ts` - Deprecated legacy layer orchestrator replaced by `multi-content-layer-service.ts`
+- **MOVED** `src/setup/post-install.ts` → `scripts/post-install.ts` - Better organization for build scripts
+- **MOVED** Manual test harnesses to `dev-tools/` directory:
+  - `src/config/test-config-loader.ts` → `dev-tools/test-config-loader.ts`
+  - `src/config/test-enhanced-layer-service.ts` → `dev-tools/test-enhanced-layers.ts`
+  - `src/config/test-git-layer.ts` → `dev-tools/test-git-layer.ts`
+  - `src/test-enhanced-mcp-server.ts` → `dev-tools/test-mcp-server.ts`
+- **ADDED** `dev-tools/README.md` - Documentation for manual test harnesses
+- Updated `.npmignore` to exclude `dev-tools/` from distribution package
+- Updated `docs/inventory.md` to reflect all cleanup changes
+
+### 📚 Documentation
+
+**Example Project Layer Moved to Wiki**
+- Removed `/bc-code-intel-overrides/` example directory from repository
+- Example project layer override (AL performance optimization with company standards) will be added to wiki separately
+- Reduces repository clutter while preserving example in external documentation
+
+**Integration Guides Moved to Wiki**
+- Integration guides moved to wiki (will be added separately)
+- Removed `/integrations/` directory containing setup guides and examples
+- Content preserved for wiki migration includes:
+  - Claude Desktop setup guide and configuration examples
+  - GitHub Copilot integration and extension code
+  - Conversation examples and usage patterns
+
 ## [1.5.9] - 2026-01-09
 
 ### 🚀 Features

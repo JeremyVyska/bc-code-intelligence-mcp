@@ -10,6 +10,9 @@ tests/
 jest.config.js
 coverage/
 
+# Development tools (manual test harnesses)
+dev-tools/
+
 # Development tools
 .eslintrc.*
 .prettierrc.*

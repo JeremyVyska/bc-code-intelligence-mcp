@@ -14,13 +14,17 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { readFileSync, existsSync } from 'fs';
 import {
-  getAllToolDefinitions,
-  STREAMLINED_TOOL_NAMES,
-  SpecialistDiscoveryTools,
-  AgentOnboardingTools,
-  SpecialistHandoffTools
+  allTools,
+  debugTools,
+  workspaceTools as workspaceToolSchemas,
+  STREAMLINED_TOOL_NAMES
 } from './tools/index.js';
-import { createStreamlinedHandlers } from './streamlined-handlers.js';
+import {
+  createToolHandlers,
+  createDebugToolHandlers,
+  type HandlerServices,
+  type WorkspaceContext
+} from './tools/handlers.js';
 import { KnowledgeService } from './services/knowledge-service.js';
 import { CodeAnalysisService } from './services/code-analysis-service.js';
 import { MethodologyService } from './services/methodology-service.js';
@@ -29,15 +33,12 @@ import { getDomainList } from './types/bc-knowledge.js';
 import { MultiContentLayerService } from './services/multi-content-layer-service.js';
 import { SpecialistSessionManager } from './services/specialist-session-manager.js';
 import { SpecialistDiscoveryService } from './services/specialist-discovery.js';
-import { EnhancedPromptService } from './services/enhanced-prompt-service.js';
+import { WorkflowSpecialistRouter } from './services/workflow-specialist-router.js';
 import { ConfigurationLoader } from './config/config-loader.js';
 import { ConfigurationValidator } from './config/config-validator.js';
-import { ConfigDiagnosticTools } from './tools/config-diagnostic-tools.js';
-import { domainWorkflows } from './workflows/domain-workflows.js';
 import {
   TopicSearchParams,
   CodeAnalysisParams,
-  OptimizationWorkflowParams,
   BCKBConfig
 } from './types/bc-knowledge.js';
 import { SpecialistDefinition } from './services/specialist-loader.js';
@@ -47,7 +48,6 @@ import {
   ConfigurationLoadResult,
   LayerSourceType
 } from './types/index.js';
-import { WorkspaceTools, WorkspaceToolsContext } from './tools/workspace-tools.js';
 
 /**
  * BC Code Intelligence MCP Server
@@ -65,17 +65,14 @@ class BCCodeIntelligenceServer {
   private layerService!: MultiContentLayerService;
   private specialistSessionManager!: SpecialistSessionManager;
   private specialistDiscoveryService!: SpecialistDiscoveryService;
-  private specialistDiscoveryTools!: SpecialistDiscoveryTools;
-  private enhancedPromptService!: EnhancedPromptService;
-  private agentOnboardingTools!: AgentOnboardingTools;
-  private specialistHandoffTools!: SpecialistHandoffTools;
-  private configDiagnosticTools!: ConfigDiagnosticTools;
+  private workflowSpecialistRouter!: WorkflowSpecialistRouter;
   private configuration!: BCCodeIntelConfiguration;
   private configLoader: ConfigurationLoader;
   private workspaceRoot: string | null = null;
   private availableMcps: string[] = [];
   private hasWarnedAboutWorkspace = false;
-  private workspaceTools!: WorkspaceTools;
+  private toolHandlers!: Map<string, (args: any) => Promise<any>>;
+  private debugToolHandlers!: Map<string, (args: any) => Promise<any>>;
   private servicesInitialized = false;
 
   private getPackageVersion(): string {
@@ -125,15 +122,12 @@ class BCCodeIntelligenceServer {
     // Initialize configuration loader
     this.configLoader = new ConfigurationLoader();
 
-    // Initialize workspace tools
-    const workspaceContext: WorkspaceToolsContext = {
+    // Initialize workspace tool handlers (these work before services are initialized)
+    const workspaceContext: WorkspaceContext = {
       setWorkspaceInfo: this.setWorkspaceInfo.bind(this),
-      getWorkspaceInfo: () => ({
-        workspace_root: this.workspaceRoot,
-        available_mcps: this.availableMcps
-      })
+      getWorkspaceInfo: this.getWorkspaceInfo.bind(this)
     };
-    this.workspaceTools = new WorkspaceTools(workspaceContext);
+    this.toolHandlers = createToolHandlers({} as HandlerServices, workspaceContext);
 
     // Services will be initialized asynchronously in run()
     this.setupToolHandlers();
@@ -141,20 +135,13 @@ class BCCodeIntelligenceServer {
   }
 
   private setupToolHandlers(): void {
-    // List available tools - now using centralized registry
+    // List available tools - now using streamlined tool arrays
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
-      const tools = getAllToolDefinitions({
-        specialistDiscoveryTools: this.specialistDiscoveryTools,
-        onboardingTools: this.agentOnboardingTools,
-        handoffTools: this.specialistHandoffTools
-      });
+      const tools = [...allTools];
 
-      // Add workspace tools (always available)
-      tools.push(...this.workspaceTools.getToolDefinitions() as any);
-
-      // Add configuration diagnostic tools if available AND enabled
-      if (this.configDiagnosticTools) {
-        tools.push(...this.configDiagnosticTools.getToolDefinitions() as any);
+      // Add configuration diagnostic tools if enabled
+      if (this.debugToolHandlers && this.debugToolHandlers.size > 0) {
+        tools.push(...debugTools);
       }
 
       return { tools };
@@ -166,8 +153,12 @@ class BCCodeIntelligenceServer {
 
       try {
         // Workspace tools are always available (no interception)
-        if (['set_workspace_info', 'get_workspace_info', 'set_workspace_root', 'get_workspace_root'].includes(name)) {
-          return await this.workspaceTools.handleToolCall(request);
+        if (['set_workspace_info', 'get_workspace_info'].includes(name)) {
+          const handler = this.toolHandlers.get(name);
+          if (!handler) {
+            throw new McpError(ErrorCode.MethodNotFound, `Unknown workspace tool: ${name}`);
+          }
+          return await handler(args);
         }
 
         // Intercept all other tools if services not initialized
@@ -181,7 +172,7 @@ The BC Code Intelligence server needs workspace information to load project-spec
 
 **Option 1: Set workspace info** (recommended for project-specific layers and MCP ecosystem awareness)
 \`\`\`
-set_workspace_info({ 
+set_workspace_info({
   workspace_root: "C:/your/project/path",
   available_mcps: []  // REQUIRED: Examine your available tools and infer MCP servers (see tool description)
 })
@@ -190,7 +181,7 @@ set_workspace_info({
 **How to populate available_mcps:**
 Check which tools you have available and add the corresponding MCP server IDs:
 - Have \`search_telemetry_traces\`? Add "bc-telemetry-buddy"
-- Have \`reserve_object_ids\`? Add "al-objid-mcp-server"  
+- Have \`reserve_object_ids\`? Add "al-objid-mcp-server"
 - Have \`analyze_dependencies\`? Add "al-dependency-mcp-server"
 - Have \`get_lsp_diagnostics\`? Add "serena-mcp"
 - Have \`create_work_item\`? Add "azure-devops-mcp"
@@ -209,37 +200,14 @@ Currently only embedded knowledge is loaded. Call \`set_workspace_info\` to enab
           };
         }
 
-        // Check if it's a specialist discovery tool
-        if (this.specialistDiscoveryTools && ['discover_specialists', 'browse_specialists', 'get_specialist_info'].includes(name)) {
-          return await this.specialistDiscoveryTools.handleToolCall(request);
+        // Try debug tool handlers first (if enabled)
+        if (this.debugToolHandlers && this.debugToolHandlers.has(name)) {
+          const handler = this.debugToolHandlers.get(name)!;
+          return await handler(args);
         }
 
-        // Check if it's an agent onboarding tool  
-        if (this.agentOnboardingTools && ['introduce_bc_specialists', 'get_specialist_introduction', 'suggest_next_specialist'].includes(name)) {
-          return await this.agentOnboardingTools.handleToolCall(request);
-        }
-
-        // Check if it's a specialist handoff tool
-        if (this.specialistHandoffTools && ['handoff_to_specialist', 'bring_in_specialist', 'get_handoff_summary'].includes(name)) {
-          return await this.specialistHandoffTools.handleToolCall(request);
-        }
-
-        // Check if it's a configuration diagnostic tool
-        if (this.configDiagnosticTools && ['diagnose_git_layer', 'validate_layer_config', 'test_azure_devops_pat', 'get_layer_diagnostics', 'diagnose_local_layer', 'reload_layers'].includes(name)) {
-          return await this.configDiagnosticTools.handleToolCall(request);
-        }
-
-        // Create streamlined handlers with all services
-        const handlers = createStreamlinedHandlers(this.server, {
-          knowledgeService: this.knowledgeService,
-          codeAnalysisService: this.codeAnalysisService,
-          methodologyService: this.methodologyService,
-          workflowService: this.workflowService,
-          layerService: this.layerService
-        });
-
-        // Execute the appropriate handler
-        const handler = handlers[name as keyof typeof handlers];
+        // Execute main tool handler
+        const handler = this.toolHandlers.get(name);
         if (!handler) {
           throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
         }
@@ -522,7 +490,7 @@ Currently only embedded knowledge is loaded. Call \`set_workspace_info\` to enab
           args?.testing_scope || args?.review_target ||
           'General workflow request';
 
-        const enhancedResult = await this.enhancedPromptService.enhanceWorkflowPrompt(
+        const enhancedResult = await this.workflowSpecialistRouter.enhanceWorkflowPrompt(
           name,
           userContext,
           initialGuidance
@@ -698,45 +666,45 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
       sessionStorageConfig
     );
 
-    // Initialize specialist discovery service and tools
+    // Initialize specialist discovery service
     this.specialistDiscoveryService = new SpecialistDiscoveryService(this.layerService);
-    this.specialistDiscoveryTools = new SpecialistDiscoveryTools(
-      this.specialistDiscoveryService,
-      this.specialistSessionManager,
-      this.layerService
-    );
 
-    // Initialize enhanced prompt service for specialist routing
-    this.enhancedPromptService = new EnhancedPromptService(
+    // Initialize workflow service with specialist discovery
+    this.workflowService = new WorkflowService(this.knowledgeService, this.methodologyService, this.specialistDiscoveryService);
+
+    // Initialize workflow specialist router for specialist routing
+    this.workflowSpecialistRouter = new WorkflowSpecialistRouter(
       this.specialistDiscoveryService,
       this.specialistSessionManager,
       this.workflowService
     );
 
-    // Initialize agent onboarding tools for natural specialist introduction
-    this.agentOnboardingTools = new AgentOnboardingTools(
-      this.specialistDiscoveryService,
-      this.layerService
-    );
+    // Create tool handlers with all service dependencies
+    const workspaceContext: WorkspaceContext = {
+      setWorkspaceInfo: this.setWorkspaceInfo.bind(this),
+      getWorkspaceInfo: this.getWorkspaceInfo.bind(this)
+    };
 
-    // Initialize specialist handoff tools for seamless transitions
-    this.specialistHandoffTools = new SpecialistHandoffTools(
-      this.specialistSessionManager,
-      this.specialistDiscoveryService,
-      this.layerService
-    );
+    const handlerServices: HandlerServices = {
+      knowledgeService: this.knowledgeService,
+      codeAnalysisService: this.codeAnalysisService,
+      methodologyService: this.methodologyService,
+      workflowService: this.workflowService,
+      layerService: this.layerService,
+      sessionManager: this.specialistSessionManager,
+      discoveryService: this.specialistDiscoveryService,
+      configLoader: this.configLoader
+    };
 
-    // Initialize configuration diagnostic tools ONLY if enabled (reduces token overhead)
+    this.toolHandlers = createToolHandlers(handlerServices, workspaceContext);
+
+    // Initialize debug tool handlers ONLY if enabled (reduces token overhead)
     if (this.configuration.developer.enable_diagnostic_tools) {
-      this.configDiagnosticTools = new ConfigDiagnosticTools(this.layerService, this.configLoader);
+      this.debugToolHandlers = createDebugToolHandlers(handlerServices);
       console.error('🔧 Configuration diagnostic tools enabled');
     } else {
       console.error('💡 Tip: Set developer.enable_diagnostic_tools=true for git layer diagnostics');
     }
-
-    // Initialize workflow service with specialist discovery
-    const specialistDiscoveryService = new SpecialistDiscoveryService(this.layerService);
-    this.workflowService = new WorkflowService(this.knowledgeService, this.methodologyService, specialistDiscoveryService);
 
     // Report final totals
     const specialists = await this.layerService.getAllSpecialists();
@@ -751,41 +719,26 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
    */
   private async validateToolContracts(): Promise<void> {
     try {
-      const handlers = createStreamlinedHandlers(this.server, {
-        knowledgeService: this.knowledgeService,
-        codeAnalysisService: this.codeAnalysisService,
-        methodologyService: this.methodologyService,
-        workflowService: this.workflowService,
-        layerService: this.layerService
-      }) as any;
-
-      const tools = getAllToolDefinitions({
-        specialistDiscoveryTools: this.specialistDiscoveryTools,
-        onboardingTools: this.agentOnboardingTools,
-        handoffTools: this.specialistHandoffTools
-      });
-
-      let hasIssues = false;
+      // Simple validation: ensure all tools in the registry have handlers
+      const tools = [...allTools];
+      if (this.debugToolHandlers && this.debugToolHandlers.size > 0) {
+        tools.push(...debugTools);
+      }
 
       for (const tool of tools) {
-        // Only validate core streamlined tools (others handle their own routing)
-        if (Object.values(STREAMLINED_TOOL_NAMES).includes(tool.name as any)) {
-          if (!handlers[tool.name]) {
-            console.error(`❌ No handler found for core tool: ${tool.name}`);
-            hasIssues = true;
-          }
+        const hasHandler = this.toolHandlers.has(tool.name) ||
+                          (this.debugToolHandlers && this.debugToolHandlers.has(tool.name));
+        if (!hasHandler) {
+          console.warn(`⚠️  Tool '${tool.name}' has no handler registered`);
         }
       }
 
-      if (hasIssues) {
-        console.error('💥 Contract validation failed! Server may have dead ends.');
-        // Don't fail startup, but warn loudly
-      }
+      console.error(`✅ Validated ${tools.length} tool contracts`);
     } catch (error) {
-      console.error(`⚠️  Contract validation error: ${error}`);
-      // Don't fail startup for validation errors
+      console.warn(`⚠️  Tool contract validation warning: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
+
 
   /**
    * Generate comprehensive system analytics
@@ -971,109 +924,6 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
     return insights;
   }
 
-  private async generateOptimizationWorkflow(params: OptimizationWorkflowParams) {
-    // Use domain workflows for comprehensive scenario coverage
-    const baseWorkflows = domainWorkflows;
-
-    // Additional legacy workflow mapping
-    const legacyWorkflows: Record<string, any> = {
-      'slow report': {
-        steps: [
-          {
-            step_number: 1,
-            title: 'Analyze Current Data Access Patterns',
-            description: 'Review report dataset access, joins, and aggregations to identify bottlenecks',
-            related_topics: ['query-performance-patterns', 'sift-technology-fundamentals'],
-            validation_criteria: ['Query execution times documented', 'Data volume assessed'],
-            estimated_time: '30 minutes'
-          },
-          {
-            step_number: 2,
-            title: 'Implement SIFT Indexes',
-            description: 'Add SIFT indexes for aggregation operations and enable MaintainSIFTIndex',
-            related_topics: ['sift-index-fundamentals', 'maintainsiftindex-property-behavior'],
-            validation_criteria: ['SIFT keys created', 'MaintainSIFTIndex enabled', 'Aggregations use CalcSums'],
-            estimated_time: '45 minutes'
-          },
-          {
-            step_number: 3,
-            title: 'Optimize Field Loading',
-            description: 'Use SetLoadFields to reduce memory usage and network traffic',
-            related_topics: ['setloadfields-optimization', 'memory-optimization'],
-            validation_criteria: ['SetLoadFields implemented', 'Only required fields loaded'],
-            estimated_time: '20 minutes'
-          },
-          {
-            step_number: 4,
-            title: 'Performance Testing and Validation',
-            description: 'Measure performance improvements and validate against targets',
-            related_topics: ['performance-monitoring', 'performance-best-practices'],
-            validation_criteria: ['Performance metrics collected', 'Target response time achieved'],
-            estimated_time: '30 minutes'
-          }
-        ],
-        learning_path: ['sift-technology-fundamentals', 'query-performance-patterns', 'performance-monitoring'],
-        success_metrics: ['Report execution time reduced by 70%+', 'Memory usage optimized', 'User satisfaction improved'],
-        common_pitfalls: ['Not enabling MaintainSIFTIndex', 'Loading unnecessary fields', 'Missing performance baselines']
-      }
-    };
-
-    // Merge domain workflows with legacy workflows
-    const allWorkflows = { ...baseWorkflows, ...legacyWorkflows };
-
-    // Find matching workflow or create generic one
-    const scenario = params.scenario.toLowerCase();
-    let workflow = null;
-
-    for (const [key, value] of Object.entries(allWorkflows)) {
-      if (scenario.includes(key)) {
-        workflow = value;
-        break;
-      }
-    }
-
-    if (!workflow) {
-      // Generate generic optimization workflow
-      workflow = {
-        steps: [
-          {
-            step_number: 1,
-            title: 'Identify Performance Bottlenecks',
-            description: 'Analyze the scenario to pinpoint specific performance issues',
-            related_topics: ['performance-monitoring', 'query-performance-patterns'],
-            validation_criteria: ['Bottlenecks identified', 'Performance baseline established'],
-            estimated_time: '30 minutes'
-          },
-          {
-            step_number: 2,
-            title: 'Apply Targeted Optimizations',
-            description: 'Implement specific BC optimization patterns based on identified issues',
-            related_topics: ['performance-best-practices', 'memory-optimization'],
-            validation_criteria: ['Optimizations implemented', 'Code patterns improved'],
-            estimated_time: '60 minutes'
-          },
-          {
-            step_number: 3,
-            title: 'Validate and Monitor',
-            description: 'Test improvements and establish ongoing monitoring',
-            related_topics: ['performance-monitoring'],
-            validation_criteria: ['Performance improved', 'Monitoring established'],
-            estimated_time: '20 minutes'
-          }
-        ],
-        learning_path: ['performance-best-practices', 'performance-monitoring'],
-        success_metrics: ['Measurable performance improvement', 'Sustainable solution implemented'],
-        common_pitfalls: ['Premature optimization', 'Insufficient testing', 'Missing monitoring']
-      };
-    }
-
-    return {
-      scenario: params.scenario,
-      workflow,
-      constraints: params.constraints || [],
-      target_performance: params.target_performance
-    };
-  }
 
   async run(): Promise<void> {
     try {
@@ -1192,20 +1042,6 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
       sessionStorageConfig
     );
     this.specialistDiscoveryService = new SpecialistDiscoveryService(this.layerService);
-    this.specialistDiscoveryTools = new SpecialistDiscoveryTools(
-      this.specialistDiscoveryService,
-      this.specialistSessionManager,
-      this.layerService
-    );
-    this.agentOnboardingTools = new AgentOnboardingTools(
-      this.specialistDiscoveryService,
-      this.layerService
-    );
-    this.specialistHandoffTools = new SpecialistHandoffTools(
-      this.specialistSessionManager,
-      this.specialistDiscoveryService,
-      this.layerService
-    );
 
     // Note: Services and tools are initialized, but servicesInitialized = false 
     // This prevents tools from being called until workspace is set
@@ -1317,6 +1153,16 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
         reloaded: false
       };
     }
+  }
+
+  /**
+   * Get current workspace info
+   */
+  private getWorkspaceInfo(): { workspace_root: string | null; available_mcps: string[] } {
+    return {
+      workspace_root: this.workspaceRoot,
+      available_mcps: this.availableMcps
+    };
   }
 
   /**

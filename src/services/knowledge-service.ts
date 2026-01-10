@@ -10,7 +10,6 @@ import { MultiContentLayerService } from '../services/multi-content-layer-servic
 import { LayerResolutionResult } from '../types/layer-types.js';
 import { SpecialistDefinition } from './specialist-loader.js';
 import { SpecialistDiscoveryService } from './specialist-discovery.js';
-import { SpecialistResponse } from '../types/roleplay-types.js';
 
 /**
  * Business Central Knowledge Service

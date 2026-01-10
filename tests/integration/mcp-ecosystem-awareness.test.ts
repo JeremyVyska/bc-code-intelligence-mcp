@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { KNOWN_BC_MCPS } from '../../src/tools/workspace-tools.js';
+import { KNOWN_BC_MCPS } from '../../src/tools/_shared/workspace-constants.js';
 import { MultiContentLayerService } from '../../src/services/multi-content-layer-service.js';
 import { EmbeddedKnowledgeLayer } from '../../src/layers/embedded-layer.js';
 import { fileURLToPath } from 'url';
