@@ -1,5 +1,5 @@
 /**
- * Workflow Session Manager v2
+ * Workflow Session Manager
  *
  * Manages stateful workflow sessions with file-based persistence.
  * Sessions are stored in .bc-workflows/ directory in the project root.
@@ -7,7 +7,7 @@
 
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { glob } from 'glob';
+import fg from 'fast-glob';
 import {
   WorkflowSession,
   WorkflowType,
@@ -22,8 +22,6 @@ import {
   WorkflowOptions,
   PatternMatch,
   WorkflowSessionStorage,
-  SharedWorkflowState,
-  SharedWorkflowSession,
   WorkflowDefinition,
   PatternDefinition,
   AnalysisSummary,
@@ -50,14 +48,12 @@ function generateChecklistItemId(prefix: string): string {
 /**
  * In-memory workflow session storage with file backup
  */
-export class WorkflowSessionManagerV2 implements WorkflowSessionStorage {
+export class WorkflowSessionManager implements WorkflowSessionStorage {
   private sessions = new Map<string, WorkflowSession>();
   private workspaceRoot: string | null = null;
-  private stateFilePath: string | null = null;
 
   constructor() {
-    // State file path can be set via environment variable
-    this.stateFilePath = process.env.BC_INTEL_WORKFLOW_STATE_PATH || null;
+    // No external state sync needed
   }
 
   /**
@@ -103,7 +99,6 @@ export class WorkflowSessionManagerV2 implements WorkflowSessionStorage {
   async createSession(session: WorkflowSession): Promise<void> {
     this.sessions.set(session.id, session);
     await this.persistSession(session);
-    await this.syncStateFile();
   }
 
   /**
@@ -137,7 +132,6 @@ export class WorkflowSessionManagerV2 implements WorkflowSessionStorage {
     session.updated_at = new Date().toISOString();
     this.sessions.set(session.id, session);
     await this.persistSession(session);
-    await this.syncStateFile();
   }
 
   /**
@@ -153,8 +147,6 @@ export class WorkflowSessionManagerV2 implements WorkflowSessionStorage {
     } catch (error) {
       // File might not exist
     }
-
-    await this.syncStateFile();
   }
 
   /**
@@ -216,74 +208,6 @@ export class WorkflowSessionManagerV2 implements WorkflowSessionStorage {
   }
 
   /**
-   * Sync state to shared state file (for VS Code status bar)
-   */
-  private async syncStateFile(): Promise<void> {
-    if (!this.stateFilePath) return;
-
-    try {
-      const activeWorkflows: SharedWorkflowSession[] = [];
-
-      for (const session of this.sessions.values()) {
-        if (session.status === 'in_progress' || session.status === 'blocked') {
-          activeWorkflows.push(this.toSharedSession(session));
-        }
-      }
-
-      const state: SharedWorkflowState = {
-        version: '2.0',
-        activeWorkflows,
-        lastUpdated: new Date().toISOString()
-      };
-
-      await fs.writeFile(this.stateFilePath, JSON.stringify(state, null, 2), 'utf-8');
-    } catch (error) {
-      console.error('Failed to sync workflow state file:', error);
-    }
-  }
-
-  /**
-   * Convert session to shared format for status bar
-   */
-  private toSharedSession(session: WorkflowSession): SharedWorkflowSession {
-    const currentPhase = session.phases.find(p => p.id === session.current_phase);
-    const phaseIndex = session.phases.findIndex(p => p.id === session.current_phase);
-
-    return {
-      id: session.id,
-      type: session.workflow_type,
-      name: this.getWorkflowDisplayName(session.workflow_type),
-      status: session.status === 'in_progress' ? 'active' : session.status as any,
-      currentPhase: session.current_phase,
-      currentPhaseName: currentPhase?.name || session.current_phase,
-      totalPhases: session.phases.length,
-      phaseIndex: phaseIndex >= 0 ? phaseIndex : 0,
-      filesTotal: session.files_total,
-      filesCompleted: session.files_completed,
-      filesInProgress: session.file_inventory.filter(f => f.status === 'in_progress').length,
-      currentFile: session.file_inventory[session.current_file_index]?.path,
-      instancesTotal: session.instances_total,
-      instancesCompleted: session.instances_completed,
-      instancesAutoFixed: session.instances_auto_fixed,
-      instancesManualReview: session.instances_manual_review,
-      versionUpgrade: session.version_upgrade ? {
-        sourceVersion: session.version_upgrade.source_version,
-        targetVersion: session.version_upgrade.target_version,
-        currentVersionStep: session.version_upgrade.current_version_step,
-        guidesTotal: session.version_upgrade.guides_total,
-        guidesCompleted: session.version_upgrade.guides_completed
-      } : undefined,
-      progressPercentage: this.calculateProgress(session),
-      progressMessage: this.generateProgressMessage(session),
-      startedAt: session.created_at,
-      lastUpdated: session.updated_at,
-      projectContext: session.options.bc_version || 'BC Code Intelligence Workflow',
-      blockedReason: session.blocked_reason,
-      blockedResolution: session.blocked_resolution
-    };
-  }
-
-  /**
    * Get display name for workflow type
    */
   private getWorkflowDisplayName(type: WorkflowType): string {
@@ -297,60 +221,6 @@ export class WorkflowSessionManagerV2 implements WorkflowSessionStorage {
       'bc-version-upgrade': 'BC Version Upgrade'
     };
     return names[type] || type;
-  }
-
-  /**
-   * Calculate overall progress percentage
-   */
-  private calculateProgress(session: WorkflowSession): number {
-    // For pattern-based workflows, weight by instances
-    if (session.instances_total && session.instances_total > 0) {
-      const instanceProgress = (session.instances_completed || 0) / session.instances_total;
-      return Math.round(instanceProgress * 100);
-    }
-
-    // For file-based workflows, weight by files
-    if (session.files_total && session.files_total > 0) {
-      const fileProgress = session.files_completed / session.files_total;
-      const phaseIndex = session.phases.findIndex(p => p.id === session.current_phase);
-      const phaseWeight = phaseIndex >= 0 ? phaseIndex / session.phases.length : 0;
-      return Math.round((fileProgress * 0.7 + phaseWeight * 0.3) * 100);
-    }
-
-    // Fallback to phase-only progress
-    const phaseIndex = session.phases.findIndex(p => p.id === session.current_phase);
-    return Math.round((phaseIndex >= 0 ? phaseIndex / session.phases.length : 0) * 100);
-  }
-
-  /**
-   * Generate progress message for status bar
-   */
-  private generateProgressMessage(session: WorkflowSession): string {
-    if (session.status === 'blocked') {
-      return `Blocked: ${session.blocked_reason || 'Unknown issue'}`;
-    }
-
-    if (session.workflow_type === 'bc-version-upgrade' && session.version_upgrade) {
-      const { current_version_step, guides_completed, guides_total } = session.version_upgrade;
-      return `${current_version_step || 'Analyzing'}: Processing (${guides_completed}/${guides_total} guides)`;
-    }
-
-    if (session.instances_total) {
-      const remaining = session.instances_total - (session.instances_completed || 0);
-      const currentPhase = session.phases.find(p => p.id === session.current_phase);
-      if (currentPhase?.id === 'batch_auto') {
-        return `Auto-fixed ${session.instances_auto_fixed || 0}. ${remaining} remaining.`;
-      }
-      return `${session.instances_completed || 0}/${session.instances_total} instances processed`;
-    }
-
-    const currentFile = session.file_inventory[session.current_file_index];
-    if (currentFile) {
-      return `Analyzing ${path.basename(currentFile.path)} (${session.files_completed + 1}/${session.files_total})`;
-    }
-
-    const currentPhase = session.phases.find(p => p.id === session.current_phase);
-    return `${currentPhase?.name || session.current_phase} in progress...`;
   }
 
   // ==========================================================================
@@ -472,11 +342,11 @@ export class WorkflowSessionManagerV2 implements WorkflowSessionStorage {
     const files: FileEntry[] = [];
 
     for (const pattern of includePatterns) {
-      const matches = await glob(pattern, {
+      const matches = await fg(pattern, {
         cwd: basePath,
         ignore: excludePatterns,
         absolute: true,
-        nodir: true
+        onlyFiles: true
       });
 
       for (const filePath of matches) {
@@ -1108,4 +978,4 @@ export class WorkflowSessionManagerV2 implements WorkflowSessionStorage {
 }
 
 // Export singleton instance
-export const workflowSessionManager = new WorkflowSessionManagerV2();
+export const workflowSessionManager = new WorkflowSessionManager();

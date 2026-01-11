@@ -1,16 +1,16 @@
 /**
- * workflow_start_v2 Tool - Schema Definition
+ * workflow_start Tool - Schema Definition
  *
- * Initialize a new workflow v2 session with stateful checklist management.
+ * Initialize a new workflow session with stateful checklist management.
  */
 
 import { Tool } from '@modelcontextprotocol/sdk/types.js';
 
-export const workflowStartV2Tool: Tool = {
-  name: 'workflow_start_v2',
-  description: `Start a Workflow Engine v2 session - a stateful checklist management system that drives agents through systematic, file-by-file processing.
+export const workflowStartTool: Tool = {
+  name: 'workflow_start',
+  description: `Start a workflow session - a stateful checklist management system that drives agents through systematic, file-by-file processing.
 
-Unlike simple workflows, v2 provides:
+Workflows provide:
 - File inventory with per-file checklists
 - Dynamic checklist expansion based on analysis
 - Pattern scanning for migrations (e.g., Error→ErrorInfo)

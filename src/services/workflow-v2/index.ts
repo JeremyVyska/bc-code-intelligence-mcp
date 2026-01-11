@@ -2,7 +2,7 @@
  * Workflow Engine v2 - Main Exports
  */
 
-export { WorkflowSessionManagerV2, workflowSessionManager } from './workflow-session-manager.js';
+export { WorkflowSessionManager, workflowSessionManager } from './workflow-session-manager.js';
 export {
   getWorkflowDefinition,
   getAvailableWorkflowTypes,

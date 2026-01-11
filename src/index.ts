@@ -29,6 +29,8 @@ import { KnowledgeService } from './services/knowledge-service.js';
 import { CodeAnalysisService } from './services/code-analysis-service.js';
 import { MethodologyService } from './services/methodology-service.js';
 import { WorkflowService } from './services/workflow-service.js';
+import { WorkflowSessionManager } from './services/workflow-v2/workflow-session-manager.js';
+import { RelevanceIndexService } from './services/relevance-index-service.js';
 import { getDomainList } from './types/bc-knowledge.js';
 import { MultiContentLayerService } from './services/multi-content-layer-service.js';
 import { SpecialistSessionManager } from './services/specialist-session-manager.js';
@@ -62,10 +64,12 @@ class BCCodeIntelligenceServer {
   private codeAnalysisService!: CodeAnalysisService;
   private methodologyService!: MethodologyService;
   private workflowService!: WorkflowService;
+  private relevanceIndexService!: RelevanceIndexService;
   private layerService!: MultiContentLayerService;
   private specialistSessionManager!: SpecialistSessionManager;
   private specialistDiscoveryService!: SpecialistDiscoveryService;
   private workflowSpecialistRouter!: WorkflowSpecialistRouter;
+  private workflowSessionManager!: WorkflowSessionManager;
   private configuration!: BCCodeIntelConfiguration;
   private configLoader: ConfigurationLoader;
   private workspaceRoot: string | null = null;
@@ -648,7 +652,12 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
     this.knowledgeService = new KnowledgeService(legacyConfig, this.layerService);
     await this.knowledgeService.initialize();
 
-    this.codeAnalysisService = new CodeAnalysisService(this.knowledgeService);
+    // V2: Create RelevanceIndexService for knowledge-driven detection
+    this.relevanceIndexService = new RelevanceIndexService(this.layerService);
+    await this.relevanceIndexService.initialize();
+
+    // Pass relevanceIndexService to enable V2 detection
+    this.codeAnalysisService = new CodeAnalysisService(this.knowledgeService, this.relevanceIndexService);
     this.methodologyService = new MethodologyService(this.knowledgeService, legacyConfig.workflows_path);
 
     // Report layer-by-layer counts after initialization
@@ -679,6 +688,12 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
       this.workflowService
     );
 
+    // Initialize workflow session manager for stateful workflow processing
+    this.workflowSessionManager = new WorkflowSessionManager();
+    if (this.workspaceRoot) {
+      this.workflowSessionManager.setWorkspaceRoot(this.workspaceRoot);
+    }
+
     // Create tool handlers with all service dependencies
     const workspaceContext: WorkspaceContext = {
       setWorkspaceInfo: this.setWorkspaceInfo.bind(this),
@@ -693,7 +708,8 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
       layerService: this.layerService,
       sessionManager: this.specialistSessionManager,
       discoveryService: this.specialistDiscoveryService,
-      configLoader: this.configLoader
+      configLoader: this.configLoader,
+      workflowSessionManager: this.workflowSessionManager
     };
 
     this.toolHandlers = createToolHandlers(handlerServices, workspaceContext);
@@ -708,7 +724,9 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
 
     // Report final totals
     const specialists = await this.layerService.getAllSpecialists();
+    const relevanceStats = this.relevanceIndexService.getStatistics();
     console.error(`📊 Total: ${totalTopics} topics, ${specialists.length} specialists`);
+    console.error(`🔍 Relevance Index: ${relevanceStats.totalTopics} indexed (${relevanceStats.v2Topics} V2, ${relevanceStats.legacyTopics} legacy)`);
 
     // Validate tool contracts at startup
     await this.validateToolContracts();

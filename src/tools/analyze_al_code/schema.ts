@@ -8,13 +8,26 @@ import { Tool } from '@modelcontextprotocol/sdk/types.js';
 
 export const analyzeAlCodeTool: Tool = {
   name: 'analyze_al_code',
-  description: 'Analyze AL code for issues, patterns, and improvements. Supports performance, quality, security, and comprehensive analysis types. Use operation=validate for compliance checks or operation=suggest_fixes for code transformations. Includes workspace analysis and workflow recommendations.',
+  description: 'Analyze AL code files in a workspace or specific files. IMPORTANT: Use workspace_path or file_path parameters - the MCP reads files directly. Do NOT pass code content unless you have inline code that is not in a file.',
   inputSchema: {
     type: 'object',
     properties: {
+      workspace_path: {
+        type: 'string',
+        description: 'PREFERRED: Absolute path to workspace root (e.g., "C:/Projects/MyApp"). The MCP scans for all .al files automatically.'
+      },
+      file_path: {
+        type: 'string',
+        description: 'Absolute path to a single .al file (e.g., "C:/Projects/MyApp/src/Codeunit.al"). The MCP reads the file directly.'
+      },
+      file_paths: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Array of absolute .al file paths to analyze.'
+      },
       code: {
         type: 'string',
-        description: 'AL code to analyze (or "workspace" to analyze current workspace)'
+        description: 'DEPRECATED: Only use for inline code snippets not in files. Never pass "workspace" or file paths as code - use workspace_path or file_path instead.'
       },
       analysis_type: {
         type: 'string',
@@ -38,6 +51,6 @@ export const analyzeAlCodeTool: Tool = {
         default: true
       }
     },
-    required: ['code']
+    required: []
   }
 };

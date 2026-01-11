@@ -121,8 +121,8 @@ export class WorkflowSpecialistRouter {
     }
 
     // Add workflow coordination options
-    routingOptions.push(`**Use MCP tool:** advance_workflow (Continue systematic workflow)`);
-    routingOptions.push(`**Use MCP tool:** get_workflow_help (Get workflow help)`);
+    routingOptions.push(`**Use MCP tool:** workflow_next (Get the next workflow action)`);
+    routingOptions.push(`**Use MCP tool:** workflow_status (Check workflow progress)`);
     routingOptions.push(`**Use MCP tool:** ask_bc_expert (Get expert advice for specific questions)`);
     routingOptions.push(`**Use MCP tool:** find_bc_knowledge (Search BC knowledge topics)`);
 
@@ -167,8 +167,9 @@ export class WorkflowSpecialistRouter {
     section += '- `get_bc_topic` - Get detailed content for specific topics\n\n';
     
     section += '**Workflow Tools (use these for systematic approach):**\n';
-    section += '- `advance_workflow` - Continue with systematic workflow steps\n';
-    section += '- `get_workflow_help` - Get help with workflow steps\n\n';
+    section += '- `workflow_next` - Get the next action in the workflow\n';
+    section += '- `workflow_status` - Check workflow progress\n';
+    section += '- `workflow_progress` - Report action completion\n\n';
 
     section += '### � External MCP Tool Discovery\n\n';
     section += '**IMPORTANT:** Before proceeding with BC operations, check if there are relevant MCP tools from other servers available:\n\n';
@@ -180,7 +181,7 @@ export class WorkflowSpecialistRouter {
     section += '### �💡 How to Proceed Effectively\n\n';
     section += '1. **Start with specialists:** Use `ask_bc_expert` for one of the recommended specialists above\n';
     section += '2. **Get specific knowledge:** Use `find_bc_knowledge` to research specific BC topics\n';
-    section += '3. **Follow systematic approach:** Use `advance_workflow` for step-by-step guidance\n';
+    section += '3. **Follow systematic approach:** Use `workflow_next` for step-by-step guidance\n';
     section += '4. **Ask targeted questions:** Be specific about your BC development challenges\n\n';
 
     return section;

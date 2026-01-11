@@ -12,13 +12,9 @@ import { createFindBcKnowledgeHandler } from './find_bc_knowledge/handler.js';
 import { createGetBcTopicHandler } from './get_bc_topic/handler.js';
 import { createAskBcExpertHandler } from './ask_bc_expert/handler.js';
 import { createAnalyzeAlCodeHandler } from './analyze_al_code/handler.js';
-import { createStartBcWorkflowHandler } from './start_bc_workflow/handler.js';
-import { createAdvanceWorkflowHandler } from './advance_workflow/handler.js';
-import { createGetWorkflowHelpHandler } from './get_workflow_help/handler.js';
 import { createListSpecialistsHandler } from './list_specialists/handler.js';
 import { createSetWorkspaceInfoHandler } from './set_workspace_info/handler.js';
 import { createGetWorkspaceInfoHandler } from './get_workspace_info/handler.js';
-// Removed discovery, onboarding, and handoff tool handlers (never used by agents)
 
 // VSCode Extension tool handlers
 import { createGetCodelensMappingsHandler } from './get_codelens_mappings/handler.js';
@@ -35,13 +31,15 @@ import { createGetLayerDiagnosticsHandler } from './debug/get_layer_diagnostics/
 import { createDiagnoseLocalLayerHandler } from './debug/diagnose_local_layer/handler.js';
 import { createReloadLayersHandler } from './debug/reload_layers/handler.js';
 
-// Workflow Engine v2 tool handlers
-import { createWorkflowStartV2Handler } from './workflow_start_v2/handler.js';
+// Workflow tool handlers (unified workflow_* naming)
+import { createWorkflowStartHandler } from './workflow_start/handler.js';
+import { createWorkflowListHandler } from './workflow_list/handler.js';
 import { createWorkflowNextHandler } from './workflow_next/handler.js';
 import { createWorkflowProgressHandler } from './workflow_progress/handler.js';
 import { createWorkflowStatusHandler } from './workflow_status/handler.js';
 import { createWorkflowCompleteHandler } from './workflow_complete/handler.js';
 import { createWorkflowBatchHandler } from './workflow_batch/handler.js';
+import { createWorkflowCancelHandler } from './workflow_cancel/handler.js';
 
 /**
  * Service dependencies for handlers
@@ -55,7 +53,7 @@ export interface HandlerServices {
   sessionManager?: any;
   discoveryService?: any;
   configLoader?: any;
-  workflowSessionManagerV2?: any;  // Workflow Engine v2 session manager
+  workflowSessionManager?: any;  // Workflow session manager
 }
 
 /**
@@ -82,9 +80,6 @@ export function createToolHandlers(services: HandlerServices, workspaceContext: 
   handlers.set('get_bc_topic', createGetBcTopicHandler(services));
   handlers.set('ask_bc_expert', createAskBcExpertHandler(services));
   handlers.set('analyze_al_code', createAnalyzeAlCodeHandler(services));
-  handlers.set('start_bc_workflow', createStartBcWorkflowHandler(services));
-  handlers.set('advance_workflow', createAdvanceWorkflowHandler(services));
-  handlers.set('get_workflow_help', createGetWorkflowHelpHandler(services));
   handlers.set('list_specialists', createListSpecialistsHandler(services));
 
   // Workspace tools
@@ -98,13 +93,15 @@ export function createToolHandlers(services: HandlerServices, workspaceContext: 
   handlers.set('create_layer_content', createCreateLayerContentHandler());
   handlers.set('list_prompts', createListPromptsHandler(services));
 
-  // Workflow Engine v2 tools
-  handlers.set('workflow_start_v2', createWorkflowStartV2Handler(services));
+  // Workflow tools (unified workflow_* naming)
+  handlers.set('workflow_list', createWorkflowListHandler(services));
+  handlers.set('workflow_start', createWorkflowStartHandler(services));
   handlers.set('workflow_next', createWorkflowNextHandler(services));
   handlers.set('workflow_progress', createWorkflowProgressHandler(services));
   handlers.set('workflow_status', createWorkflowStatusHandler(services));
   handlers.set('workflow_complete', createWorkflowCompleteHandler(services));
   handlers.set('workflow_batch', createWorkflowBatchHandler(services));
+  handlers.set('workflow_cancel', createWorkflowCancelHandler(services));
 
   return handlers;
 }

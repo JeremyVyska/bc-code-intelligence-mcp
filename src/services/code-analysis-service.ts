@@ -7,6 +7,7 @@ import {
   getDomainList
 } from '../types/bc-knowledge.js';
 import { KnowledgeService } from './knowledge-service.js';
+import { RelevanceIndexService, RelevanceMatch } from './relevance-index-service.js';
 
 /**
  * AL Code Analysis Service
@@ -72,7 +73,36 @@ export class CodeAnalysisService {
   private suggestionsCache: Map<string, string> | null = null;
   private suggestionsCacheExpiry: number = 0;
 
-  constructor(private knowledgeService: KnowledgeService) {}
+  // V2: Relevance-based detection
+  private relevanceIndexService: RelevanceIndexService | null = null;
+  private useRelevanceBasedDetection: boolean = true;
+
+  // Store last relevance matches for handler enrichment
+  private lastRelevanceMatches: RelevanceMatch[] = [];
+
+  constructor(
+    private knowledgeService: KnowledgeService,
+    relevanceIndexService?: RelevanceIndexService  // Optional for backward compatibility
+  ) {
+    this.relevanceIndexService = relevanceIndexService || null;
+    this.useRelevanceBasedDetection = !!relevanceIndexService;
+  }
+
+  /**
+   * Enable or disable relevance-based detection
+   * When disabled, falls back to legacy regex patterns
+   */
+  setUseRelevanceBasedDetection(enabled: boolean): void {
+    this.useRelevanceBasedDetection = enabled && !!this.relevanceIndexService;
+  }
+
+  /**
+   * Get the last relevance matches from the most recent analysis
+   * Used by handlers to enrich output with relevance metadata
+   */
+  getLastRelevanceMatches(): RelevanceMatch[] {
+    return this.lastRelevanceMatches;
+  }
 
   /**
    * Load AL code patterns dynamically from knowledge base
@@ -80,12 +110,14 @@ export class CodeAnalysisService {
   private async loadPatterns(): Promise<ALCodePattern[]> {
     // Check cache first
     if (this.patternCache && Date.now() < this.cacheExpiry) {
+      console.log(`🔍 Using cached patterns: ${this.patternCache.length} patterns`);
       return this.patternCache;
     }
 
     try {
       // Get all code-pattern topics from the knowledge base
       const patternTopics = await this.knowledgeService.findTopicsByType('code-pattern');
+      console.log(`🔍 Found ${patternTopics.length} code-pattern topics in knowledge base`);
 
       const patterns: ALCodePattern[] = patternTopics.map(topic => {
         const frontmatter = topic.frontmatter || {};
@@ -105,10 +137,17 @@ export class CodeAnalysisService {
 
       // Load organization standards/guidelines from company + project layers
       const orgStandards = await this.loadOrganizationStandards();
-      
+
+      // If no patterns from knowledge base, use fallback patterns
+      // This ensures we always have analysis capabilities
+      const basePatterns = patterns.length > 0 ? patterns : this.getFallbackPatterns();
+      console.log(`🔍 Using ${basePatterns.length} base patterns (${patterns.length > 0 ? 'from knowledge base' : 'fallback'})`);
+
       // Update cache with both pattern-based and standards-based rules
-      this.patternCache = [...patterns, ...orgStandards];
+      this.patternCache = [...basePatterns, ...orgStandards];
       this.cacheExpiry = Date.now() + this.CACHE_TTL;
+
+      console.log(`🔍 Total patterns loaded: ${this.patternCache.length} (${basePatterns.length} base + ${orgStandards.length} org standards)`);
 
       return this.patternCache;
     } catch (error) {
@@ -634,22 +673,105 @@ export class CodeAnalysisService {
   }
 
   /**
-   * Detect AL patterns in code using dynamically loaded patterns
+   * Detect AL patterns in code
+   *
+   * V2 Behavior (with RelevanceIndexService):
+   *   Uses knowledge-driven relevance matching
+   *
+   * Legacy Behavior (without RelevanceIndexService):
+   *   Falls back to regex-based pattern matching
    */
   private async detectPatterns(code: string): Promise<ALCodePattern[]> {
+    // V2: Use relevance-based detection if available
+    if (this.useRelevanceBasedDetection && this.relevanceIndexService) {
+      return this.detectPatternsV2(code);
+    }
+
+    // Legacy: Fall back to regex-based detection
+    return this.detectPatternsLegacy(code);
+  }
+
+  /**
+   * V2: Knowledge-driven pattern detection
+   */
+  private async detectPatternsV2(code: string): Promise<ALCodePattern[]> {
+    const relevantTopics = await this.relevanceIndexService!.findRelevantTopics(code, {
+      limit: 20,
+      minScore: 0.3,
+      includeLegacyTopics: true,  // Include topics without relevance_signals
+    });
+
+    console.error(`🔍 detectPatternsV2: Found ${relevantTopics.length} relevant topics`);
+
+    // Store for handler enrichment
+    this.lastRelevanceMatches = relevantTopics;
+
+    const patterns: ALCodePattern[] = [];
+
+    for (const match of relevantTopics) {
+      const topic = await this.knowledgeService.getTopic(match.topicId);
+      if (!topic) continue;
+
+      const fm = topic.frontmatter;
+
+      patterns.push({
+        name: match.topicId,
+        pattern_type: (fm.pattern_type as 'good' | 'bad' | 'unknown') || 'unknown',
+        regex_patterns: [],  // Not used in V2 detection
+        description: fm.description || topic.title,
+        related_topics: fm.related_topics || [],
+        severity: fm.severity,
+        category: fm.category,
+        impact_level: fm.impact_level,
+        detection_confidence: this.scoreToConfidence(match.relevanceScore),
+      });
+    }
+
+    // If no V2 results, fall back to legacy patterns
+    if (patterns.length === 0) {
+      console.error('🔍 detectPatternsV2: No matches, falling back to legacy');
+      return this.detectPatternsLegacy(code);
+    }
+
+    return patterns;
+  }
+
+  /**
+   * Legacy: Regex-based pattern detection (existing implementation)
+   * Preserved for backward compatibility
+   */
+  private async detectPatternsLegacy(code: string): Promise<ALCodePattern[]> {
     const detected: ALCodePattern[] = [];
     const patterns = await this.loadPatterns();
 
+    console.error(`🔍 detectPatternsLegacy: Testing ${patterns.length} patterns against code (${code.length} chars)`);
+
     for (const pattern of patterns) {
+      if (pattern.regex_patterns.length === 0) {
+        continue; // Skip patterns without regex (policy-based only)
+      }
       for (const regex of pattern.regex_patterns) {
+        // Reset lastIndex to avoid stateful regex issues with the 'g' flag
+        regex.lastIndex = 0;
         if (regex.test(code)) {
           detected.push(pattern);
+          console.error(`  ✓ Pattern matched: ${pattern.name}`);
           break; // Don't add the same pattern multiple times
         }
       }
     }
 
+    console.error(`🔍 detectPatternsLegacy: Found ${detected.length} matching patterns`);
     return detected;
+  }
+
+  /**
+   * Convert relevance score (0-1) to confidence level
+   */
+  private scoreToConfidence(score: number): 'low' | 'medium' | 'high' {
+    if (score >= 0.7) return 'high';
+    if (score >= 0.5) return 'medium';
+    return 'low';
   }
 
   /**
@@ -1045,6 +1167,40 @@ export class CodeAnalysisService {
     detectedPatterns: ALCodePattern[],
     bcVersion?: string
   ): Promise<TopicSearchResult[]> {
+    // V2: Use relevance index if available
+    if (this.useRelevanceBasedDetection && this.relevanceIndexService) {
+      const relevantTopics = await this.relevanceIndexService.findRelevantTopics(code, {
+        limit: 10,
+        minScore: 0.5,
+      });
+
+      const results: TopicSearchResult[] = [];
+
+      for (const match of relevantTopics) {
+        const topic = await this.knowledgeService.getTopic(match.topicId);
+        if (!topic) continue;
+
+        const fm = topic.frontmatter;
+        const domains = Array.isArray(fm.domain) ? fm.domain : [fm.domain || 'unknown'];
+
+        results.push({
+          id: match.topicId,
+          title: topic.title,
+          domain: domains[0],
+          domains: domains.length > 1 ? domains : undefined,
+          difficulty: fm.difficulty,
+          relevance_score: match.relevanceScore,
+          summary: topic.content.substring(0, 200) + '...',
+          tags: fm.tags || [],
+          prerequisites: fm.prerequisites || [],
+          estimated_time: fm.estimated_time,
+        });
+      }
+
+      return results;
+    }
+
+    // Legacy: Use existing implementation
     // Collect all related topics from detected patterns
     const relatedTopicIds = new Set<string>();
     for (const pattern of detectedPatterns) {
@@ -1053,7 +1209,7 @@ export class CodeAnalysisService {
 
     // Add contextual topics based on code content
     const codeContext = this.extractCodeContext(code);
-    
+
     const searchResults = await this.knowledgeService.searchTopics({
       code_context: codeContext,
       bc_version: bcVersion,
@@ -1062,7 +1218,7 @@ export class CodeAnalysisService {
 
     // Combine explicit related topics with search results
     const allSuggestions = new Map<string, TopicSearchResult>();
-    
+
     // Add search results
     for (const result of searchResults) {
       allSuggestions.set(result.id, result);
@@ -1072,16 +1228,16 @@ export class CodeAnalysisService {
     for (const topicId of relatedTopicIds) {
       if (!allSuggestions.has(topicId)) {
         const topic = await this.knowledgeService.getTopic(topicId);
-        if (topic) {
+        if (topic && topic.frontmatter) {
           const domains = getDomainList(topic.frontmatter.domain);
           allSuggestions.set(topicId, {
             id: topic.id,
-            title: topic.frontmatter.title,
+            title: topic.frontmatter.title || topicId,
             domain: domains[0] || 'unknown',
             domains: domains.length > 1 ? domains : undefined,
             difficulty: topic.frontmatter.difficulty,
             relevance_score: 0.9, // High relevance for explicitly related topics
-            summary: topic.content.substring(0, 200) + '...',
+            summary: (topic.content || '').substring(0, 200) + '...',
             tags: topic.frontmatter.tags,
             prerequisites: topic.frontmatter.prerequisites || [],
             estimated_time: topic.frontmatter.estimated_time

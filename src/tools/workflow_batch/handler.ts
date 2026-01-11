@@ -5,7 +5,7 @@
  */
 
 import * as crypto from 'crypto';
-import { WorkflowSessionManagerV2 } from '../../services/workflow-v2/workflow-session-manager.js';
+import { WorkflowSessionManager } from '../../services/workflow-v2/workflow-session-manager.js';
 import {
   WorkflowBatchDryRunOutput,
   WorkflowBatchExecuteOutput,
@@ -18,7 +18,7 @@ import {
 const confirmationTokens = new Map<string, { sessionId: string; operation: BatchOperation; filter: BatchFilter; instances: number }>();
 
 export function createWorkflowBatchHandler(services: any) {
-  const workflowSessionManager: WorkflowSessionManagerV2 = services.workflowSessionManagerV2;
+  const workflowSessionManager: WorkflowSessionManager = services.workflowSessionManager;
 
   return async (args: any) => {
     const {
@@ -279,7 +279,7 @@ async function executeBatchOperation(
   session: any,
   operation: BatchOperation,
   instances: Array<{ file: any; item: ChecklistItem }>,
-  manager: WorkflowSessionManagerV2
+  manager: WorkflowSessionManager
 ): Promise<{ modified: number; failed: number; filesModified: number; filesFailed: number; failures: any[] }> {
   let modified = 0;
   let failed = 0;

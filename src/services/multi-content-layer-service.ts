@@ -723,22 +723,39 @@ export class MultiContentLayerService {
    * Find specialist by ID across all layers
    */
   private async findSpecialistById(specialistId: string): Promise<SpecialistDefinition | null> {
+    console.error(`🔍 findSpecialistById: Looking for "${specialistId}" in ${this.layerPriorities.length} layers`);
+
     for (const layerName of this.layerPriorities) {
       const layer = this.layers.get(layerName);
-      if (!layer || !layer.supported_content_types.includes('specialists')) {
+      if (!layer) {
+        console.error(`  Layer "${layerName}" not found in map`);
+        continue;
+      }
+      if (!layer.supported_content_types.includes('specialists')) {
+        console.error(`  Layer "${layerName}" doesn't support specialists`);
         continue;
       }
 
       try {
-        if (layer.hasContent('specialists', specialistId)) {
-          return await layer.getContent('specialists', specialistId);
+        const hasIt = layer.hasContent('specialists', specialistId);
+        console.error(`  Layer "${layerName}": hasContent('specialists', '${specialistId}') = ${hasIt}`);
+
+        if (hasIt) {
+          const result = await layer.getContent('specialists', specialistId);
+          console.error(`  Found specialist in layer "${layerName}": ${result?.title || 'null'}`);
+          return result;
         }
+
+        // Debug: list available specialist IDs
+        const availableIds = layer.getContentIds('specialists');
+        console.error(`  Layer "${layerName}" has ${availableIds.length} specialists: ${availableIds.slice(0, 5).join(', ')}${availableIds.length > 5 ? '...' : ''}`);
       } catch (error) {
         console.error(`Error finding specialist ${specialistId} in layer ${layerName}:`, error);
         // Continue with other layers
       }
     }
 
+    console.error(`❌ Specialist "${specialistId}" not found in any layer`);
     return null;
   }
 

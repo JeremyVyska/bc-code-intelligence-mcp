@@ -68,12 +68,15 @@ The embedded-knowledge directory should contain BC expertise (domains/ or topics
       const hasDomains = existsSync(join(this.embeddedPath, 'domains'));
       const hasTopics = existsSync(join(this.embeddedPath, 'topics'));
       const hasSpecialists = existsSync(join(this.embeddedPath, 'specialists'));
-      const hasMethodologies = existsSync(join(this.embeddedPath, 'workflows'));
+      // Support both 'workflows/' (new) and 'methodologies/' (legacy) directory names
+      const hasWorkflows = existsSync(join(this.embeddedPath, 'workflows')) ||
+                           existsSync(join(this.embeddedPath, 'methodologies'));
 
       const missingDirs: string[] = [];
       if (!hasDomains && !hasTopics) missingDirs.push('domains/ or topics/');
       if (!hasSpecialists) missingDirs.push('specialists');
-      if (!hasMethodologies) missingDirs.push('workflows');
+      // Workflows are optional - don't fail initialization if missing
+      // if (!hasWorkflows) missingDirs.push('workflows');
 
       if (missingDirs.length > 0) {
         throw new Error(`

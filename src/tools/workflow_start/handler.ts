@@ -1,10 +1,10 @@
 /**
- * workflow_start_v2 Tool - Handler Implementation
+ * workflow_start Tool - Handler Implementation
  *
- * Initialize a new workflow v2 session.
+ * Initialize a new workflow session.
  */
 
-import { WorkflowSessionManagerV2 } from '../../services/workflow-v2/workflow-session-manager.js';
+import { WorkflowSessionManager } from '../../services/workflow-v2/workflow-session-manager.js';
 import {
   getWorkflowDefinition,
   isWorkflowTypeAvailable,
@@ -16,8 +16,8 @@ import {
   WorkflowStartOutput
 } from '../../types/workflow-v2-types.js';
 
-export function createWorkflowStartV2Handler(services: any) {
-  const workflowSessionManager: WorkflowSessionManagerV2 = services.workflowSessionManagerV2;
+export function createWorkflowStartHandler(services: any) {
+  const workflowSessionManager: WorkflowSessionManager = services.workflowSessionManager;
 
   return async (args: any) => {
     const {

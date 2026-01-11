@@ -4,11 +4,11 @@
  * Complete the workflow and generate final report.
  */
 
-import { WorkflowSessionManagerV2 } from '../../services/workflow-v2/workflow-session-manager.js';
+import { WorkflowSessionManager } from '../../services/workflow-v2/workflow-session-manager.js';
 import { WorkflowCompleteOutput, FindingSeverity } from '../../types/workflow-v2-types.js';
 
 export function createWorkflowCompleteHandler(services: any) {
-  const workflowSessionManager: WorkflowSessionManagerV2 = services.workflowSessionManagerV2;
+  const workflowSessionManager: WorkflowSessionManager = services.workflowSessionManager;
 
   return async (args: any) => {
     const {

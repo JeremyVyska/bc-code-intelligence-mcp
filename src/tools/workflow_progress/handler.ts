@@ -5,11 +5,11 @@
  */
 
 import * as path from 'path';
-import { WorkflowSessionManagerV2 } from '../../services/workflow-v2/workflow-session-manager.js';
+import { WorkflowSessionManager } from '../../services/workflow-v2/workflow-session-manager.js';
 import { Finding, ProposedChange, WorkflowNextOutput } from '../../types/workflow-v2-types.js';
 
 export function createWorkflowProgressHandler(services: any) {
-  const workflowSessionManager: WorkflowSessionManagerV2 = services.workflowSessionManagerV2;
+  const workflowSessionManager: WorkflowSessionManager = services.workflowSessionManager;
 
   return async (args: any) => {
     const {

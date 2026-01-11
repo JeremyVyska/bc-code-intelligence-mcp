@@ -4,11 +4,11 @@
  * Get current workflow status without advancing.
  */
 
-import { WorkflowSessionManagerV2 } from '../../services/workflow-v2/workflow-session-manager.js';
+import { WorkflowSessionManager } from '../../services/workflow-v2/workflow-session-manager.js';
 import { WorkflowStatusOutput, FindingSeverity } from '../../types/workflow-v2-types.js';
 
 export function createWorkflowStatusHandler(services: any) {
-  const workflowSessionManager: WorkflowSessionManagerV2 = services.workflowSessionManagerV2;
+  const workflowSessionManager: WorkflowSessionManager = services.workflowSessionManager;
 
   return async (args: any) => {
     const { session_id, include_all_files = false } = args;

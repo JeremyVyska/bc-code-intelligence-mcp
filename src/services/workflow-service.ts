@@ -215,6 +215,7 @@ export class WorkflowService {
     };
 
     this.activeSessions.set(sessionId, session);
+
     return session;
   }
 
@@ -571,6 +572,43 @@ Phase ${status.session.current_phase + 1} of ${status.session.specialist_pipelin
 
   private generateSessionId(): string {
     return `workflow-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  /**
+   * List all active workflow sessions
+   */
+  async listActiveSessions(): Promise<BCWorkflowSession[]> {
+    return Array.from(this.activeSessions.values())
+      .filter(s => s.status === 'active' || s.status === 'paused');
+  }
+
+  /**
+   * Cancel a specific workflow session
+   */
+  async cancelWorkflow(sessionId: string): Promise<boolean> {
+    const session = this.activeSessions.get(sessionId);
+    if (!session) {
+      return false;
+    }
+
+    // Update status to cancelled
+    session.status = 'cancelled';
+    session.last_updated = new Date();
+
+    // Remove from active sessions
+    this.activeSessions.delete(sessionId);
+
+    return true;
+  }
+
+  /**
+   * Cancel all active workflow sessions
+   */
+  async cancelAllWorkflows(): Promise<number> {
+    const count = this.activeSessions.size;
+    this.activeSessions.clear();
+
+    return count;
   }
 }
 
