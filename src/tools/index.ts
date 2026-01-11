@@ -28,10 +28,21 @@ export { askBcExpertTool } from './ask_bc_expert/schema.js';
 // Code Analysis (1 tool)
 export { analyzeAlCodeTool } from './analyze_al_code/schema.js';
 
-// Workflow Execution (3 tools)
+// Workflow Execution (3 tools - v1)
 export { startBcWorkflowTool } from './start_bc_workflow/schema.js';
 export { advanceWorkflowTool } from './advance_workflow/schema.js';
 export { getWorkflowHelpTool } from './get_workflow_help/schema.js';
+
+// ============================================================================
+// WORKFLOW ENGINE V2 TOOLS (6 tools - stateful checklist-driven workflows)
+// ============================================================================
+
+export { workflowStartV2Tool } from './workflow_start_v2/schema.js';
+export { workflowNextTool } from './workflow_next/schema.js';
+export { workflowProgressTool } from './workflow_progress/schema.js';
+export { workflowStatusTool } from './workflow_status/schema.js';
+export { workflowCompleteTool } from './workflow_complete/schema.js';
+export { workflowBatchTool } from './workflow_batch/schema.js';
 
 // Specialist Listing (1 tool)
 export { listSpecialistsTool } from './list_specialists/schema.js';
@@ -97,6 +108,14 @@ import { scaffoldLayerRepoTool } from './scaffold_layer_repo/schema.js';
 import { createLayerContentTool } from './create_layer_content/schema.js';
 import { listPromptsTool } from './list_prompts/schema.js';
 
+// Workflow Engine v2 tools
+import { workflowStartV2Tool } from './workflow_start_v2/schema.js';
+import { workflowNextTool } from './workflow_next/schema.js';
+import { workflowProgressTool } from './workflow_progress/schema.js';
+import { workflowStatusTool } from './workflow_status/schema.js';
+import { workflowCompleteTool } from './workflow_complete/schema.js';
+import { workflowBatchTool } from './workflow_batch/schema.js';
+
 /**
  * Core 8 streamlined tools (primary interface)
  */
@@ -145,12 +164,26 @@ export const vscodeExtensionTools: Tool[] = [
 ];
 
 /**
+ * Workflow Engine v2 Tools (6 tools)
+ * Stateful checklist-driven workflow management
+ */
+export const workflowV2Tools: Tool[] = [
+  workflowStartV2Tool,
+  workflowNextTool,
+  workflowProgressTool,
+  workflowStatusTool,
+  workflowCompleteTool,
+  workflowBatchTool
+];
+
+/**
  * All tools combined (for easy registration)
  */
 export const allTools: Tool[] = [
   ...coreKnowledgeTools,
   ...workspaceTools,
-  ...vscodeExtensionTools
+  ...vscodeExtensionTools,
+  ...workflowV2Tools
 ];
 
 /**
@@ -197,7 +230,15 @@ export const TOOL_NAMES = {
   VALIDATE_LAYER_REPO: 'validate_layer_repo',
   SCAFFOLD_LAYER_REPO: 'scaffold_layer_repo',
   CREATE_LAYER_CONTENT: 'create_layer_content',
-  LIST_PROMPTS: 'list_prompts'
+  LIST_PROMPTS: 'list_prompts',
+
+  // Workflow Engine v2 Tools
+  WORKFLOW_START_V2: 'workflow_start_v2',
+  WORKFLOW_NEXT: 'workflow_next',
+  WORKFLOW_PROGRESS: 'workflow_progress',
+  WORKFLOW_STATUS: 'workflow_status',
+  WORKFLOW_COMPLETE: 'workflow_complete',
+  WORKFLOW_BATCH: 'workflow_batch'
 } as const;
 
 export type ToolName = typeof TOOL_NAMES[keyof typeof TOOL_NAMES];

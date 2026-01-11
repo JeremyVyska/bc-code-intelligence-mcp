@@ -22,23 +22,33 @@ describe('Embedded Knowledge Validation', () => {
     });
 
     it('should have required subdirectories', () => {
-      const requiredDirs = ['domains', 'specialists', 'methodologies', 'indexes'];
-      
+      const requiredDirs = ['domains', 'specialists', 'indexes'];
+
       for (const dir of requiredDirs) {
         const dirPath = join(embeddedKnowledgePath, dir);
         expect(existsSync(dirPath), `Missing directory: ${dir}/`).toBe(true);
-        
+
         const stat = statSync(dirPath);
         expect(stat.isDirectory(), `${dir}/ is not a directory`).toBe(true);
       }
+
+      // workflows/ or methodologies/ (backward compatibility)
+      const workflowsPath = join(embeddedKnowledgePath, 'workflows');
+      const methodologiesPath = join(embeddedKnowledgePath, 'methodologies');
+      const hasWorkflowsDir = existsSync(workflowsPath) || existsSync(methodologiesPath);
+      expect(hasWorkflowsDir, `Missing directory: workflows/ or methodologies/`).toBe(true);
     });
   });
 
   describe('Critical Files', () => {
-    it('should have methodology index', () => {
-      const indexPath = join(embeddedKnowledgePath, 'methodologies/index.json');
-      expect(existsSync(indexPath)).toBe(true);
-      
+    it('should have workflow index', () => {
+      // Check both workflows/ and methodologies/ (backward compatibility)
+      const workflowsIndexPath = join(embeddedKnowledgePath, 'workflows/index.json');
+      const methodologiesIndexPath = join(embeddedKnowledgePath, 'methodologies/index.json');
+
+      const indexPath = existsSync(workflowsIndexPath) ? workflowsIndexPath : methodologiesIndexPath;
+      expect(existsSync(indexPath), 'Missing workflows/index.json or methodologies/index.json').toBe(true);
+
       const stat = statSync(indexPath);
       expect(stat.size).toBeGreaterThan(100); // Should have meaningful content
     });

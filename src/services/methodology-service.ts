@@ -64,7 +64,7 @@ export interface ValidationResult {
 }
 
 export class MethodologyService {
-  private methodologyPath: string;
+  private workflowsPath: string;
   private indexData: any;
   private loadedPhases: Record<string, PhaseContent> = {};
   private currentSession: {
@@ -77,13 +77,26 @@ export class MethodologyService {
 
   constructor(
     private knowledgeService: KnowledgeService,
-    methodologyPath?: string
+    workflowsPath?: string
   ) {
-    // Keep methodology loading from files, but add knowledge service for BC content
+    // Keep workflow loading from files, but add knowledge service for BC content
     // ES module: __dirname equivalent
     const __filename = fileURLToPath(import.meta.url);
     const __dirname = dirname(__filename);
-    this.methodologyPath = methodologyPath || join(__dirname, '../../embedded-knowledge', 'methodologies');
+
+    // Prefer workflows/, fall back to methodologies/ for backward compatibility
+    const preferredPath = workflowsPath || join(__dirname, '../../embedded-knowledge', 'workflows');
+    const legacyPath = join(__dirname, '../../embedded-knowledge', 'methodologies');
+
+    if (existsSync(preferredPath)) {
+      this.workflowsPath = preferredPath;
+    } else if (existsSync(legacyPath)) {
+      this.workflowsPath = legacyPath;
+      console.error(`⚠️  Using deprecated 'methodologies/' directory. Please rename to 'workflows/'`);
+    } else {
+      this.workflowsPath = preferredPath; // Will fail in loadIndex() with helpful error
+    }
+
     this.indexData = this.loadIndex();
     this.currentSession = {
       intent: null,
@@ -95,7 +108,7 @@ export class MethodologyService {
   }
 
   private loadIndex(): any {
-    const indexFile = join(this.methodologyPath, 'index.json');
+    const indexFile = join(this.workflowsPath, 'index.json');
     if (!existsSync(indexFile)) {
       throw new Error(`
 🚨 BC Code Intelligence MCP Server Setup Issue
@@ -118,8 +131,8 @@ This error indicates the embedded BC knowledge base is missing, which contains t
       const content = readFileSync(indexFile, 'utf-8');
       const indexData = JSON.parse(content);
       
-      // Log detailed information about loaded methodology
-      console.error(`Loaded methodology index with ${Object.keys(indexData.intents || {}).length} intents`);
+      // Log detailed information about loaded workflows
+      console.error(`Loaded workflow index with ${Object.keys(indexData.intents || {}).length} intents`);
       if (indexData.intents) {
         // Silently load intents without verbose logging
       }
@@ -132,7 +145,7 @@ This error indicates the embedded BC knowledge base is missing, which contains t
       
       return indexData;
     } catch (error) {
-      throw new Error(`Failed to load methodology index: ${error}`);
+      throw new Error(`Failed to load workflow index: ${error}`);
     }
   }
 
@@ -346,7 +359,7 @@ This error indicates the embedded BC knowledge base is missing, which contains t
   }
 
   private async loadPhaseContent(phaseName: string, domain: string): Promise<PhaseContent> {
-    const phaseFile = join(this.methodologyPath, 'phases', `${phaseName}.md`);
+    const phaseFile = join(this.workflowsPath, 'phases', `${phaseName}.md`);
 
     if (!existsSync(phaseFile)) {
       throw new Error(`Phase file not found: ${phaseFile}`);

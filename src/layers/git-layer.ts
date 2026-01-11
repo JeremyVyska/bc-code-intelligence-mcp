@@ -313,7 +313,7 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
       // Load all three content types from standard subdirectories
       await this.loadTopics();        // Loads from domains/
       await this.loadSpecialists();   // Loads from specialists/
-      await this.loadMethodologies(); // Loads from methodologies/
+      await this.loadWorkflows(); // Loads from workflows/
     } catch (error) {
       throw new Error(`Knowledge directory not found: ${dirPath}`);
     }
@@ -383,23 +383,38 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
   }
 
   /**
-   * Load methodologies from methodologies/ directory
+   * Load workflows from workflows/ directory (or methodologies/ for backward compatibility)
    */
-  protected async loadMethodologies(): Promise<number> {
+  protected async loadWorkflows(): Promise<number> {
     const knowledgePath = this.gitConfig.subpath
       ? join(this.localPath, this.gitConfig.subpath)
       : this.localPath;
 
-    const methodologiesPath = join(knowledgePath, 'methodologies');
+    // Prefer workflows/, fall back to methodologies/ for backward compatibility
+    const workflowsPath = join(knowledgePath, 'workflows');
+    const legacyPath = join(knowledgePath, 'methodologies');
+
+    let activePath: string | null = null;
 
     try {
-      await access(methodologiesPath);
-      // TODO: Implement methodology loading when structure is defined
-    } catch (error) {
-      // methodologies/ directory doesn't exist - that's okay
+      await access(workflowsPath);
+      activePath = workflowsPath;
+    } catch {
+      // workflows/ doesn't exist, try legacy methodologies/
+      try {
+        await access(legacyPath);
+        activePath = legacyPath;
+        console.error(`⚠️  Using deprecated 'methodologies/' directory in ${this.name}. Please rename to 'workflows/'`);
+      } catch {
+        // Neither directory exists - that's okay
+      }
     }
 
-    return this.methodologies.size;
+    if (activePath) {
+      // TODO: Implement workflow loading when structure is defined
+    }
+
+    return this.workflows.size;
   }
 
   /**

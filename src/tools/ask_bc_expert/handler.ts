@@ -70,7 +70,7 @@ export function createAskBcExpertHandler(services: any) {
               .filter((line: string) => /^\d+\.|^-|^•/.test(line.trim()))
               .map((step: string) => step.trim()),
             required_tools: specialist.recommended_topics
-              .filter((t: any) => t.domain === 'tools' || t.domain === 'methodologies')
+              .filter((t: any) => t.domain === 'tools' || t.domain === 'workflows')
               .map((t: any) => t.id),
             confidence: specialist.consultation.confidence || 0.85,
             blocking_issues: specialist.consultation.blocking_issues || [],

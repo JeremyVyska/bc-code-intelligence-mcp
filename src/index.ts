@@ -548,7 +548,7 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
     const legacyConfig: BCKBConfig = {
       knowledge_base_path: process.env['BCKB_KB_PATH'] || join(__dirname, '../embedded-knowledge'),
       indexes_path: process.env['BCKB_INDEXES_PATH'] || join(__dirname, '../embedded-knowledge/indexes'),
-      methodologies_path: process.env['BCKB_METHODOLOGIES_PATH'] || join(__dirname, '../embedded-knowledge/methodologies'),
+      workflows_path: process.env['BCKB_WORKFLOWS_PATH'] || join(__dirname, '../embedded-knowledge/workflows'),
       cache_size: this.configuration.cache.max_size_mb * 1024, // Convert MB to entries approximation
       max_search_results: 20,
       default_bc_version: 'BC22',
@@ -649,7 +649,7 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
     await this.knowledgeService.initialize();
 
     this.codeAnalysisService = new CodeAnalysisService(this.knowledgeService);
-    this.methodologyService = new MethodologyService(this.knowledgeService, legacyConfig.methodologies_path);
+    this.methodologyService = new MethodologyService(this.knowledgeService, legacyConfig.workflows_path);
 
     // Report layer-by-layer counts after initialization
     const layerStats = this.layerService.getStatistics();
@@ -946,7 +946,7 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
       console.error(`Embedded knowledge exists: ${existsSync(embeddedPath)}`);
 
       if (existsSync(embeddedPath)) {
-        const expectedDirs = ['domains', 'specialists', 'methodologies'];
+        const expectedDirs = ['domains', 'specialists', 'workflows'];
         for (const dir of expectedDirs) {
           const dirPath = join(embeddedPath, dir);
           console.error(`  ${dir}/: ${existsSync(dirPath)}`);
@@ -1017,7 +1017,7 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
     const legacyConfig: BCKBConfig = {
       knowledge_base_path: embeddedPath,
       indexes_path: join(embeddedPath, 'indexes'),
-      methodologies_path: join(embeddedPath, 'methodologies'),
+      workflows_path: join(embeddedPath, 'workflows'),
       cache_size: 1000,
       max_search_results: 20,
       default_bc_version: 'BC22',

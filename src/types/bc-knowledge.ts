@@ -262,7 +262,7 @@ export interface ALCodePattern {
 export interface BCKBConfig {
   knowledge_base_path: string;
   indexes_path: string;
-  methodologies_path?: string;
+  workflows_path?: string;
   cache_size: number;
   max_search_results: number;
   default_bc_version: string;

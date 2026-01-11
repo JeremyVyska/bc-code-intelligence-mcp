@@ -2,7 +2,7 @@
  * Base Knowledge Layer
  *
  * Abstract base class providing common functionality for all knowledge layer implementations.
- * ALL layers support three content types: topics, specialists, and methodologies.
+ * ALL layers support three content types: topics, specialists, and workflows.
  */
 
 import { AtomicTopic } from '../types/bc-knowledge.js';
@@ -17,11 +17,11 @@ import { LayerContentType } from '../types/enhanced-layer-types.js';
 
 export abstract class BaseKnowledgeLayer implements IKnowledgeLayer {
   // ALL layers support all three content types
-  readonly supported_content_types: LayerContentType[] = ['topics', 'specialists', 'methodologies'];
+  readonly supported_content_types: LayerContentType[] = ['topics', 'specialists', 'workflows'];
   
   protected topics = new Map<string, AtomicTopic>();
   protected specialists = new Map<string, SpecialistDefinition>();
-  protected methodologies = new Map<string, any>();
+  protected workflows = new Map<string, any>();
   protected indexes = new Map<string, any>();
   protected loadResult: LayerLoadResult | null = null;
   protected initialized = false;
@@ -48,9 +48,9 @@ export abstract class BaseKnowledgeLayer implements IKnowledgeLayer {
   protected abstract loadSpecialists(): Promise<number>;
 
   /**
-   * Load methodologies from the layer source - must be implemented by subclasses
+   * Load workflows from the layer source - must be implemented by subclasses
    */
-  protected abstract loadMethodologies(): Promise<number>;
+  protected abstract loadWorkflows(): Promise<number>;
 
   /**
    * Load indexes from the layer source - must be implemented by subclasses
@@ -126,8 +126,8 @@ export abstract class BaseKnowledgeLayer implements IKnowledgeLayer {
         return this.topics.has(id);
       case 'specialists':
         return this.specialists.has(id);
-      case 'methodologies':
-        return this.methodologies.has(id);
+      case 'workflows':
+        return this.workflows.has(id);
       default:
         return false;
     }
@@ -149,8 +149,8 @@ export abstract class BaseKnowledgeLayer implements IKnowledgeLayer {
         return this.topics.get(id) || null;
       case 'specialists':
         return this.specialists.get(id) || null;
-      case 'methodologies':
-        return this.methodologies.get(id) || null;
+      case 'workflows':
+        return this.workflows.get(id) || null;
       default:
         return null;
     }
@@ -165,8 +165,8 @@ export abstract class BaseKnowledgeLayer implements IKnowledgeLayer {
         return Array.from(this.topics.keys());
       case 'specialists':
         return Array.from(this.specialists.keys());
-      case 'methodologies':
-        return Array.from(this.methodologies.keys());
+      case 'workflows':
+        return Array.from(this.workflows.keys());
       default:
         return [];
     }
@@ -185,8 +185,8 @@ export abstract class BaseKnowledgeLayer implements IKnowledgeLayer {
         return this.searchTopics(query, limit);
       case 'specialists':
         return this.searchSpecialists(query, limit);
-      case 'methodologies':
-        return this.searchMethodologies(query, limit);
+      case 'workflows':
+        return this.searchWorkflows(query, limit);
       default:
         return [];
     }
@@ -219,10 +219,10 @@ export abstract class BaseKnowledgeLayer implements IKnowledgeLayer {
   }
 
   /**
-   * Search methodologies within this layer
+   * Search workflows within this layer
    */
-  protected searchMethodologies(query: string, limit: number = 10): any[] {
-    // TODO: Implement when methodology structure is defined
+  protected searchWorkflows(query: string, limit: number = 10): any[] {
+    // TODO: Implement when workflow structure is defined
     return [];
   }
 
@@ -364,7 +364,7 @@ export abstract class BaseKnowledgeLayer implements IKnowledgeLayer {
       content_counts: {
         topics: this.topics.size,
         specialists: this.specialists.size,
-        methodologies: this.methodologies.size
+        workflows: this.workflows.size
       },
       load_time_ms: this.loadResult?.loadTimeMs,
       initialized: this.initialized

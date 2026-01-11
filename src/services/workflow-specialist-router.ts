@@ -44,17 +44,28 @@ interface WorkflowMetadata {
 
 export class WorkflowSpecialistRouter {
   private workflowMetadataCache: Map<string, WorkflowMetadata> = new Map();
-  private methodologyPath: string;
+  private workflowsPath: string;
 
   constructor(
     private discoveryService: SpecialistDiscoveryService,
     private sessionManager: SpecialistSessionManager,
     private workflowService: WorkflowService
   ) {
-    // Initialize path to methodology workflows
+    // Initialize path to workflows with backward compatibility
     const __filename = fileURLToPath(import.meta.url);
     const __dirname = dirname(__filename);
-    this.methodologyPath = join(__dirname, '../../embedded-knowledge', 'methodologies', 'workflows');
+
+    // Prefer workflows/, fall back to methodologies/ for backward compatibility
+    const preferredPath = join(__dirname, '../../embedded-knowledge', 'workflows');
+    const legacyPath = join(__dirname, '../../embedded-knowledge', 'methodologies');
+
+    if (existsSync(preferredPath)) {
+      this.workflowsPath = preferredPath;
+    } else if (existsSync(legacyPath)) {
+      this.workflowsPath = legacyPath;
+    } else {
+      this.workflowsPath = preferredPath; // Default, may not exist
+    }
   }
 
   /**
@@ -276,7 +287,7 @@ export class WorkflowSpecialistRouter {
       ];
 
       for (const filename of potentialFilenames) {
-        const filePath = join(this.methodologyPath, filename);
+        const filePath = join(this.workflowsPath, filename);
 
         if (existsSync(filePath)) {
           const content = readFileSync(filePath, 'utf-8');

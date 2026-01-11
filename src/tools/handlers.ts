@@ -35,6 +35,14 @@ import { createGetLayerDiagnosticsHandler } from './debug/get_layer_diagnostics/
 import { createDiagnoseLocalLayerHandler } from './debug/diagnose_local_layer/handler.js';
 import { createReloadLayersHandler } from './debug/reload_layers/handler.js';
 
+// Workflow Engine v2 tool handlers
+import { createWorkflowStartV2Handler } from './workflow_start_v2/handler.js';
+import { createWorkflowNextHandler } from './workflow_next/handler.js';
+import { createWorkflowProgressHandler } from './workflow_progress/handler.js';
+import { createWorkflowStatusHandler } from './workflow_status/handler.js';
+import { createWorkflowCompleteHandler } from './workflow_complete/handler.js';
+import { createWorkflowBatchHandler } from './workflow_batch/handler.js';
+
 /**
  * Service dependencies for handlers
  */
@@ -47,6 +55,7 @@ export interface HandlerServices {
   sessionManager?: any;
   discoveryService?: any;
   configLoader?: any;
+  workflowSessionManagerV2?: any;  // Workflow Engine v2 session manager
 }
 
 /**
@@ -88,6 +97,14 @@ export function createToolHandlers(services: HandlerServices, workspaceContext: 
   handlers.set('scaffold_layer_repo', createScaffoldLayerRepoHandler());
   handlers.set('create_layer_content', createCreateLayerContentHandler());
   handlers.set('list_prompts', createListPromptsHandler(services));
+
+  // Workflow Engine v2 tools
+  handlers.set('workflow_start_v2', createWorkflowStartV2Handler(services));
+  handlers.set('workflow_next', createWorkflowNextHandler(services));
+  handlers.set('workflow_progress', createWorkflowProgressHandler(services));
+  handlers.set('workflow_status', createWorkflowStatusHandler(services));
+  handlers.set('workflow_complete', createWorkflowCompleteHandler(services));
+  handlers.set('workflow_batch', createWorkflowBatchHandler(services));
 
   return handlers;
 }

@@ -74,10 +74,23 @@ export function createAnalyzeAlCodeHandler(services: any) {
       }
 
       // ANALYZE OPERATION: Return conversational analysis
+      // Add workflow_integration for v2 workflows
+      const result = {
+        ...analysisResult,
+        workflow_integration: {
+          instruction: 'If running within a workflow session, pass suggested_topics to workflow_progress(expand_checklist=...) to add them to the current file\'s checklist.',
+          expand_checklist_payload: analysisResult.suggested_topics?.map((topic: any) => ({
+            topic_id: topic.topic_id || topic.id || topic,
+            relevance_score: topic.relevance_score || topic.relevance || 0.8,
+            description: topic.description || topic.title || topic
+          })) || []
+        }
+      };
+
       return {
         content: [{
           type: 'text' as const,
-          text: JSON.stringify(analysisResult, null, 2)
+          text: JSON.stringify(result, null, 2)
         }]
       };
     } else {
@@ -138,10 +151,23 @@ export function createAnalyzeAlCodeHandler(services: any) {
       }
 
       // ANALYZE OPERATION: Return conversational analysis
+      // Add workflow_integration for v2 workflows
+      const result = {
+        ...analysisResult,
+        workflow_integration: {
+          instruction: 'If running within a workflow session, pass suggested_topics to workflow_progress(expand_checklist=...) to add them to the current file\'s checklist.',
+          expand_checklist_payload: analysisResult.suggested_topics?.map((topic: any) => ({
+            topic_id: topic.topic_id || topic.id || topic,
+            relevance_score: topic.relevance_score || topic.relevance || 0.8,
+            description: topic.description || topic.title || topic
+          })) || []
+        }
+      };
+
       return {
         content: [{
           type: 'text' as const,
-          text: JSON.stringify(analysisResult, null, 2)
+          text: JSON.stringify(result, null, 2)
         }]
       };
     }

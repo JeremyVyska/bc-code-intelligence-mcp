@@ -20,7 +20,7 @@ import { LayerContentType, EnhancedLayerLoadResult, MultiContentKnowledgeLayer }
 
 export class EmbeddedKnowledgeLayer extends BaseKnowledgeLayer {
   // Support for MultiContentKnowledgeLayer interface
-  override readonly supported_content_types: LayerContentType[] = ['topics', 'specialists', 'methodologies'];
+  override readonly supported_content_types: LayerContentType[] = ['topics', 'specialists', 'workflows'];
 
   constructor(
     private readonly embeddedPath: string = (() => {
@@ -60,7 +60,7 @@ SOLUTIONS:
 🔧 For developers: Run: git submodule init && git submodule update  
 🏢 For package maintainers: Ensure submodules are initialized before npm publish
 
-The embedded-knowledge directory should contain BC expertise (domains/ or topics/, specialists/, methodologies/) required for the MCP server to function.
+The embedded-knowledge directory should contain BC expertise (domains/ or topics/, specialists/, workflows/) required for the MCP server to function.
         `.trim());
       }
 
@@ -68,12 +68,12 @@ The embedded-knowledge directory should contain BC expertise (domains/ or topics
       const hasDomains = existsSync(join(this.embeddedPath, 'domains'));
       const hasTopics = existsSync(join(this.embeddedPath, 'topics'));
       const hasSpecialists = existsSync(join(this.embeddedPath, 'specialists'));
-      const hasMethodologies = existsSync(join(this.embeddedPath, 'methodologies'));
+      const hasMethodologies = existsSync(join(this.embeddedPath, 'workflows'));
 
       const missingDirs: string[] = [];
       if (!hasDomains && !hasTopics) missingDirs.push('domains/ or topics/');
       if (!hasSpecialists) missingDirs.push('specialists');
-      if (!hasMethodologies) missingDirs.push('methodologies');
+      if (!hasMethodologies) missingDirs.push('workflows');
 
       if (missingDirs.length > 0) {
         throw new Error(`
@@ -90,7 +90,7 @@ SOLUTIONS:
 🔧 For developers: Run: git submodule update --remote --force
 🏢 For package maintainers: Verify submodule content before npm publish
 
-Expected structure: (domains/ or topics/), specialists/, methodologies/ directories with BC expertise content.
+Expected structure: (domains/ or topics/), specialists/, workflows/ directories with BC expertise content.
         `.trim());
       }
 
@@ -481,19 +481,34 @@ Expected structure: (domains/ or topics/), specialists/, methodologies/ director
   }
 
   /**
-   * Load methodologies from methodologies/ directory
+   * Load workflows from workflows/ directory (or methodologies/ for backward compatibility)
    */
-  protected async loadMethodologies(): Promise<number> {
-    const methodologiesPath = join(this.embeddedPath, 'methodologies');
+  protected async loadWorkflows(): Promise<number> {
+    // Prefer workflows/, fall back to methodologies/ for backward compatibility
+    const workflowsPath = join(this.embeddedPath, 'workflows');
+    const legacyPath = join(this.embeddedPath, 'methodologies');
+
+    let activePath: string | null = null;
 
     try {
-      await access(methodologiesPath);
-      // TODO: Implement methodology loading when structure is defined
-    } catch (error) {
-      // methodologies/ directory might not exist - that's okay
+      await access(workflowsPath);
+      activePath = workflowsPath;
+    } catch {
+      // workflows/ doesn't exist, try legacy methodologies/
+      try {
+        await access(legacyPath);
+        activePath = legacyPath;
+        console.error(`⚠️  Using deprecated 'methodologies/' directory. Please rename to 'workflows/'`);
+      } catch {
+        // Neither directory exists - that's okay
+      }
     }
 
-    return this.methodologies.size;
+    if (activePath) {
+      // TODO: Implement workflow loading when structure is defined
+    }
+
+    return this.workflows.size;
   }
 
   /**
@@ -683,7 +698,7 @@ Expected structure: (domains/ or topics/), specialists/, methodologies/ director
       content_counts: {
         topics: this.topics.size,
         specialists: this.specialists.size,
-        methodologies: 0 // Not supported yet
+        workflows: 0 // Not supported yet
       },
       load_time_ms: this.loadResult?.loadTimeMs,
       initialized: this.initialized
@@ -701,7 +716,7 @@ Expected structure: (domains/ or topics/), specialists/, methodologies/ director
       content_counts: {
         topics: this.topics.size,
         specialists: this.specialists.size,
-        methodologies: 0
+        workflows: 0
       },
       topics_loaded: this.topics.size, // Use actual Map size for consistency
       indexes_loaded: result.indexesLoaded || 0,

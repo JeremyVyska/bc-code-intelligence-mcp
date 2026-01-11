@@ -101,7 +101,7 @@ export class MultiContentLayerService {
             content_counts: {
               topics: result.topicsLoaded || 0,
               specialists: 0, // Will be updated by layer-specific logic
-              methodologies: result.indexesLoaded || 0
+              workflows: result.indexesLoaded || 0
             },
             topics_loaded: result.topicsLoaded || 0,
             indexes_loaded: result.indexesLoaded || 0,
@@ -130,7 +130,7 @@ export class MultiContentLayerService {
           success: false,
           layer_name: name,
           load_time_ms: 0,
-          content_counts: { topics: 0, specialists: 0, methodologies: 0 },
+          content_counts: { topics: 0, specialists: 0, workflows: 0 },
           topics_loaded: 0,
           indexes_loaded: 0,
           error: error instanceof Error ? error.message : String(error)
@@ -1191,7 +1191,7 @@ export class MultiContentLayerService {
           priority: enhanced.priority,
           enabled: layer.enabled,
           topicCount: enhanced.content_counts.topics || 0,
-          indexCount: enhanced.content_counts.methodologies || 0,
+          indexCount: enhanced.content_counts.workflows || 0,
           lastLoaded: enhanced.initialized ? new Date() : undefined,
           loadTimeMs: enhanced.load_time_ms,
           memoryUsage: {

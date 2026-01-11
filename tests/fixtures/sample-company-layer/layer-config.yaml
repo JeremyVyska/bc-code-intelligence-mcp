@@ -1,0 +1,5 @@
+name: sample-company
+type: company
+priority: 20
+description: Sample company knowledge layer for testing and as a template
+version: 1.0.0

@@ -15,10 +15,25 @@ export function createGetBcTopicHandler(services: any) {
 
     const topic = await knowledgeService.getTopic(topic_id, include_samples, contextDomain);
 
+    // Add workflow_integration for v2 workflows
+    const result = {
+      ...topic,
+      workflow_integration: {
+        instruction: 'Apply this topic\'s guidance to the current file. After review, call workflow_progress with any findings or proposed_changes.',
+        finding_template: {
+          severity: 'warning|error|info',
+          category: topic?.category || 'best-practice',
+          description: 'Describe the specific issue found',
+          suggestion: 'Describe the recommended fix',
+          related_topic: topic_id
+        }
+      }
+    };
+
     return {
       content: [{
         type: 'text' as const,
-        text: JSON.stringify(topic, null, 2)
+        text: JSON.stringify(result, null, 2)
       }]
     };
   };

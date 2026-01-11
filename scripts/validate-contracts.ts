@@ -23,7 +23,8 @@ async function validateContracts(): Promise<ValidationResult[]> {
     methodologyService: createMockMethodologyService(),
     codeAnalysisService: createMockCodeAnalysisService(),
     workflowService: createMockWorkflowService(),
-    layerService: createMockLayerService()
+    layerService: createMockLayerService(),
+    workflowSessionManagerV2: createMockWorkflowSessionManagerV2()
   };
 
   try {
@@ -97,16 +98,31 @@ async function validateEnumOptions(tool: any, handler: Function, validation: Val
 }
 
 async function validateWorkflowTypes(enumValues: string[], validation: ValidationResult) {
-  // These should match the pipeline definitions in WorkflowService
-  const expectedTypes = [
+  // Expected types for v1 WorkflowService
+  const v1Types = [
     'new-bc-app', 'enhance-bc-app', 'review-bc-code', 'debug-bc-issues',
     'modernize-bc-code', 'onboard-developer', 'upgrade-bc-version',
     'add-ecosystem-features', 'document-bc-solution'
   ];
-  
+
+  // Built-in types for v2 WorkflowSessionManagerV2
+  // Note: v2 also supports custom workflow types from company/project layers,
+  // which are registered at runtime and cannot be validated statically
+  const v2BuiltInTypes = [
+    'code-review', 'proposal-review', 'performance-audit', 'security-audit',
+    'onboarding', 'error-to-errorinfo-migration', 'bc-version-upgrade'
+  ];
+
+  // Combine both for validation - tool can use either system
+  const allKnownTypes = [...v1Types, ...v2BuiltInTypes];
+
   for (const enumValue of enumValues) {
-    if (!expectedTypes.includes(enumValue)) {
-      validation.issues.push(`Workflow type '${enumValue}' not implemented in WorkflowService`);
+    if (!allKnownTypes.includes(enumValue)) {
+      // Only warn, don't error - could be a custom type from a layer
+      validation.warnings.push(
+        `Workflow type '${enumValue}' is not a built-in type. ` +
+        `Ensure it's registered as a custom workflow in a company/project layer.`
+      );
     }
   }
 }
@@ -239,6 +255,49 @@ function createMockLayerService() {
   return {
     getAllSpecialists: async () => [],
     getLayers: () => []
+  };
+}
+
+function createMockWorkflowSessionManagerV2() {
+  const mockSession = {
+    id: 'wf-test-session',
+    workflow_type: 'code-review',
+    status: 'in_progress',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    file_inventory: [],
+    file_glob_pattern: '**/*.al',
+    phases: [{ id: 'analysis', name: 'Analysis', description: '', status: 'in_progress', mode: 'guided', required: true }],
+    current_phase: 'analysis',
+    current_file_index: 0,
+    files_completed: 0,
+    files_total: 0,
+    findings: [],
+    proposed_changes: [],
+    options: {}
+  };
+
+  return {
+    setWorkspaceRoot: () => {},
+    getSession: async () => mockSession,
+    createSession: async () => {},
+    updateSession: async () => {},
+    deleteSession: async () => {},
+    startWorkflow: async () => ({
+      session: mockSession,
+      analysisSummary: undefined,
+      duration_ms: 100
+    }),
+    getNextAction: () => ({
+      type: 'complete_workflow',
+      instruction: 'Test instruction'
+    }),
+    expandChecklist: () => {},
+    reportProgress: async () => ({
+      type: 'complete_workflow',
+      instruction: 'Test instruction'
+    }),
+    generateReport: async () => '# Test Report'
   };
 }
 
