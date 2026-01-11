@@ -20,6 +20,13 @@ import { createSetWorkspaceInfoHandler } from './set_workspace_info/handler.js';
 import { createGetWorkspaceInfoHandler } from './get_workspace_info/handler.js';
 // Removed discovery, onboarding, and handoff tool handlers (never used by agents)
 
+// VSCode Extension tool handlers
+import { createGetCodelensMappingsHandler } from './get_codelens_mappings/handler.js';
+import { createValidateLayerRepoHandler } from './validate_layer_repo/handler.js';
+import { createScaffoldLayerRepoHandler } from './scaffold_layer_repo/handler.js';
+import { createCreateLayerContentHandler } from './create_layer_content/handler.js';
+import { createListPromptsHandler } from './list_prompts/handler.js';
+
 // Debug tool handlers
 import { createDiagnoseGitLayerHandler } from './debug/diagnose_git_layer/handler.js';
 import { createValidateLayerConfigHandler } from './debug/validate_layer_config/handler.js';
@@ -74,6 +81,13 @@ export function createToolHandlers(services: HandlerServices, workspaceContext: 
   // Workspace tools
   handlers.set('set_workspace_info', createSetWorkspaceInfoHandler(workspaceContext));
   handlers.set('get_workspace_info', createGetWorkspaceInfoHandler(workspaceContext));
+
+  // VSCode Extension tools
+  handlers.set('get_codelens_mappings', createGetCodelensMappingsHandler(services));
+  handlers.set('validate_layer_repo', createValidateLayerRepoHandler());
+  handlers.set('scaffold_layer_repo', createScaffoldLayerRepoHandler());
+  handlers.set('create_layer_content', createCreateLayerContentHandler());
+  handlers.set('list_prompts', createListPromptsHandler(services));
 
   return handlers;
 }

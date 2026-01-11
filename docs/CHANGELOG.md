@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 🚀 Features
+
+**VSCode Extension Support Tools (5 new MCP tools)**
+- **NEW** `get_codelens_mappings` - Returns merged CodeLens pattern-to-specialist mappings from all active layers for inline AL code suggestions
+- **NEW** `validate_layer_repo` - Validates if a directory has valid BC Code Intelligence layer structure (specialists/, domains/, prompts/)
+- **NEW** `scaffold_layer_repo` - Creates complete layer folder structure with templates for company, team, or project layers
+- **NEW** `create_layer_content` - Creates properly-formatted topic, specialist, or prompt files with YAML frontmatter
+- **NEW** `list_prompts` - Lists all available prompts from all active layers with metadata for UI display
+- **NEW** `embedded-knowledge/codelens-mappings.yaml` - Default CodeLens mappings for AL patterns (Error, Events, Security, Testing, Performance, Documentation)
+- Tools exported as `vscodeExtensionTools` array in `src/tools/index.ts`
+- Enables VSCode extension features: CodeLens provider, setup wizard, tree view, and Quick Pick prompt selection
+
 ### 🧹 Cleanup
 
 **Removed CLI and SDK Components**

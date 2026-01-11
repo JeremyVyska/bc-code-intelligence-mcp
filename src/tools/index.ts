@@ -51,6 +51,16 @@ export { getWorkspaceInfoTool } from './get_workspace_info/schema.js';
 // - handoff_to_specialist, bring_in_specialist, get_handoff_summary (never selected)
 
 // ============================================================================
+// VSCODE EXTENSION TOOLS (5 tools - for VSCode extension integration)
+// ============================================================================
+
+export { getCodelensMappingsTool } from './get_codelens_mappings/schema.js';
+export { validateLayerRepoTool } from './validate_layer_repo/schema.js';
+export { scaffoldLayerRepoTool } from './scaffold_layer_repo/schema.js';
+export { createLayerContentTool } from './create_layer_content/schema.js';
+export { listPromptsTool } from './list_prompts/schema.js';
+
+// ============================================================================
 // DEBUG/DIAGNOSTIC TOOLS (6 tools - opt-in via developer.enable_diagnostic_tools)
 // ============================================================================
 
@@ -81,6 +91,11 @@ import { testAzureDevOpsPATTool } from './debug/test_azure_devops_pat/schema.js'
 import { getLayerDiagnosticsTool } from './debug/get_layer_diagnostics/schema.js';
 import { diagnoseLocalLayerTool } from './debug/diagnose_local_layer/schema.js';
 import { reloadLayersTool } from './debug/reload_layers/schema.js';
+import { getCodelensMappingsTool } from './get_codelens_mappings/schema.js';
+import { validateLayerRepoTool } from './validate_layer_repo/schema.js';
+import { scaffoldLayerRepoTool } from './scaffold_layer_repo/schema.js';
+import { createLayerContentTool } from './create_layer_content/schema.js';
+import { listPromptsTool } from './list_prompts/schema.js';
 
 /**
  * Core 8 streamlined tools (primary interface)
@@ -118,11 +133,24 @@ export const debugTools: Tool[] = [
 ];
 
 /**
+ * VSCode Extension Support Tools (5 tools)
+ * These are specifically for the VSCode extension integration
+ */
+export const vscodeExtensionTools: Tool[] = [
+  getCodelensMappingsTool,
+  validateLayerRepoTool,
+  scaffoldLayerRepoTool,
+  createLayerContentTool,
+  listPromptsTool
+];
+
+/**
  * All tools combined (for easy registration)
  */
 export const allTools: Tool[] = [
   ...coreKnowledgeTools,
-  ...workspaceTools
+  ...workspaceTools,
+  ...vscodeExtensionTools
 ];
 
 /**
@@ -162,7 +190,14 @@ export const TOOL_NAMES = {
   TEST_AZURE_DEVOPS_PAT: 'test_azure_devops_pat',
   GET_LAYER_DIAGNOSTICS: 'get_layer_diagnostics',
   DIAGNOSE_LOCAL_LAYER: 'diagnose_local_layer',
-  RELOAD_LAYERS: 'reload_layers'
+  RELOAD_LAYERS: 'reload_layers',
+
+  // VSCode Extension Tools
+  GET_CODELENS_MAPPINGS: 'get_codelens_mappings',
+  VALIDATE_LAYER_REPO: 'validate_layer_repo',
+  SCAFFOLD_LAYER_REPO: 'scaffold_layer_repo',
+  CREATE_LAYER_CONTENT: 'create_layer_content',
+  LIST_PROMPTS: 'list_prompts'
 } as const;
 
 export type ToolName = typeof TOOL_NAMES[keyof typeof TOOL_NAMES];
