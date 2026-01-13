@@ -8,11 +8,36 @@ This document outlines the comprehensive strategy implemented to prevent future 
 
 **Interface/Implementation Drift** occurs when:
 - Tool schemas advertise features that don't exist
-- Handlers call methods that aren't implemented  
+- Handlers call methods that aren't implemented
 - Enum values don't match service capabilities
 - Required parameters aren't actually required
 
 This creates "dead ends" for AI agents and users, leading to frustrating runtime errors.
+
+## Architecture Context
+
+The MCP server uses a **folder-per-tool** architecture where each tool is organized in its own directory:
+
+```
+src/tools/
+  ├── knowledge-query/
+  │   ├── schema.ts      # Tool definitions
+  │   └── handler.ts     # Implementation
+  ├── specialist-consult/
+  │   ├── schema.ts
+  │   └── handler.ts
+  ├── context-snapshot/
+  │   ├── schema.ts
+  │   └── handler.ts
+  ├── workflow-execute/
+  │   ├── schema.ts
+  │   └── handler.ts
+  └── specialist-list/
+      ├── schema.ts
+      └── handler.ts
+```
+
+This structure enforces co-location of schemas and handlers, making it easier to maintain consistency.
 
 ## Our Multi-Layered Solution
 
@@ -25,16 +50,19 @@ npm run validate:contracts  # Manual validation
 ```
 
 **What it checks**:
-- ✅ All tools have handlers
-- ✅ Enum values match service implementations  
+- ✅ All tools from `src/tools/*/schema.ts` have corresponding handlers
+- ✅ Enum values match service implementations
 - ✅ Basic handler execution works
 - ✅ Workflow types exist in WorkflowService
 - ✅ Analysis types are implemented in CodeAnalysisService
+- ✅ Tool registry (`src/tools/index.ts`) correctly exports all tools
 
 **Example output**:
 ```
-📋 start_bc_workflow:
-  ❌ Workflow type 'invalid-type' not implemented in WorkflowService
+📋 Validating tool: start_bc_workflow
+  ✅ Handler exists in workflow-execute/handler.ts
+  ✅ All workflow types implemented in WorkflowService
+  ❌ Workflow type 'invalid-type' not found
 ```
 
 ### 2. 🚀 CI/CD Integration
@@ -126,21 +154,32 @@ Before any code change involving tools:
 ## Common Scenarios
 
 ### Adding a New Tool
-1. **Implement service methods first**
-2. **Add handler logic** 
-3. **Add tool schema** (with correct enums)
-4. **Validate**: `npm run validate:contracts`
+1. **Create tool folder**: `src/tools/my-new-tool/`
+2. **Implement service methods first** in appropriate service file
+3. **Create `handler.ts`**: Implement the tool handler logic
+4. **Create `schema.ts`**: Define tool schema (with correct enums matching service)
+5. **Update `src/tools/index.ts`**: Export the new tool
+6. **Validate**: `npm run validate:contracts`
 
 ### Modifying Enum Values
-1. **Update service implementation**
-2. **Update tool schema enums**
+1. **Update service implementation** (e.g., WorkflowService, CodeAnalysisService)
+2. **Update tool schema enums** in `src/tools/*/schema.ts`
 3. **Validate**: `npm run validate:contracts`
 
 ### Adding Service Methods
-1. **Implement method in service**
-2. **Update handler to call method**
-3. **Update schema if needed**
+1. **Implement method in service** (e.g., `src/services/workflow-service.ts`)
+2. **Update handler** in `src/tools/*/handler.ts` to call method
+3. **Update schema** in `src/tools/*/schema.ts` if parameters changed
 4. **Validate**: `npm run validate:contracts`
+
+### Refactoring a Tool
+When moving from monolithic handlers to folder-per-tool:
+1. **Create folder**: `src/tools/tool-name/`
+2. **Extract schema**: Move schema definition to `schema.ts`
+3. **Extract handler**: Move handler logic to `handler.ts`
+4. **Update exports**: Update `src/tools/index.ts`
+5. **Remove old files**: Delete deprecated monolithic files
+6. **Validate**: `npm run validate:contracts`
 
 ## Error Examples
 

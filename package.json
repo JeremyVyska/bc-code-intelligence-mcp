@@ -1,6 +1,6 @@
 {
   "name": "bc-code-intelligence-mcp",
-  "version": "1.5.7",
+  "version": "1.6.0",
   "description": "BC Code Intelligence MCP Server - Complete Specialist Bundle with AI-driven expert consultation, seamless handoffs, and context-preserving workflows",
   "main": "dist/index.js",
   "type": "module",
@@ -9,7 +9,6 @@
     "embedded-knowledge/"
   ],
   "bin": {
-    "bc-code-intel": "dist/cli/bc-code-intel-cli.js",
     "bc-code-intel-server": "dist/index.js",
     "bc-code-intelligence-mcp": "dist/index.js"
   },
@@ -52,6 +51,9 @@
     "marked": "^11.1.1",
     "simple-git": "^3.28.0",
     "tslib": "^2.8.1",
+    "wink-bm25-text-search": "^3.0.0",
+    "wink-eng-lite-web-model": "^1.0.0",
+    "wink-nlp": "^2.0.0",
     "yaml": "^2.3.4",
     "zod": "^3.25.76"
   },

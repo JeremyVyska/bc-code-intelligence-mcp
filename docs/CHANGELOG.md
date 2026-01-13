@@ -7,6 +7,162 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-01-12
+
+### 🚀 Features
+
+**VSCode Extension Support Tools (5 new MCP tools)**
+- **NEW** `get_codelens_mappings` - Returns merged CodeLens pattern-to-specialist mappings from all active layers for inline AL code suggestions
+- **NEW** `validate_layer_repo` - Validates if a directory has valid BC Code Intelligence layer structure (specialists/, domains/, prompts/)
+- **NEW** `scaffold_layer_repo` - Creates complete layer folder structure with templates for company, team, or project layers
+- **NEW** `create_layer_content` - Creates properly-formatted topic, specialist, or prompt files with YAML frontmatter
+- **NEW** `list_prompts` - Lists all available prompts from all active layers with metadata for UI display
+- **NEW** `embedded-knowledge/codelens-mappings.yaml` - Default CodeLens mappings for AL patterns (Error, Events, Security, Testing, Performance, Documentation)
+- Tools exported as `vscodeExtensionTools` array in `src/tools/index.ts`
+- Enables VSCode extension features: CodeLens provider, setup wizard, tree view, and Quick Pick prompt selection
+
+### 🧹 Cleanup
+
+**Removed CLI and SDK Components**
+- **REMOVED** `src/cli/` directory - Command-line interface
+- **REMOVED** `src/sdk/` directory - TypeScript SDK client
+- **REMOVED** `bc-code-intel` binary from package.json (kept `bc-code-intel-server` and `bc-code-intelligence-mcp`)
+- **REMOVED** Unused `BCCodeIntelTopic` import from `code-analysis-service.ts`
+- **UPDATED** `docs/integration-ecosystem.md` - Removed SDK and CLI sections, updated architecture diagram
+- **UPDATED** `docs/inventory.md` - Removed SDK and CLI folder documentation
+- **REASON**: Focus on MCP server as the primary integration interface. CLI/SDK can be restored from git tag v1.5.9 if needed.
+- **IMPACT**: Users should interact via MCP protocol instead of CLI commands or SDK clients. Simplifies codebase and reduces maintenance burden.
+- **ROLLBACK**: To restore CLI/SDK, checkout `git checkout v1.5.9 -- src/cli src/sdk` and restore package.json bin entry
+
+### 🔧 Refactoring
+
+**Renamed EnhancedPromptService to WorkflowSpecialistRouter**
+- **RENAMED** `src/services/enhanced-prompt-service.ts` → `src/services/workflow-specialist-router.ts`
+- **RENAMED** Class `EnhancedPromptService` → `WorkflowSpecialistRouter`
+- **REASON**: The previous name was misleading - this service doesn't enhance user prompts or perform MCP prompt engineering. Instead, it routes workflow requests to appropriate BC specialists based on context analysis. The new name accurately reflects its core responsibility: analyzing workflow context and routing to the right specialist.
+- **IMPACT**: No behavioral changes, only improved code clarity and reduced confusion for contributors
+
+### 🧹 Cleanup
+
+**Legacy Code Removal and Reorganization**
+- **REMOVED** `src/layers/layer-service.ts` - Deprecated legacy layer orchestrator replaced by `multi-content-layer-service.ts`
+- **MOVED** `src/setup/post-install.ts` → `scripts/post-install.ts` - Better organization for build scripts
+- **MOVED** Manual test harnesses to `dev-tools/` directory:
+  - `src/config/test-config-loader.ts` → `dev-tools/test-config-loader.ts`
+  - `src/config/test-enhanced-layer-service.ts` → `dev-tools/test-enhanced-layers.ts`
+  - `src/config/test-git-layer.ts` → `dev-tools/test-git-layer.ts`
+  - `src/test-enhanced-mcp-server.ts` → `dev-tools/test-mcp-server.ts`
+- **ADDED** `dev-tools/README.md` - Documentation for manual test harnesses
+- Updated `.npmignore` to exclude `dev-tools/` from distribution package
+- Updated `docs/inventory.md` to reflect all cleanup changes
+
+### 📚 Documentation
+
+**Example Project Layer Moved to Wiki**
+- Removed `/bc-code-intel-overrides/` example directory from repository
+- Example project layer override (AL performance optimization with company standards) will be added to wiki separately
+- Reduces repository clutter while preserving example in external documentation
+
+**Integration Guides Moved to Wiki**
+- Integration guides moved to wiki (will be added separately)
+- Removed `/integrations/` directory containing setup guides and examples
+- Content preserved for wiki migration includes:
+  - Claude Desktop setup guide and configuration examples
+  - GitHub Copilot integration and extension code
+  - Conversation examples and usage patterns
+
+## [1.5.9] - 2026-01-09
+
+### 🚀 Features
+
+**Proactive Code Validation Workflow**
+- Enhanced `analyze_al_code` tool with proactive validation guidance
+- Agents now encouraged to validate generated code BEFORE presenting to users
+- Catches company standards, naming conventions, and best practices early
+- Gentle nudge approach - allows organic discovery rather than enforced workflow
+- Improves code quality by consulting knowledge layers during generation, not after
+
+**Organization Standards Integration in Code Analysis**
+- `CodeAnalysisService` now loads standards from both company AND project layers
+- Renamed `loadCompanyStandards()` → `loadOrganizationStandards()` for accuracy
+- Project layer standards automatically override company layer (higher priority: p30-100 vs p20-50)
+- Semantic matching detects when policy-based standards apply to code
+- Supports standards like "ToolTips must be on tables not pages", naming conventions, language requirements
+- Falls back to 300+ hardcoded patterns when no custom standards found
+
+**Enhanced Specialist Discovery Visibility**
+- `list_specialists` and `browse_specialists` show workspace context warnings
+- Alerts agents when only embedded specialists loaded (company/project layers not initialized)
+- Helps diagnose why custom organization specialists may not be visible
+- Improves discoverability of company-specific specialist expertise
+
+### 🐛 Bug Fixes
+
+**Fixed Git Layer Token Authentication**
+- Resolved issue where GitHub authentication popups appeared after first successful MCP call
+- Token and basic authentication now embed credentials directly in git URLs
+- Removed unreliable credential helper configuration that caused authentication failures
+- Pull operations now update remote URL to ensure consistent authentication
+- Affects: GitHub, GitLab, Bitbucket, and other HTTPS git services with token/basic auth
+
+### 🔧 Technical Improvements
+
+- Layer system properly queries ALL initialized layers (embedded, user, company, project)
+- Enhanced logging shows "organization standards (company + project)" for clarity
+- All 256 tests passing with new organization standards architecture
+
+## [1.5.8] - 2026-01-09
+
+### 🚀 Features
+
+**Intelligent Topic ID Resolution with Multi-Level Fallbacks**
+- `get_bc_topic` now never returns null - provides actionable guidance instead
+- **Level 1**: Exact match - returns full topic content
+- **Level 2**: Partial match - suggests topics ending with search term (e.g., "configuration-file-formats" finds "chris-config/configuration-file-formats")
+- **Level 3**: Domain listing - shows all topics in specified domain when topic not found
+- **Level 4**: Specialist context - shows topics from active specialist's domain
+- **Level 5**: Grouped fallback - displays topics organized by domain for easy navigation
+- Agents always get actionable information to find the right topic
+
+**Dynamic Specialist Auto-Routing**
+- Workflow requests mentioning specialist names automatically route to specialist consultation
+- "I want to talk to chris" → automatically consults chris-config specialist
+- "ask sam about code" → automatically consults sam-coder specialist
+- Works with any specialist in any layer (embedded or custom company specialists)
+- No hardcoded specialist list - dynamically built from loaded knowledge
+- Case-insensitive matching with intelligent caching
+- Better UX: users get consultation instead of "wrong tool" errors
+
+**Specialist Context-Aware Topic Suggestions**
+- `get_bc_topic` now accepts optional `specialist_context` parameter
+- When active specialist is known, topic suggestions are scoped to that specialist's domain
+- Working with Chris Config? Get chris-config topic suggestions
+- Improves topic discovery when agents are working with specific specialists
+
+### 🐛 Bug Fixes
+
+**Fixed Topic ID Format Requirements**
+- Topic IDs require domain prefix (e.g., "chris-config/configuration-file-formats")
+- System now guides users to correct format instead of failing silently
+- Partial matching helps users discover correct topic IDs
+
+**Enhanced Knowledge Discovery**
+- Multi-layer fallback system ensures agents never get stuck
+- Context-aware suggestions improve topic discovery accuracy
+- Domain-grouped listings help navigate large knowledge bases
+
+### 🔧 Improvements
+
+**Better Error Messages and Guidance**
+- Topic not found errors now include specific suggestions
+- Clear hints about topic ID format (domain/topic-name)
+- Sample topics provided when no matches found
+
+**Performance Optimizations**
+- Specialist name mappings cached across requests
+- Single lookup build per handler instance
+- Efficient string matching without regex overhead
+
 ## [1.5.6] - 2025-11-28
 
 ### 🐛 Bug Fixes

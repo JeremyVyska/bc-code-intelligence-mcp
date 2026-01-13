@@ -46,10 +46,10 @@ export class ProjectKnowledgeLayer extends BaseKnowledgeLayer {
       console.error(`Initializing ${this.name} layer from ${this.projectPath}...`);
 
       // Load all content types in parallel
-      const [topicsLoaded, specialistsLoaded, methodologiesLoaded, indexesLoaded] = await Promise.all([
+      const [topicsLoaded, specialistsLoaded, workflowsLoaded, indexesLoaded] = await Promise.all([
         this.loadTopics(),
         this.loadSpecialists(),
-        this.loadMethodologies(),
+        this.loadWorkflows(),
         this.loadIndexes()
       ]);
 
@@ -57,7 +57,7 @@ export class ProjectKnowledgeLayer extends BaseKnowledgeLayer {
       this.initialized = true;
       this.loadResult = this.createLoadResult(topicsLoaded, indexesLoaded, loadTimeMs);
 
-      console.error(`✅ ${this.name} layer loaded: ${topicsLoaded} topics, ${specialistsLoaded} specialists, ${methodologiesLoaded} methodologies, ${indexesLoaded} indexes (${loadTimeMs}ms)`);
+      console.error(`✅ ${this.name} layer loaded: ${topicsLoaded} topics, ${specialistsLoaded} specialists, ${workflowsLoaded} workflows, ${indexesLoaded} indexes (${loadTimeMs}ms)`);
       return this.loadResult;
 
     } catch (error) {
@@ -190,19 +190,34 @@ export class ProjectKnowledgeLayer extends BaseKnowledgeLayer {
   }
 
   /**
-   * Load project-specific methodologies
+   * Load project-specific workflows (or methodologies/ for backward compatibility)
    */
-  protected async loadMethodologies(): Promise<number> {
-    const methodologiesPath = join(this.projectPath, 'methodologies');
-    
+  protected async loadWorkflows(): Promise<number> {
+    // Prefer workflows/, fall back to methodologies/ for backward compatibility
+    const workflowsPath = join(this.projectPath, 'workflows');
+    const legacyPath = join(this.projectPath, 'methodologies');
+
+    let activePath: string | null = null;
+
     try {
-      await access(methodologiesPath);
-      // TODO: Implement methodology loading when needed
-    } catch (error) {
-      // methodologies/ directory doesn't exist - that's okay
+      await access(workflowsPath);
+      activePath = workflowsPath;
+    } catch {
+      // workflows/ doesn't exist, try legacy methodologies/
+      try {
+        await access(legacyPath);
+        activePath = legacyPath;
+        console.error(`⚠️  Using deprecated 'methodologies/' directory in project overrides. Please rename to 'workflows/'`);
+      } catch {
+        // Neither directory exists - that's okay
+      }
     }
-    
-    return this.methodologies.size;
+
+    if (activePath) {
+      // TODO: Implement workflow loading when needed
+    }
+
+    return this.workflows.size;
   }
 
   /**

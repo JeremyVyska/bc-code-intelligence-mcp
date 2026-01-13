@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, vi } from 'vitest';
-import { streamlinedTools } from '../../src/tools/core-tools.js';
-import { createStreamlinedHandlers } from '../../src/streamlined-handlers.js';
+import { allTools } from '../../src/tools/index.js';
+import { createToolHandlers, type HandlerServices, type WorkspaceContext } from '../../src/tools/handlers.js';
 import { BCCodeIntelligenceServer } from '../../src/index.js';
 
 /**
@@ -12,8 +12,9 @@ import { BCCodeIntelligenceServer } from '../../src/index.js';
  * 3. Breaking changes released without detection
  */
 describe('MCP Tool Contract Validation', () => {
-  let mockServices: any;
-  let handlers: any;
+  let mockServices: HandlerServices;
+  let mockWorkspaceContext: WorkspaceContext;
+  let handlers: Map<string, any>;
 
   beforeAll(async () => {
     // Create mock services that match the real service interfaces
@@ -46,22 +47,28 @@ describe('MCP Tool Contract Validation', () => {
       }
     };
 
+    // Create mock workspace context
+    mockWorkspaceContext = {
+      setWorkspaceInfo: vi.fn().mockResolvedValue({ success: true, message: 'OK', reloaded: false }),
+      getWorkspaceInfo: vi.fn().mockReturnValue({ workspace_root: null, available_mcps: [] })
+    };
+
     // Create handlers with mock services
-    handlers = createStreamlinedHandlers(null, mockServices);
+    handlers = createToolHandlers(mockServices, mockWorkspaceContext);
   });
 
   describe('Tool Handler Existence', () => {
     it('should have a handler for every defined tool', () => {
-      for (const tool of streamlinedTools) {
-        expect(handlers).toHaveProperty(tool.name);
-        expect(typeof handlers[tool.name]).toBe('function');
+      for (const tool of allTools) {
+        expect(handlers.has(tool.name)).toBe(true);
+        expect(typeof handlers.get(tool.name)).toBe('function');
       }
     });
 
     it('should not have orphaned handlers (handlers without tool definitions)', () => {
-      const toolNames = streamlinedTools.map(t => t.name);
-      const handlerNames = Object.keys(handlers);
-      
+      const toolNames = allTools.map(t => t.name);
+      const handlerNames = Array.from(handlers.keys());
+
       for (const handlerName of handlerNames) {
         expect(toolNames).toContain(handlerName);
       }
@@ -70,7 +77,7 @@ describe('MCP Tool Contract Validation', () => {
 
   describe('Tool Schema Validation', () => {
     it('should have valid input schemas for all tools', () => {
-      for (const tool of streamlinedTools) {
+      for (const tool of allTools) {
         expect(tool.inputSchema).toBeDefined();
         expect(tool.inputSchema.type).toBe('object');
         expect(tool.inputSchema.properties).toBeDefined();
@@ -78,7 +85,7 @@ describe('MCP Tool Contract Validation', () => {
     });
 
     it('should have required properties defined correctly', () => {
-      for (const tool of streamlinedTools) {
+      for (const tool of allTools) {
         const schema = tool.inputSchema as any;
         if (schema.required && Array.isArray(schema.required)) {
           for (const requiredProp of schema.required) {
@@ -91,7 +98,8 @@ describe('MCP Tool Contract Validation', () => {
 
   describe('Handler Execution Tests', () => {
     it('should execute find_bc_knowledge without errors', async () => {
-      const result = await handlers.find_bc_knowledge({
+      const handler = handlers.get('find_bc_knowledge');
+      const result = await handler({
         query: 'test query',
         search_type: 'topics'
       });
@@ -100,14 +108,16 @@ describe('MCP Tool Contract Validation', () => {
     });
 
     it('should execute ask_bc_expert without errors', async () => {
-      const result = await handlers.ask_bc_expert({
+      const handler = handlers.get('ask_bc_expert');
+      const result = await handler({
         question: 'test question'
       });
       expect(result).toBeDefined();
     });
 
     it('should execute start_bc_workflow without errors', async () => {
-      const result = await handlers.start_bc_workflow({
+      const handler = handlers.get('start_bc_workflow');
+      const result = await handler({
         workflow_type: 'app_takeover',
         context: 'test context'
       });
@@ -117,7 +127,7 @@ describe('MCP Tool Contract Validation', () => {
 
   describe('Enum Validation', () => {
     it('should validate workflow_type enums match service capabilities', async () => {
-      const workflowTool = streamlinedTools.find(t => t.name === 'start_bc_workflow');
+      const workflowTool = allTools.find(t => t.name === 'start_bc_workflow');
       const schema = workflowTool?.inputSchema as any;
       if (schema?.properties?.workflow_type?.enum) {
         const schemaEnums = schema.properties.workflow_type.enum;
@@ -130,14 +140,15 @@ describe('MCP Tool Contract Validation', () => {
     });
 
     it('should validate search_type enums are handled correctly', async () => {
-      const searchTool = streamlinedTools.find(t => t.name === 'find_bc_knowledge');
+      const searchTool = allTools.find(t => t.name === 'find_bc_knowledge');
       const schema = searchTool?.inputSchema as any;
       if (schema?.properties?.search_type?.enum) {
         const searchTypes = schema.properties.search_type.enum;
-        
+        const handler = handlers.get('find_bc_knowledge');
+
         // Test each search type can be handled
         for (const searchType of searchTypes) {
-          const result = await handlers.find_bc_knowledge({
+          const result = await handler({
             query: 'test',
             search_type: searchType
           });
@@ -150,7 +161,8 @@ describe('MCP Tool Contract Validation', () => {
   describe('Error Handling', () => {
     it('should handle invalid tool arguments gracefully', async () => {
       // Test with missing required parameters
-      const result = await handlers.find_bc_knowledge({});
+      const handler = handlers.get('find_bc_knowledge');
+      const result = await handler({});
       expect(result).toBeDefined();
       // Should return error result, not throw
     });
@@ -158,11 +170,12 @@ describe('MCP Tool Contract Validation', () => {
     it('should handle service errors gracefully', async () => {
       // Mock service to throw error
       mockServices.knowledgeService.searchTopics.mockRejectedValueOnce(new Error('Service error'));
-      
-      const result = await handlers.find_bc_knowledge({
+
+      const handler = handlers.get('find_bc_knowledge');
+      const result = await handler({
         query: 'test query'
       });
-      
+
       expect(result).toBeDefined();
       expect(result.isError).toBe(true);
     });

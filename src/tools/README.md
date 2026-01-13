@@ -2,120 +2,144 @@
 
 This directory contains **ALL** MCP tools exposed by the BC Code Intelligence server.
 
-## Purpose
+## Architecture: One Folder Per Tool
 
-Before this consolidation, tools were scattered across multiple locations:
-- `src/streamlined-tools.ts` - Core 8 tools
-- `src/tools/specialist-tools.ts` - Specialist interaction
-- `src/tools/specialist-discovery-tools.ts` - Discovery features
-- `src/services/agent-onboarding-service.ts` - Onboarding (tools embedded in service)
-- `src/services/specialist-handoff-service.ts` - Handoffs (tools embedded in service)
+Each MCP tool has its own dedicated folder containing:
+- `schema.ts` - Tool definition (name, description, input schema)
+- `handler.ts` - Implementation logic (handler factory function)
 
-This made it difficult for developers and AI agents to discover and understand all available tools.
+## Directory Structure
 
-## Structure
+```
+src/tools/
+├── _shared/                    # Shared constants and utilities
+│   └── workspace-constants.ts  # Known MCP servers and tool signatures
+├── analyze_al_code/            # Analyze AL code for patterns and issues
+├── ask_bc_expert/              # Consult BC specialist personas
+├── debug/                      # Debug/diagnostic tools (opt-in)
+│   ├── diagnose_git_layer/     # Test Git-based layer connectivity
+│   ├── diagnose_local_layer/   # Validate local layer structure
+│   ├── get_layer_diagnostics/  # Get layer loading diagnostics
+│   ├── reload_layers/          # Reload layer configuration
+│   ├── test_azure_devops_pat/  # Test Azure DevOps PAT tokens
+│   └── validate_layer_config/  # Validate layer configuration
+├── find_bc_knowledge/          # Search topics, specialists, workflows
+├── get_bc_topic/               # Get detailed topic content
+├── get_workspace_info/         # Get current workspace context
+├── list_specialists/           # List all available specialists
+├── set_workspace_info/         # Set workspace root and MCP ecosystem
+├── workflow_batch/             # Apply batch operations to workflow
+├── workflow_cancel/            # Cancel an active workflow
+├── workflow_complete/          # Complete a workflow and generate report
+├── workflow_list/              # List available workflows
+├── workflow_next/              # Get next workflow action
+├── workflow_progress/          # Report progress on workflow action
+├── workflow_start/             # Start a new workflow session
+├── workflow_status/            # Get workflow session status
+├── handlers.ts                 # Centralized handler registry
+├── index.ts                    # Tool exports and arrays
+└── README.md                   # This file
+```
 
-### **index.ts** - Central Registry
-- Single entry point for all tool definitions
-- Exports all tool classes and definitions
-- Provides `getAllToolDefinitions()` for MCP server registration
-- Contains tool name constants for type safety
+## Tool Categories
 
-### Tool Categories
+### Core Knowledge Tools (5 tools)
+Primary interface for BC development assistance:
 
-#### Core Tools (`core-tools.ts`)
-The fundamental 8-tool interface:
-1. `find_bc_knowledge` - Search BC knowledge, specialists, workflows
-2. `ask_bc_expert` - Direct specialist consultation
-3. `analyze_al_code` - Code analysis
-4. `get_bc_topic` - Detailed topic content
-5. `start_bc_workflow` - Structured workflows
-6. `advance_workflow` - Progress workflows
-7. `get_workflow_help` - Workflow guidance
-8. `get_bc_help` - Meta-tool for suggestions
+1. **find_bc_knowledge** - Search BC knowledge topics, specialists, or workflows
+2. **get_bc_topic** - Get detailed content for a specific BC topic
+3. **ask_bc_expert** - Consult a BC specialist with automatic routing
+4. **analyze_al_code** - Analyze AL code for patterns, issues, optimizations
+5. **list_specialists** - List all available BC specialist personas
 
-#### Specialist Tools (`specialist-tools.ts`)
-Direct specialist interaction:
-- `suggest_specialist` - Find appropriate specialist
-- `get_specialist_advice` - Get specialist advice
-- `list_specialists` - List available specialists
+### Workflow Tools (8 tools)
+Stateful workflow management with file-by-file processing:
 
-#### Discovery Tools (`specialist-discovery-tools.ts`)
-Specialist discovery and browsing:
-- `discover_specialists` - Find relevant specialists
-- `browse_specialists` - Browse by category
-- `get_specialist_info` - Detailed specialist information
+1. **workflow_list** - List available workflows
+2. **workflow_start** - Start a new workflow session
+3. **workflow_next** - Get the next action in a workflow
+4. **workflow_progress** - Report progress on a workflow action
+5. **workflow_status** - Get workflow session status
+6. **workflow_complete** - Complete a workflow and generate report
+7. **workflow_batch** - Apply batch operations to a workflow
+8. **workflow_cancel** - Cancel an active workflow
 
-#### Onboarding Tools (`onboarding-tools.ts`)
-Natural specialist introduction for agents:
-- `introduce_bc_specialists` - Agent-friendly specialist introduction
-- `get_specialist_introduction` - Personalized introduction
-- `suggest_next_specialist` - Proactive suggestions
+### Workspace Tools (2 tools)
+Always available for workspace context management:
 
-#### Handoff Tools (`handoff-tools.ts`)
-Seamless specialist transitions:
-- `handoff_to_specialist` - Transfer or collaborate
-- `bring_in_specialist` - Quick consultation
-- `get_handoff_summary` - Context preservation
+1. **set_workspace_info** - Set workspace root and available MCP servers
+2. **get_workspace_info** - Get current workspace context
+
+### Debug Tools (6 tools)
+Opt-in diagnostic tools (enabled via `developer.enable_diagnostic_tools` config):
+
+1. **diagnose_git_layer** - Test Git-based layer connectivity
+2. **validate_layer_config** - Validate layer configuration
+3. **test_azure_devops_pat** - Test Azure DevOps PAT token
+4. **get_layer_diagnostics** - Get layer loading diagnostics
+5. **diagnose_local_layer** - Validate local layer directory structure
+6. **reload_layers** - Reload layer configuration and cache
+
+### VSCode Extension Tools (5 tools)
+Support tools for VSCode extension integration:
+
+1. **get_codelens_mappings** - Get CodeLens provider mappings
+2. **validate_layer_repo** - Validate a knowledge layer repository
+3. **scaffold_layer_repo** - Create a new knowledge layer repository
+4. **create_layer_content** - Create content in a layer
+5. **list_prompts** - List available MCP prompts
 
 ## Usage
 
 ### For AI Agents Working on This Codebase
 
-**Finding All Tools**: Start at `src/tools/index.ts`
+**Finding All Tools**:
+- Browse `src/tools/` directory - each folder is a tool
+- Check `src/tools/index.ts` for exported tool arrays
 
-**Adding New Tools**:
-1. Determine category (or create new file if needed)
-2. Add tool definition to appropriate file
-3. Export from `index.ts`
-4. Add to `getAllToolDefinitions()` if it's a class-based tool
-5. Update tool name constants
-
-**Tool Implementation Pattern**:
-```typescript
-// Tool class with getToolDefinitions() and handleToolCall()
-export class MyTools {
-  getToolDefinitions(): Tool[] { ... }
-  async handleToolCall(request: CallToolRequest): Promise<CallToolResult> { ... }
-}
-
-// Export from index.ts
-export { MyTools } from './my-tools.js';
-
-// Register in main index.ts
-import { MyTools } from './tools/index.js';
-this.myTools = new MyTools(dependencies);
-
-// Add to getAllToolDefinitions
-tools.push(...this.myTools.getToolDefinitions());
+**Finding a Specific Tool**:
+```bash
+# Tool name maps directly to folder name
+cd src/tools/find_bc_knowledge/  # For find_bc_knowledge tool
+cd src/tools/workflow_start/     # For workflow_start tool
 ```
 
-### For Developers
+**Adding New Tools**:
 
-**Discovering Available Tools**: Check `src/tools/index.ts` for the complete list.
+1. Create a new folder with the tool name (e.g., `my_new_tool/`)
+2. Create `schema.ts` with tool definition
+3. Create `handler.ts` with handler factory
+4. Export from `src/tools/index.ts`
+5. Register handler in `src/tools/handlers.ts`
 
-**Tool Documentation**: Each tool file contains detailed JSDoc comments explaining:
-- What the tool does
-- When to use it
-- Input schema
-- Return format
-- Platform constraints (AL/BC limitations)
+## Central Registry Files
 
-**Testing Tools**: Integration tests in `tests/integration/tools/`
+### `index.ts`
+Exports all tool schemas organized by category:
+- `coreKnowledgeTools` - 5 primary knowledge tools
+- `workflowTools` - 8 workflow management tools
+- `workspaceTools` - 2 workspace management tools
+- `vscodeExtensionTools` - 5 VSCode extension tools
+- `debugTools` - 6 opt-in diagnostic tools
+- `allTools` - Core + workspace + workflow + vscode (always available)
+- `allToolsWithDebug` - All tools including debug
+
+### `handlers.ts`
+Centralized handler registry with two factory functions:
+
+```typescript
+// Create production tool handlers
+const handlers = createToolHandlers(services, workspaceContext);
+
+// Create debug tool handlers (opt-in)
+const debugHandlers = createDebugToolHandlers(services);
+```
 
 ## Design Principles
 
-1. **Single Source of Truth**: All tool definitions in one discoverable location
-2. **Category Organization**: Related tools grouped logically
-3. **Type Safety**: TypeScript interfaces and constants throughout
-4. **Clear Boundaries**: Tool definitions separate from service implementation
-5. **Discoverability**: Easy for both humans and AI agents to find what they need
-
-## Migration Notes
-
-The old files are deprecated:
-- ~~`src/streamlined-tools.ts`~~ → `src/tools/core-tools.ts`
-- ~~`src/services/agent-onboarding-service.ts`~~ → `src/tools/onboarding-tools.ts` (tools extracted)
-- ~~`src/services/specialist-handoff-service.ts`~~ → `src/tools/handoff-tools.ts` (tools extracted)
-
-Services (`agent-onboarding-service.ts`, `specialist-handoff-service.ts`) will be refactored to contain only business logic, not tool definitions.
+1. **Direct Mapping**: Tool name → folder name (no guessing)
+2. **Self-Contained**: Each tool folder contains everything related to that tool
+3. **Discoverability**: Easy for both humans and AI to find tools
+4. **Type Safety**: TypeScript throughout with strict literal types
+5. **Clear Separation**: Schema (contract) separate from handler (implementation)
+6. **Unified Naming**: All workflow tools use `workflow_*` prefix

@@ -7,6 +7,20 @@ import { z } from 'zod';
  * indexes, and relationships for intelligent AI consumption.
  */
 
+// Relevance signals schema for knowledge-driven detection
+export const RelevanceSignalsSchema = z.object({
+  // AL language constructs that indicate this topic may be relevant
+  constructs: z.array(z.string()).optional().describe("AL constructs that trigger this topic (e.g., 'FindSet', 'CalcFields')"),
+  // General keywords to match against code or context
+  keywords: z.array(z.string()).optional().describe("Keywords for text matching"),
+  // Phrases indicating an anti-pattern is present
+  anti_pattern_indicators: z.array(z.string()).optional().describe("Phrases indicating bad patterns"),
+  // Phrases indicating a good pattern is present
+  positive_pattern_indicators: z.array(z.string()).optional().describe("Phrases indicating good patterns"),
+}).describe("Relevance detection signals - how to identify when this knowledge applies");
+
+export type RelevanceSignals = z.infer<typeof RelevanceSignalsSchema>;
+
 // YAML Frontmatter Schema - Extended for structured knowledge types
 export const AtomicTopicFrontmatterSchema = z.object({
   title: z.string().optional().describe("Human-readable topic title"),
@@ -40,6 +54,11 @@ export const AtomicTopicFrontmatterSchema = z.object({
   // Conditional MCP integration
   conditional_mcp: z.string().optional().describe("MCP server ID required for this topic (show only if MCP present)"),
   conditional_mcp_missing: z.string().optional().describe("MCP server ID that excludes this topic (show only if MCP absent)"),
+
+  // V2: Relevance-based detection fields
+  relevance_signals: RelevanceSignalsSchema.optional().describe("Signals for knowledge-driven detection"),
+  applicable_object_types: z.array(z.string()).optional().describe("AL object types this knowledge applies to (e.g., 'codeunit', 'page')"),
+  relevance_threshold: z.number().min(0).max(1).optional().describe("Minimum relevance score (0.0-1.0) to surface this topic"),
 });
 
 export type AtomicTopicFrontmatter = z.infer<typeof AtomicTopicFrontmatterSchema>;
@@ -262,7 +281,7 @@ export interface ALCodePattern {
 export interface BCKBConfig {
   knowledge_base_path: string;
   indexes_path: string;
-  methodologies_path?: string;
+  workflows_path?: string;
   cache_size: number;
   max_search_results: number;
   default_bc_version: string;

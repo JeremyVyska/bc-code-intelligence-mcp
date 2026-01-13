@@ -1,37 +1,25 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
-import { streamlinedTools } from '../../src/tools/core-tools.js';
+import { allTools, debugTools } from '../../src/tools/index.js';
 
 /**
  * Prompt Validation Tests
- * 
+ *
  * These tests prevent the exact problem you mentioned:
  * "a prompt or instruction IN the MCP was referring to a tool that didn't exist"
  */
 describe('Prompt Validation Tests', () => {
-  // Get all available tool names
-  const availableToolNames = streamlinedTools.map(t => t.name);
-  
-  // Add specialist tool names (these are dynamically registered)
-  const specialistToolNames = [
-    'suggest_specialist',
-    'get_specialist_advice', 
-    'list_specialists',
-    'discover_specialists',
-    'browse_specialists',
-    'get_specialist_info',
-    'handoff_to_specialist',
-    'bring_in_specialist',
-    'get_handoff_summary'
-  ];
-  
-  const allValidToolNames = [...availableToolNames, ...specialistToolNames];
+  // Get all available tool names (production + debug)
+  const availableToolNames = allTools.map(t => t.name);
+  const debugToolNames = debugTools.map(t => t.name);
+
+  const allValidToolNames = [...availableToolNames, ...debugToolNames];
 
   describe('Source Code Prompt References', () => {
     it('should not reference non-existent tools in service files', () => {
       const serviceFiles = [
-        '../../src/services/enhanced-prompt-service.ts',
+        '../../src/services/workflow-specialist-router.ts',
         '../../src/services/knowledge-service.ts',
         '../../src/services/methodology-service.ts'
       ];
@@ -82,10 +70,10 @@ describe('Prompt Validation Tests', () => {
       expect(issues).toHaveLength(0);
     });
 
-    it('should validate enhanced prompt service tool references', () => {
+    it('should validate workflow specialist router tool references', () => {
       try {
         const promptServiceContent = readFileSync(
-          join(__dirname, '../../src/services/enhanced-prompt-service.ts'), 
+          join(__dirname, '../../src/services/workflow-specialist-router.ts'),
           'utf-8'
         );
 
@@ -109,10 +97,10 @@ describe('Prompt Validation Tests', () => {
             // Clean up the tool name
             const cleanToolName = toolName.replace(/[^a-z_]/g, '');
             
-            if (cleanToolName && 
-                cleanToolName.includes('_') && 
+            if (cleanToolName &&
+                cleanToolName.includes('_') &&
                 !allValidToolNames.includes(cleanToolName)) {
-              issues.push(`Enhanced prompt service references unknown tool: ${cleanToolName}`);
+              issues.push(`Workflow specialist router references unknown tool: ${cleanToolName}`);
             }
           }
         }
@@ -178,7 +166,8 @@ describe('Prompt Validation Tests', () => {
 
   describe('Tool Documentation Consistency', () => {
     it('should ensure all tools have descriptions', () => {
-      const toolsWithoutDescriptions = streamlinedTools.filter(
+      const allToolsToCheck = [...allTools, ...debugTools];
+      const toolsWithoutDescriptions = allToolsToCheck.filter(
         tool => !tool.description || tool.description.trim().length === 0
       );
 
@@ -187,20 +176,21 @@ describe('Prompt Validation Tests', () => {
 
     it('should ensure tool descriptions do not reference other non-existent tools', () => {
       const issues: string[] = [];
+      const allToolsToCheck = [...allTools, ...debugTools];
 
-      for (const tool of streamlinedTools) {
+      for (const tool of allToolsToCheck) {
         const description = tool.description;
-        
+
         // Skip tools without descriptions
         if (!description) continue;
-        
+
         // Look for tool references in descriptions
         const matches = description.match(/`([a-z_]+)`/g) || [];
-        
+
         for (const match of matches) {
           const referencedTool = match.replace(/`/g, '');
-          
-          if (referencedTool.includes('_') && 
+
+          if (referencedTool.includes('_') &&
               !allValidToolNames.includes(referencedTool) &&
               referencedTool !== tool.name) {
             issues.push(`Tool '${tool.name}' description references unknown tool '${referencedTool}'`);

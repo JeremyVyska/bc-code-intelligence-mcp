@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, vi } from 'vitest';
-import { createStreamlinedHandlers } from '../../src/streamlined-handlers.js';
+import { createToolHandlers, type HandlerServices, type WorkspaceContext } from '../../src/tools/handlers.js';
 
 /**
  * Performance and Reliability Tests
@@ -8,8 +8,9 @@ import { createStreamlinedHandlers } from '../../src/streamlined-handlers.js';
  * and handles edge cases gracefully
  */
 describe('Performance and Reliability Tests', () => {
-  let mockServices: any;
-  let handlers: any;
+  let mockServices: HandlerServices;
+  let mockWorkspaceContext: WorkspaceContext;
+  let handlers: Map<string, any>;
 
   beforeAll(() => {
     // Create mock services with realistic delays
@@ -64,14 +65,20 @@ describe('Performance and Reliability Tests', () => {
       }
     };
 
-    handlers = createStreamlinedHandlers(null, mockServices);
+    // Create mock workspace context
+    mockWorkspaceContext = {
+      setWorkspaceInfo: vi.fn().mockResolvedValue({ success: true, message: 'OK', reloaded: false }),
+      getWorkspaceInfo: vi.fn().mockReturnValue({ workspace_root: null, available_mcps: [] })
+    };
+
+    handlers = createToolHandlers(mockServices, mockWorkspaceContext);
   });
 
   describe('Response Time Performance', () => {
     it('should respond to find_bc_knowledge within 100ms', async () => {
       const startTime = Date.now();
       
-      const result = await handlers.find_bc_knowledge({
+      const result = await handlers.get('find_bc_knowledge')({
         query: 'test query',
         search_type: 'topics',
         limit: 5
@@ -88,7 +95,7 @@ describe('Performance and Reliability Tests', () => {
     it('should respond to ask_bc_expert within 100ms', async () => {
       const startTime = Date.now();
       
-      const result = await handlers.ask_bc_expert({
+      const result = await handlers.get('ask_bc_expert')({
         question: 'How to optimize performance?'
       });
       
@@ -105,7 +112,7 @@ describe('Performance and Reliability Tests', () => {
       const startTime = Date.now();
       
       const promises = Array(concurrentRequests).fill(null).map(() =>
-        handlers.find_bc_knowledge({
+        handlers.get('find_bc_knowledge')({
           query: 'concurrent test',
           search_type: 'topics'
         })
@@ -126,13 +133,13 @@ describe('Performance and Reliability Tests', () => {
 
     it('should handle mixed tool types concurrently', async () => {
       const requests = [
-        handlers.find_bc_knowledge({ query: 'test1' }),
-        handlers.ask_bc_expert({ question: 'test2' }),
-        handlers.start_bc_workflow({ workflow_type: 'app_takeover' })
+        handlers.get('find_bc_knowledge')({ query: 'test1' }),
+        handlers.get('ask_bc_expert')({ question: 'test2' }),
+        handlers.get('start_bc_workflow')({ workflow_type: 'app_takeover' })
       ];
-      
+
       const results = await Promise.all(requests);
-      
+
       results.forEach(result => {
         expect(result).toBeDefined();
       });
@@ -145,7 +152,7 @@ describe('Performance and Reliability Tests', () => {
       
       // Make many requests
       for (let i = 0; i < 100; i++) {
-        await handlers.find_bc_knowledge({
+        await handlers.get('find_bc_knowledge')({
           query: `test query ${i}`,
           search_type: 'topics'
         });
@@ -170,7 +177,7 @@ describe('Performance and Reliability Tests', () => {
       const startTime = Date.now();
       
       const results = await Promise.all([
-        handlers.find_bc_knowledge({
+        handlers.get('find_bc_knowledge')({
           query: largeQuery,
           search_type: 'topics'
         })
@@ -197,7 +204,7 @@ describe('Performance and Reliability Tests', () => {
       
       mockServices.knowledgeService.searchTopics = slowService;
       
-      const result = await handlers.find_bc_knowledge({
+      const result = await handlers.get('find_bc_knowledge')({
         query: 'timeout test'
       });
       
@@ -220,7 +227,7 @@ describe('Performance and Reliability Tests', () => {
       for (const error of errorTypes) {
         mockServices.knowledgeService.searchTopics = vi.fn().mockRejectedValue(error);
         
-        const result = await handlers.find_bc_knowledge({
+        const result = await handlers.get('find_bc_knowledge')({
           query: 'error test'
         });
         
@@ -248,7 +255,7 @@ describe('Performance and Reliability Tests', () => {
       
       for (const input of malformedInputs) {
         try {
-          const result = await handlers.find_bc_knowledge(input as any);
+          const result = await handlers.get('find_bc_knowledge')(input as any);
           expect(result).toBeDefined();
           // Should either work or return error, but not crash
         } catch (error) {
@@ -263,24 +270,24 @@ describe('Performance and Reliability Tests', () => {
     it('should continue working when some services are unavailable', async () => {
       // Disable methodology service
       mockServices.methodologyService = null;
-      
+
       // Recreate handlers with partial services
-      const partialHandlers = createStreamlinedHandlers(null, mockServices);
-      
+      const partialHandlers = createToolHandlers(mockServices, mockWorkspaceContext);
+
       // These should still work
       const workingResults = await Promise.all([
-        partialHandlers.find_bc_knowledge({ query: 'test' })
+        partialHandlers.get('find_bc_knowledge')({ query: 'test' })
       ]);
-      
+
       workingResults.forEach(result => {
         expect(result).toBeDefined();
       });
-      
+
       // This might fail gracefully
-      const workflowResult = await partialHandlers.start_bc_workflow({
+      const workflowResult = await partialHandlers.get('start_bc_workflow')({
         workflow_type: 'app_takeover'
       });
-      
+
       expect(workflowResult).toBeDefined();
       // Should return error, not crash
       if (workflowResult.isError) {
@@ -292,7 +299,7 @@ describe('Performance and Reliability Tests', () => {
   describe('Rate Limiting and Throttling', () => {
     it('should handle rapid successive requests', async () => {
       const rapidRequests = Array(50).fill(null).map((_, i) =>
-        handlers.find_bc_knowledge({
+        handlers.get('find_bc_knowledge')({
           query: `rapid test ${i}`,
           search_type: 'topics'
         })

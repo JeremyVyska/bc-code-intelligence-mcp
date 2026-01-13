@@ -3,23 +3,106 @@ import {
   CodeAnalysisResult,
   TopicSearchResult,
   ALCodePattern,
+  AtomicTopic,
   getDomainList
 } from '../types/bc-knowledge.js';
 import { KnowledgeService } from './knowledge-service.js';
-import { BCCodeIntelTopic } from '../sdk/bc-code-intel-client.js';
+import { RelevanceIndexService, RelevanceMatch } from './relevance-index-service.js';
 
 /**
  * AL Code Analysis Service
  *
  * Analyzes AL code for performance issues, anti-patterns, and optimization
  * opportunities. Dynamically loads patterns from the layered knowledge system.
+ *
+ * ## Suggestion Loading Strategy
+ *
+ * This service now supports dynamic loading of code analysis suggestions from
+ * the layered knowledge system:
+ *
+ * 1. **Dynamic Loading (Primary)**: Loads suggestions from layer topics
+ *    - Topic path pattern: `code-analysis/suggestions/{pattern-name}`
+ *    - Example: `code-analysis/suggestions/manual-summation-instead-of-sift`
+ *    - Supports layer overrides (project > team > company > embedded)
+ *    - Cached for 5 minutes to avoid repeated queries
+ *
+ * 2. **Fallback (Secondary)**: Uses hardcoded suggestions if topic not found
+ *    - Maintains backward compatibility
+ *    - Prevents runtime crashes when topics are missing
+ *    - TODO: Migrate these to embedded-knowledge topics
+ *
+ * ## Topic Structure for Suggestions
+ *
+ * Each suggestion topic should be a markdown file in:
+ * `embedded-knowledge/topics/code-analysis/suggestions/{pattern-name}.md`
+ *
+ * Example topic structure:
+ * ```markdown
+ * ---
+ * title: Manual Summation Instead of SIFT
+ * domain: performance
+ * difficulty: intermediate
+ * tags: [performance, sift, optimization]
+ * ---
+ *
+ * Replace manual summation loops with SIFT CalcSums method for better performance.
+ * Example: Record.CalcSums(Amount) instead of looping through records.
+ *
+ * ## Why This Matters
+ * Manual summation can be 10-100x slower than SIFT indexes...
+ * ```
+ *
+ * The first paragraph becomes the inline suggestion text.
+ *
+ * ## Migration Path
+ *
+ * To migrate hardcoded suggestions to topics:
+ * 1. Create markdown file in embedded-knowledge/topics/code-analysis/suggestions/
+ * 2. Use the pattern name as the filename (e.g., `manual-summation-instead-of-sift.md`)
+ * 3. Add frontmatter with metadata
+ * 4. Write suggestion text as first paragraph
+ * 5. Test that the service loads the topic correctly
+ * 6. Remove from fallback dictionary once confirmed working
  */
 export class CodeAnalysisService {
   private patternCache: ALCodePattern[] | null = null;
   private cacheExpiry: number = 0;
   private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-  constructor(private knowledgeService: KnowledgeService) {}
+  // Cache for dynamically loaded suggestions from layer topics
+  private suggestionsCache: Map<string, string> | null = null;
+  private suggestionsCacheExpiry: number = 0;
+
+  // V2: Relevance-based detection
+  private relevanceIndexService: RelevanceIndexService | null = null;
+  private useRelevanceBasedDetection: boolean = true;
+
+  // Store last relevance matches for handler enrichment
+  private lastRelevanceMatches: RelevanceMatch[] = [];
+
+  constructor(
+    private knowledgeService: KnowledgeService,
+    relevanceIndexService?: RelevanceIndexService  // Optional for backward compatibility
+  ) {
+    this.relevanceIndexService = relevanceIndexService || null;
+    this.useRelevanceBasedDetection = !!relevanceIndexService;
+  }
+
+  /**
+   * Enable or disable relevance-based detection
+   * When disabled, falls back to legacy regex patterns
+   */
+  setUseRelevanceBasedDetection(enabled: boolean): void {
+    this.useRelevanceBasedDetection = enabled && !!this.relevanceIndexService;
+  }
+
+  /**
+   * Get the last relevance matches from the most recent analysis
+   * Used by handlers to enrich output with relevance metadata
+   */
+  getLastRelevanceMatches(): RelevanceMatch[] {
+    return this.lastRelevanceMatches;
+  }
 
   /**
    * Load AL code patterns dynamically from knowledge base
@@ -27,12 +110,14 @@ export class CodeAnalysisService {
   private async loadPatterns(): Promise<ALCodePattern[]> {
     // Check cache first
     if (this.patternCache && Date.now() < this.cacheExpiry) {
+      console.log(`🔍 Using cached patterns: ${this.patternCache.length} patterns`);
       return this.patternCache;
     }
 
     try {
       // Get all code-pattern topics from the knowledge base
       const patternTopics = await this.knowledgeService.findTopicsByType('code-pattern');
+      console.log(`🔍 Found ${patternTopics.length} code-pattern topics in knowledge base`);
 
       const patterns: ALCodePattern[] = patternTopics.map(topic => {
         const frontmatter = topic.frontmatter || {};
@@ -50,15 +135,96 @@ export class CodeAnalysisService {
         };
       });
 
-      // Update cache
-      this.patternCache = patterns;
+      // Load organization standards/guidelines from company + project layers
+      const orgStandards = await this.loadOrganizationStandards();
+
+      // If no patterns from knowledge base, use fallback patterns
+      // This ensures we always have analysis capabilities
+      const basePatterns = patterns.length > 0 ? patterns : this.getFallbackPatterns();
+      console.log(`🔍 Using ${basePatterns.length} base patterns (${patterns.length > 0 ? 'from knowledge base' : 'fallback'})`);
+
+      // Update cache with both pattern-based and standards-based rules
+      this.patternCache = [...basePatterns, ...orgStandards];
       this.cacheExpiry = Date.now() + this.CACHE_TTL;
 
-      return patterns;
+      console.log(`🔍 Total patterns loaded: ${this.patternCache.length} (${basePatterns.length} base + ${orgStandards.length} org standards)`);
+
+      return this.patternCache;
     } catch (error) {
       console.warn('Failed to load code patterns from knowledge base:', error);
       return this.getFallbackPatterns();
     }
+  }
+
+  /**
+   * Load organization standards and guidelines from knowledge layers
+   * Searches company AND project layers - project layer overrides company layer
+   * These are policy-based rules that may not have regex patterns
+   */
+  private async loadOrganizationStandards(): Promise<ALCodePattern[]> {
+    try {
+      // Search for company/project standards, coding guidelines, naming conventions
+      const standardsTopics = await this.knowledgeService.searchTopics({
+        code_context: 'company standards coding guidelines naming conventions best practices policy rules',
+        limit: 50
+      });
+
+      const standards: ALCodePattern[] = [];
+
+      for (const topicResult of standardsTopics) {
+        const topic = await this.knowledgeService.getTopic(topicResult.id);
+        if (!topic) continue;
+
+        // Extract guidelines from content
+        const guidelines = this.extractGuidelinesFromContent(topic);
+        standards.push(...guidelines);
+      }
+
+      console.log(`📋 Loaded ${standards.length} organization standards from knowledge layers (company + project)`);
+      return standards;
+    } catch (error) {
+      console.warn('Failed to load organization standards:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Extract actionable guidelines from topic content
+   * Looks for patterns like "must", "should", "required", "mandatory"
+   */
+  private extractGuidelinesFromContent(topic: AtomicTopic): ALCodePattern[] {
+    const guidelines: ALCodePattern[] = [];
+    const content = topic.content;
+
+    // Look for common guideline patterns
+    const guidelinePatterns = [
+      /(?:must|required|mandatory):\s*(.+?)(?:\n|$)/gi,
+      /(?:should|recommended):\s*(.+?)(?:\n|$)/gi,
+      /(?:do not|don't|avoid):\s*(.+?)(?:\n|$)/gi,
+      /(?:always|never):\s*(.+?)(?:\n|$)/gi
+    ];
+
+    guidelinePatterns.forEach(pattern => {
+      let match;
+      while ((match = pattern.exec(content)) !== null) {
+        const guideline = match[1].trim();
+        if (guideline.length > 10 && guideline.length < 200) {
+          guidelines.push({
+            name: `company-standard-${topic.id}`,
+            pattern_type: 'unknown', // Will be evaluated based on code context
+            regex_patterns: [], // No regex for policy-based rules
+            description: `${topic.title}: ${guideline}`,
+            related_topics: [topic.id],
+            severity: match[0].toLowerCase().includes('must') || match[0].toLowerCase().includes('required') 
+              ? 'high' 
+              : 'medium',
+            category: 'company-standard'
+          });
+        }
+      }
+    });
+
+    return guidelines;
   }
 
   /**
@@ -458,6 +624,9 @@ export class CodeAnalysisService {
     // Detect patterns in the code
     const detectedPatterns = await this.detectPatterns(code);
     
+    // Check company standards (policy-based rules without regex)
+    const standardsViolations = await this.checkCompanyStandards(code, params.bc_version);
+    
     // Filter patterns based on analysis type
     const filteredPatterns = this.filterPatternsByAnalysisType(detectedPatterns, analysisType);
     result.patterns_detected = filteredPatterns.map(p => p.name);
@@ -483,6 +652,15 @@ export class CodeAnalysisService {
       }
     }
 
+    // Add company standards violations (convert to proper issue format)
+    result.issues.push(...standardsViolations.map(v => ({
+      type: 'warning' as const,
+      severity: v.severity,
+      description: v.description,
+      suggestion: v.suggestion,
+      related_topics: v.related_topics
+    })));
+
     // Generate optimization opportunities
     result.optimization_opportunities = await this.findOptimizationOpportunities(code, detectedPatterns);
 
@@ -495,22 +673,187 @@ export class CodeAnalysisService {
   }
 
   /**
-   * Detect AL patterns in code using dynamically loaded patterns
+   * Detect AL patterns in code
+   *
+   * V2 Behavior (with RelevanceIndexService):
+   *   Uses knowledge-driven relevance matching
+   *
+   * Legacy Behavior (without RelevanceIndexService):
+   *   Falls back to regex-based pattern matching
    */
   private async detectPatterns(code: string): Promise<ALCodePattern[]> {
+    // V2: Use relevance-based detection if available
+    if (this.useRelevanceBasedDetection && this.relevanceIndexService) {
+      return this.detectPatternsV2(code);
+    }
+
+    // Legacy: Fall back to regex-based detection
+    return this.detectPatternsLegacy(code);
+  }
+
+  /**
+   * V2: Knowledge-driven pattern detection
+   */
+  private async detectPatternsV2(code: string): Promise<ALCodePattern[]> {
+    const relevantTopics = await this.relevanceIndexService!.findRelevantTopics(code, {
+      limit: 20,
+      minScore: 0.3,
+      includeLegacyTopics: true,  // Include topics without relevance_signals
+    });
+
+    console.error(`🔍 detectPatternsV2: Found ${relevantTopics.length} relevant topics`);
+
+    // Store for handler enrichment
+    this.lastRelevanceMatches = relevantTopics;
+
+    const patterns: ALCodePattern[] = [];
+
+    for (const match of relevantTopics) {
+      const topic = await this.knowledgeService.getTopic(match.topicId);
+      if (!topic) continue;
+
+      const fm = topic.frontmatter;
+
+      patterns.push({
+        name: match.topicId,
+        pattern_type: (fm.pattern_type as 'good' | 'bad' | 'unknown') || 'unknown',
+        regex_patterns: [],  // Not used in V2 detection
+        description: fm.description || topic.title,
+        related_topics: fm.related_topics || [],
+        severity: fm.severity,
+        category: fm.category,
+        impact_level: fm.impact_level,
+        detection_confidence: this.scoreToConfidence(match.relevanceScore),
+      });
+    }
+
+    // If no V2 results, fall back to legacy patterns
+    if (patterns.length === 0) {
+      console.error('🔍 detectPatternsV2: No matches, falling back to legacy');
+      return this.detectPatternsLegacy(code);
+    }
+
+    return patterns;
+  }
+
+  /**
+   * Legacy: Regex-based pattern detection (existing implementation)
+   * Preserved for backward compatibility
+   */
+  private async detectPatternsLegacy(code: string): Promise<ALCodePattern[]> {
     const detected: ALCodePattern[] = [];
     const patterns = await this.loadPatterns();
 
+    console.error(`🔍 detectPatternsLegacy: Testing ${patterns.length} patterns against code (${code.length} chars)`);
+
     for (const pattern of patterns) {
+      if (pattern.regex_patterns.length === 0) {
+        continue; // Skip patterns without regex (policy-based only)
+      }
       for (const regex of pattern.regex_patterns) {
+        // Reset lastIndex to avoid stateful regex issues with the 'g' flag
+        regex.lastIndex = 0;
         if (regex.test(code)) {
           detected.push(pattern);
+          console.error(`  ✓ Pattern matched: ${pattern.name}`);
           break; // Don't add the same pattern multiple times
         }
       }
     }
 
+    console.error(`🔍 detectPatternsLegacy: Found ${detected.length} matching patterns`);
     return detected;
+  }
+
+  /**
+   * Convert relevance score (0-1) to confidence level
+   */
+  private scoreToConfidence(score: number): 'low' | 'medium' | 'high' {
+    if (score >= 0.7) return 'high';
+    if (score >= 0.5) return 'medium';
+    return 'low';
+  }
+
+  /**
+   * Check organization standards and guidelines (policy-based, not regex-based)
+   * These are extracted from company AND project knowledge layers and evaluated semantically
+   * Project layer standards override company layer standards due to higher priority
+   */
+  private async checkCompanyStandards(code: string, bcVersion?: string): Promise<Array<{
+    type: string;
+    severity: 'low' | 'medium' | 'high' | 'critical';
+    description: string;
+    suggestion: string;
+    related_topics: string[];
+  }>> {
+    const violations: Array<{
+      type: string;
+      severity: 'low' | 'medium' | 'high' | 'critical';
+      description: string;
+      suggestion: string;
+      related_topics: string[];
+    }> = [];
+
+    try {
+      // Get organization standards from patterns cache (company + project layers)
+      const allPatterns = await this.loadPatterns();
+      const companyStandards = allPatterns.filter(p => p.category === 'company-standard');
+
+      for (const standard of companyStandards) {
+        // Semantic matching - check if code relates to the standard
+        const isRelevant = this.isStandardRelevantToCode(standard, code);
+        
+        if (isRelevant) {
+          // This is a guideline that applies to this code
+          violations.push({
+            type: 'company-standard',
+            severity: (standard.severity as any) || 'medium',
+            description: standard.description,
+            suggestion: `Review organization standard: ${standard.description}`,
+            related_topics: standard.related_topics
+          });
+        }
+      }
+
+      console.log(`✅ Checked ${companyStandards.length} organization standards (company + project), found ${violations.length} relevant guidelines`);
+    } catch (error) {
+      console.warn('Failed to check company standards:', error);
+    }
+
+    return violations;
+  }
+
+  /**
+   * Determine if a company standard is relevant to the given code
+   * Uses keyword matching and context analysis
+   */
+  private isStandardRelevantToCode(standard: ALCodePattern, code: string): boolean {
+    const description = standard.description.toLowerCase();
+    const codeLower = code.toLowerCase();
+
+    // Extract key terms from the standard description
+    const keywords = [
+      'tooltip', 'caption', 'field', 'table', 'page', 'naming', 'convention',
+      'variable', 'procedure', 'function', 'codeunit', 'report', 'query',
+      'english', 'dutch', 'language', 'comment', 'documentation'
+    ];
+
+    // Check if standard mentions specific AL constructs present in code
+    for (const keyword of keywords) {
+      if (description.includes(keyword) && codeLower.includes(keyword)) {
+        return true;
+      }
+    }
+
+    // Check for object type matches
+    const objectTypes = ['table', 'page', 'codeunit', 'report', 'query', 'xmlport'];
+    for (const objType of objectTypes) {
+      if (description.includes(objType) && new RegExp(`\\b${objType}\\b`, 'i').test(code)) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   /**
@@ -567,10 +910,112 @@ export class CodeAnalysisService {
   }
 
   /**
+   * Load code analysis suggestions dynamically from layer topics
+   *
+   * Searches for topics with path: code-analysis/suggestions/{suggestion-id}
+   * Falls back to hardcoded suggestions if topic not found
+   */
+  private async loadSuggestions(): Promise<Map<string, string>> {
+    // Check cache first
+    if (this.suggestionsCache && Date.now() < this.suggestionsCacheExpiry) {
+      return this.suggestionsCache;
+    }
+
+    const suggestions = new Map<string, string>();
+
+    try {
+      // Search for all code-analysis suggestion topics across all layers
+      const layerService = (this.knowledgeService as any).layerService;
+
+      if (layerService) {
+        // Get all topic IDs and filter for code-analysis/suggestions/*
+        const allTopicIds = layerService.getAllTopicIds();
+        const suggestionTopicIds = allTopicIds.filter((id: string) =>
+          id.startsWith('code-analysis/suggestions/') ||
+          id.includes('/code-analysis/suggestions/')
+        );
+
+        console.log(`🔍 Found ${suggestionTopicIds.length} code analysis suggestion topics in layers`);
+
+        // Load each suggestion topic
+        for (const topicId of suggestionTopicIds) {
+          const resolution = await layerService.resolveTopic(topicId);
+          if (resolution && resolution.topic) {
+            const topic = resolution.topic;
+
+            // Extract suggestion ID from topic path
+            // Supports both: "code-analysis/suggestions/manual-summation-instead-of-sift"
+            // and: "performance/code-analysis/suggestions/manual-summation-instead-of-sift"
+            const suggestionIdMatch = topicId.match(/code-analysis\/suggestions\/([^/]+)$/);
+            if (suggestionIdMatch) {
+              const suggestionId = suggestionIdMatch[1];
+
+              // Extract suggestion text from topic content
+              // Look for first paragraph or use full content
+              const suggestionText = this.extractSuggestionText(topic.content);
+
+              suggestions.set(suggestionId, suggestionText);
+              console.log(`  ✓ Loaded suggestion: ${suggestionId} from layer ${resolution.sourceLayer}`);
+            }
+          }
+        }
+
+        console.log(`📋 Loaded ${suggestions.size} code analysis suggestions from layers`);
+      }
+    } catch (error) {
+      console.warn('Failed to load suggestions from knowledge layers:', error);
+    }
+
+    // Update cache
+    this.suggestionsCache = suggestions;
+    this.suggestionsCacheExpiry = Date.now() + this.CACHE_TTL;
+
+    return suggestions;
+  }
+
+  /**
+   * Extract suggestion text from topic content
+   * Extracts the main suggestion text, typically from the first paragraph
+   */
+  private extractSuggestionText(content: string): string {
+    // Remove YAML frontmatter if present
+    const contentWithoutFrontmatter = content.replace(/^---[\s\S]*?---\n*/m, '');
+
+    // Split into paragraphs
+    const paragraphs = contentWithoutFrontmatter
+      .split(/\n\n+/)
+      .map(p => p.trim())
+      .filter(p => p.length > 0 && !p.startsWith('#'));
+
+    // Return first non-heading paragraph, or first 500 chars
+    const suggestionText = paragraphs[0] || contentWithoutFrontmatter.substring(0, 500);
+
+    // Clean up any remaining markdown formatting for inline use
+    return suggestionText
+      .replace(/\n+/g, ' ')
+      .replace(/\*\*/g, '')
+      .replace(/`/g, "'")
+      .trim();
+  }
+
+  /**
    * Generate improvement suggestions
+   *
+   * Dynamically loads suggestions from layer topics with fallback to hardcoded values
    */
   private async generateSuggestion(pattern: ALCodePattern): Promise<string> {
-    const suggestions: Record<string, string> = {
+    // Try to load from layers first
+    const dynamicSuggestions = await this.loadSuggestions();
+
+    if (dynamicSuggestions.has(pattern.name)) {
+      return dynamicSuggestions.get(pattern.name)!;
+    }
+
+    // Fallback to hardcoded suggestions
+    // TODO: These hardcoded suggestions should be migrated to embedded-knowledge/topics/code-analysis/suggestions/
+    // Each suggestion should be a separate markdown file with naming pattern: {pattern-name}.md
+    // Example: embedded-knowledge/topics/code-analysis/suggestions/manual-summation-instead-of-sift.md
+    const fallbackSuggestions: Record<string, string> = {
       // Performance suggestions
       'manual-summation-instead-of-sift': 'Replace manual summation loop with SIFT CalcSums method. Example: Record.CalcSums(Amount) instead of looping through records.',
       'missing-setloadfields': 'Add SetLoadFields before FindSet to only load required fields. Example: SetLoadFields("No.", "Name") before accessing these fields.',
@@ -610,7 +1055,7 @@ export class CodeAnalysisService {
       'inconsistent-api-design': 'Standardize API naming conventions. Use consistent Get/Find patterns across procedures.'
     };
 
-    return suggestions[pattern.name] || 'Consider reviewing this pattern for optimization opportunities.';
+    return fallbackSuggestions[pattern.name] || 'Consider reviewing this pattern for optimization opportunities.';
   }
 
   /**
@@ -722,6 +1167,40 @@ export class CodeAnalysisService {
     detectedPatterns: ALCodePattern[],
     bcVersion?: string
   ): Promise<TopicSearchResult[]> {
+    // V2: Use relevance index if available
+    if (this.useRelevanceBasedDetection && this.relevanceIndexService) {
+      const relevantTopics = await this.relevanceIndexService.findRelevantTopics(code, {
+        limit: 10,
+        minScore: 0.5,
+      });
+
+      const results: TopicSearchResult[] = [];
+
+      for (const match of relevantTopics) {
+        const topic = await this.knowledgeService.getTopic(match.topicId);
+        if (!topic) continue;
+
+        const fm = topic.frontmatter;
+        const domains = Array.isArray(fm.domain) ? fm.domain : [fm.domain || 'unknown'];
+
+        results.push({
+          id: match.topicId,
+          title: topic.title,
+          domain: domains[0],
+          domains: domains.length > 1 ? domains : undefined,
+          difficulty: fm.difficulty,
+          relevance_score: match.relevanceScore,
+          summary: topic.content.substring(0, 200) + '...',
+          tags: fm.tags || [],
+          prerequisites: fm.prerequisites || [],
+          estimated_time: fm.estimated_time,
+        });
+      }
+
+      return results;
+    }
+
+    // Legacy: Use existing implementation
     // Collect all related topics from detected patterns
     const relatedTopicIds = new Set<string>();
     for (const pattern of detectedPatterns) {
@@ -730,7 +1209,7 @@ export class CodeAnalysisService {
 
     // Add contextual topics based on code content
     const codeContext = this.extractCodeContext(code);
-    
+
     const searchResults = await this.knowledgeService.searchTopics({
       code_context: codeContext,
       bc_version: bcVersion,
@@ -739,7 +1218,7 @@ export class CodeAnalysisService {
 
     // Combine explicit related topics with search results
     const allSuggestions = new Map<string, TopicSearchResult>();
-    
+
     // Add search results
     for (const result of searchResults) {
       allSuggestions.set(result.id, result);
@@ -749,16 +1228,16 @@ export class CodeAnalysisService {
     for (const topicId of relatedTopicIds) {
       if (!allSuggestions.has(topicId)) {
         const topic = await this.knowledgeService.getTopic(topicId);
-        if (topic) {
+        if (topic && topic.frontmatter) {
           const domains = getDomainList(topic.frontmatter.domain);
           allSuggestions.set(topicId, {
             id: topic.id,
-            title: topic.frontmatter.title,
+            title: topic.frontmatter.title || topicId,
             domain: domains[0] || 'unknown',
             domains: domains.length > 1 ? domains : undefined,
             difficulty: topic.frontmatter.difficulty,
             relevance_score: 0.9, // High relevance for explicitly related topics
-            summary: topic.content.substring(0, 200) + '...',
+            summary: (topic.content || '').substring(0, 200) + '...',
             tags: topic.frontmatter.tags,
             prerequisites: topic.frontmatter.prerequisites || [],
             estimated_time: topic.frontmatter.estimated_time

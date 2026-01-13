@@ -1,14 +1,14 @@
 /**
  * Enhanced Multi-Content Layer Service
- * 
+ *
  * Extends the existing layer system to support specialists alongside
  * atomic topics, enabling companies/teams/projects to have custom specialists
  * that override or supplement the base specialist personas.
  */
 
-import { 
-  MultiContentKnowledgeLayer, 
-  EnhancedLayerLoadResult, 
+import {
+  MultiContentKnowledgeLayer,
+  EnhancedLayerLoadResult,
   LayerContentType,
   SpecialistQueryContext,
   LayerSpecialistSuggestion,
@@ -55,17 +55,17 @@ export class MultiContentLayerService {
    */
   private shouldIncludeTopic(topic: AtomicTopic): boolean {
     const fm = topic.frontmatter;
-    
+
     // Positive conditional: include only if MCP present
     if (fm.conditional_mcp) {
       return this.availableMcps.includes(fm.conditional_mcp);
     }
-    
+
     // Negative conditional: include only if MCP absent
     if (fm.conditional_mcp_missing) {
       return !this.availableMcps.includes(fm.conditional_mcp_missing);
     }
-    
+
     // No conditional: always include
     return true;
   }
@@ -116,9 +116,9 @@ export class MultiContentLayerService {
    */
   private async performInitialization(): Promise<Map<string, EnhancedLayerLoadResult>> {
     const results = new Map<string, EnhancedLayerLoadResult>();
-    
+
     console.error('🚀 Initializing multi-content layer service...');
-    
+
     for (const [name, layer] of this.layers) {
       try {
         console.error(`📋 Initializing layer: ${name}`);
@@ -134,7 +134,7 @@ export class MultiContentLayerService {
             content_counts: {
               topics: result.topicsLoaded || 0,
               specialists: 0, // Will be updated by layer-specific logic
-              methodologies: result.indexesLoaded || 0
+              workflows: result.indexesLoaded || 0
             },
             topics_loaded: result.topicsLoaded || 0,
             indexes_loaded: result.indexesLoaded || 0,
@@ -148,7 +148,7 @@ export class MultiContentLayerService {
         }
 
         results.set(name, result as EnhancedLayerLoadResult);
-        
+
         if (result.success) {
           const contentCounts = result.content_counts || {};
           console.error(`✅ Layer ${name}: ${Object.entries(contentCounts)
@@ -163,7 +163,7 @@ export class MultiContentLayerService {
           success: false,
           layer_name: name,
           load_time_ms: 0,
-          content_counts: { topics: 0, specialists: 0, methodologies: 0 },
+          content_counts: { topics: 0, specialists: 0, workflows: 0 },
           topics_loaded: 0,
           indexes_loaded: 0,
           error: error instanceof Error ? error.message : String(error)
@@ -173,7 +173,7 @@ export class MultiContentLayerService {
 
     this.initialized = true;
     console.error(`🎯 Multi-content layer service initialized with ${this.layers.size} layers`);
-    
+
     return results;
   }
 
@@ -217,11 +217,11 @@ export class MultiContentLayerService {
     }
 
     const specialistMap = new Map<string, SpecialistDefinition>();
-    
+
     // Process layers in reverse priority order (lowest priority first)
     // so higher priority layers can override
     const reversePriorities = [...this.layerPriorities].reverse();
-    
+
     for (const layerName of reversePriorities) {
       const layer = this.layers.get(layerName);
       if (!layer || !(layer.supported_content_types?.includes('specialists'))) {
@@ -229,7 +229,7 @@ export class MultiContentLayerService {
       }
 
       const layerSpecialistIds = layer.getContentIds('specialists');
-      
+
       for (const specialistId of layerSpecialistIds) {
         const specialist = await layer.getContent('specialists', specialistId);
         if (specialist) {
@@ -261,10 +261,10 @@ export class MultiContentLayerService {
 
     for (const specialist of allSpecialists) {
       const score = this.calculateSpecialistScore(specialist, context, queryContext);
-      
+
       if (score > 0) {
         const collaborationOptions = await this.getCollaborationOptions(specialist);
-        
+
         suggestions.push({
           specialist,
           source_layer: this.findSpecialistSourceLayer(specialist.specialist_id),
@@ -335,13 +335,13 @@ export class MultiContentLayerService {
     switch (this.specialistResolutionStrategy.conflict_resolution) {
       case 'override':
         return incoming; // Higher priority layer wins
-        
+
       case 'merge':
         return this.mergeSpecialists(existing, incoming);
-        
+
       case 'extend':
         return this.extendSpecialist(existing, incoming);
-        
+
       default:
         return incoming;
     }
@@ -433,7 +433,7 @@ export class MultiContentLayerService {
         score += 8;
       }
     }
-    
+
     for (const expertise of specialist.expertise.secondary) {
       if (contextLower.includes(expertise.toLowerCase())) {
         score += 5;
@@ -452,11 +452,11 @@ export class MultiContentLayerService {
       if (queryContext.domain && specialist.domains.includes(queryContext.domain)) {
         score += 15;
       }
-      
+
       if (queryContext.urgency === 'high') {
         // Prefer specialists with quick response traits
-        if (specialist.persona.personality.some(p => 
-          p.toLowerCase().includes('quick') || 
+        if (specialist.persona.personality.some(p =>
+          p.toLowerCase().includes('quick') ||
           p.toLowerCase().includes('direct') ||
           p.toLowerCase().includes('efficient'))) {
           score += 5;
@@ -479,21 +479,21 @@ export class MultiContentLayerService {
     const contextLower = context.toLowerCase();
 
     // Check expertise matches
-    const primaryMatches = specialist.expertise.primary.filter(e => 
+    const primaryMatches = specialist.expertise.primary.filter(e =>
       contextLower.includes(e.toLowerCase()));
     if (primaryMatches.length > 0) {
       reasons.push(`Primary expertise: ${primaryMatches.join(', ')}`);
     }
 
     // Check scenario matches
-    const scenarioMatches = specialist.when_to_use.filter(s => 
+    const scenarioMatches = specialist.when_to_use.filter(s =>
       contextLower.includes(s.toLowerCase()) || s.toLowerCase().includes(contextLower));
     if (scenarioMatches.length > 0) {
       reasons.push(`Relevant scenarios: ${scenarioMatches.join(', ')}`);
     }
 
     // Check domain matches
-    const domainMatches = specialist.domains.filter(d => 
+    const domainMatches = specialist.domains.filter(d =>
       contextLower.includes(d.toLowerCase()));
     if (domainMatches.length > 0) {
       reasons.push(`Domain expertise: ${domainMatches.join(', ')}`);
@@ -602,7 +602,7 @@ export class MultiContentLayerService {
 
     const results: TopicSearchResult[] = [];
     const limit = params.limit || 50;
-    
+
     // Search across all layers in priority order
     for (const layerName of this.layerPriorities) {
       const layer = this.layers.get(layerName);
@@ -611,7 +611,7 @@ export class MultiContentLayerService {
       try {
         // Get all topic IDs from this layer
         const topicIds = layer.getContentIds('topics');
-        
+
         // Load each topic and filter
         for (const topicId of topicIds) {
           const topic = await layer.getContent('topics', topicId);
@@ -652,7 +652,7 @@ export class MultiContentLayerService {
 
     const results: SpecialistDefinition[] = [];
     const queryLower = query.toLowerCase();
-    
+
     // Search across all layers in priority order
     for (const layerName of this.layerPriorities) {
       const layer = this.layers.get(layerName);
@@ -663,7 +663,7 @@ export class MultiContentLayerService {
       try {
         // Get all specialist IDs from this layer
         const specialistIds = layer.getContentIds('specialists');
-        
+
         // Load each specialist and check for matches
         for (const specialistId of specialistIds) {
           const specialist = await layer.getContent('specialists', specialistId);
@@ -682,7 +682,7 @@ export class MultiContentLayerService {
 
   /**
    * Check if specialist matches query using token-based matching
-   * 
+   *
    * Fixes Issue #17: Complex compound questions now tokenized for matching.
    * Instead of requiring full query as substring, matches any individual token.
    */
@@ -702,10 +702,10 @@ export class MultiContentLayerService {
       .split(/[\s,]+/)
       .filter(token => token.length > 3)
       .map(token => token.replace(/[^a-z0-9]/g, ''));
-    
+
     // Match if ANY query token matches ANY searchable field (bidirectional partial matching)
-    return queryTokens.some(token => 
-      searchableFields.some(field => 
+    return queryTokens.some(token =>
+      searchableFields.some(field =>
         field.includes(token) || token.includes(field)
       )
     );
@@ -736,16 +736,19 @@ export class MultiContentLayerService {
       throw new Error('No suitable specialist found for this question');
     }
 
-    // Return a consultation response
+    // Return full specialist definition for agent roleplay
     return {
       specialist: {
         id: specialist.specialist_id,
         name: specialist.title,
-        role: specialist.role
+        role: specialist.role,
+        expertise: specialist.expertise
       },
+      specialist_full_content: specialist.content, // CRITICAL: Full markdown content for agent instructions
       response: `${specialist.title} would approach this question: "${question}" using their expertise in ${specialist.expertise?.primary?.join(', ') || 'general BC development'}.`,
       consultation_guidance: specialist.content.substring(0, 200) + '...' || 'General BC development guidance',
-      follow_up_suggestions: specialist.related_specialists || []
+      follow_up_suggestions: specialist.related_specialists || [],
+      domains: specialist.domains
     };
   }
 
@@ -753,22 +756,39 @@ export class MultiContentLayerService {
    * Find specialist by ID across all layers
    */
   private async findSpecialistById(specialistId: string): Promise<SpecialistDefinition | null> {
+    console.error(`🔍 findSpecialistById: Looking for "${specialistId}" in ${this.layerPriorities.length} layers`);
+
     for (const layerName of this.layerPriorities) {
       const layer = this.layers.get(layerName);
-      if (!layer || !layer.supported_content_types.includes('specialists')) {
+      if (!layer) {
+        console.error(`  Layer "${layerName}" not found in map`);
+        continue;
+      }
+      if (!layer.supported_content_types.includes('specialists')) {
+        console.error(`  Layer "${layerName}" doesn't support specialists`);
         continue;
       }
 
       try {
-        if (layer.hasContent('specialists', specialistId)) {
-          return await layer.getContent('specialists', specialistId);
+        const hasIt = layer.hasContent('specialists', specialistId);
+        console.error(`  Layer "${layerName}": hasContent('specialists', '${specialistId}') = ${hasIt}`);
+
+        if (hasIt) {
+          const result = await layer.getContent('specialists', specialistId);
+          console.error(`  Found specialist in layer "${layerName}": ${result?.title || 'null'}`);
+          return result;
         }
+
+        // Debug: list available specialist IDs
+        const availableIds = layer.getContentIds('specialists');
+        console.error(`  Layer "${layerName}" has ${availableIds.length} specialists: ${availableIds.slice(0, 5).join(', ')}${availableIds.length > 5 ? '...' : ''}`);
       } catch (error) {
         console.error(`Error finding specialist ${specialistId} in layer ${layerName}:`, error);
         // Continue with other layers
       }
     }
 
+    console.error(`❌ Specialist "${specialistId}" not found in any layer`);
     return null;
   }
 
@@ -805,10 +825,10 @@ export class MultiContentLayerService {
 
     // Domain filtering
     if (params.domain) {
-      const topicDomains = Array.isArray(topic.frontmatter.domain) 
-        ? topic.frontmatter.domain 
+      const topicDomains = Array.isArray(topic.frontmatter.domain)
+        ? topic.frontmatter.domain
         : topic.frontmatter.domain ? [topic.frontmatter.domain] : [];
-      
+
       if (!topicDomains.includes(params.domain)) {
         return false;
       }
@@ -818,13 +838,13 @@ export class MultiContentLayerService {
     if (params.bc_version && topic.frontmatter.bc_versions) {
       const bcVersions = topic.frontmatter.bc_versions;
       const requestedVersion = params.bc_version;
-      
+
       // Handle version ranges like "14+", "18+", "BC14+", "BC18+"
       const rangeMatch = bcVersions.match(/^(?:BC)?(\d+)\+$/);
       if (rangeMatch) {
         const minVersion = parseInt(rangeMatch[1], 10);
         const requestedVersionNum = parseInt(requestedVersion.replace(/^BC/, ''), 10);
-        
+
         if (requestedVersionNum < minVersion) {
           return false; // Requested version is below minimum
         }
@@ -1002,12 +1022,12 @@ export class MultiContentLayerService {
    * Convert topic to search result
    */
   private topicToSearchResult(topic: AtomicTopic, relevanceScore: number): TopicSearchResult {
-    const primaryDomain = Array.isArray(topic.frontmatter.domain) 
-      ? topic.frontmatter.domain[0] 
+    const primaryDomain = Array.isArray(topic.frontmatter.domain)
+      ? topic.frontmatter.domain[0]
       : topic.frontmatter.domain || '';
-    
-    const allDomains = Array.isArray(topic.frontmatter.domain) 
-      ? topic.frontmatter.domain 
+
+    const allDomains = Array.isArray(topic.frontmatter.domain)
+      ? topic.frontmatter.domain
       : topic.frontmatter.domain ? [topic.frontmatter.domain] : [];
 
     return {
@@ -1097,6 +1117,76 @@ export class MultiContentLayerService {
   }
 
   /**
+   * Find topics that partially match the given topic ID (e.g., missing domain prefix)
+   */
+  async findPartialTopicMatches(partialId: string): Promise<Array<{ id: string; title: string; domain: string }>> {
+    if (!this.initialized) {
+      await this.initialize();
+    }
+
+    const matches: Array<{ id: string; title: string; domain: string }> = [];
+    const normalizedPartial = partialId.replace(/^domains?[/\\]/, '').toLowerCase();
+
+    // Search through all layers for partial matches
+    for (const layerName of this.layerPriorities) {
+      const layer = this.layers.get(layerName);
+      if (layer && 'getTopicIds' in layer) {
+        const topicIds = (layer as any).getTopicIds() as string[];
+        for (const fullId of topicIds) {
+          const normalizedFull = fullId.toLowerCase();
+          // Match if the full ID ends with the partial ID (e.g., "chris-config/configuration-file-formats" matches "configuration-file-formats")
+          if (normalizedFull.endsWith(normalizedPartial) || normalizedFull.endsWith(`/${normalizedPartial}`)) {
+            const topic = await (layer as any).getTopic(fullId);
+            if (topic) {
+              matches.push({
+                id: fullId,
+                title: topic.title || fullId,
+                domain: topic.domain || 'unknown'
+              });
+            }
+          }
+        }
+      }
+    }
+
+    return matches;
+  }
+
+  /**
+   * Get all topics from a specific domain
+   */
+  async getTopicsByDomain(domain: string): Promise<Array<{ id: string; title: string }>> {
+    if (!this.initialized) {
+      await this.initialize();
+    }
+
+    const domainTopics: Array<{ id: string; title: string }> = [];
+    const normalizedDomain = domain.toLowerCase();
+
+    // Search through all layers for topics in this domain
+    for (const layerName of this.layerPriorities) {
+      const layer = this.layers.get(layerName);
+      if (layer && 'getTopicIds' in layer) {
+        const topicIds = (layer as any).getTopicIds() as string[];
+        for (const fullId of topicIds) {
+          // Check if topic ID starts with the domain
+          if (fullId.toLowerCase().startsWith(`${normalizedDomain}/`)) {
+            const topic = await (layer as any).getTopic(fullId);
+            if (topic) {
+              domainTopics.push({
+                id: fullId,
+                title: topic.title || fullId
+              });
+            }
+          }
+        }
+      }
+    }
+
+    return domainTopics;
+  }
+
+  /**
    * Get all resolved topics (adapted from LayerService)
    */
   async getAllResolvedTopics(): Promise<AtomicTopic[]> {
@@ -1151,7 +1241,7 @@ export class MultiContentLayerService {
           priority: enhanced.priority,
           enabled: layer.enabled,
           topicCount: enhanced.content_counts.topics || 0,
-          indexCount: enhanced.content_counts.methodologies || 0,
+          indexCount: enhanced.content_counts.workflows || 0,
           lastLoaded: enhanced.initialized ? new Date() : undefined,
           loadTimeMs: enhanced.load_time_ms,
           memoryUsage: {

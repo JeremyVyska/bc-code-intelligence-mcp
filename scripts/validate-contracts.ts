@@ -5,8 +5,8 @@
  * Run this during CI/CD and at server startup to catch dead ends early.
  */
 
-import { streamlinedTools } from '../src/tools/core-tools.ts';
-import { createStreamlinedHandlers } from '../src/streamlined-handlers.ts';
+import { allTools } from '../src/tools/index.ts';
+import { createToolHandlers, type HandlerServices, type WorkspaceContext } from '../src/tools/handlers.ts';
 
 interface ValidationResult {
   toolName: string;
@@ -23,13 +23,20 @@ async function validateContracts(): Promise<ValidationResult[]> {
     methodologyService: createMockMethodologyService(),
     codeAnalysisService: createMockCodeAnalysisService(),
     workflowService: createMockWorkflowService(),
-    layerService: createMockLayerService()
+    layerService: createMockLayerService(),
+    workflowSessionManagerV2: createMockWorkflowSessionManagerV2()
   };
 
   try {
-    const handlers = createStreamlinedHandlers(null, mockServices) as any;
-    
-    for (const tool of streamlinedTools) {
+    // Create mock workspace context
+    const mockWorkspaceContext: WorkspaceContext = {
+      setWorkspaceInfo: async () => ({ success: true, message: 'test', reloaded: false }),
+      getWorkspaceInfo: () => ({ workspace_root: null, available_mcps: [] })
+    };
+
+    const handlers = createToolHandlers(mockServices, mockWorkspaceContext);
+
+    for (const tool of allTools) {
       const validation: ValidationResult = {
         toolName: tool.name,
         issues: [],
@@ -37,18 +44,19 @@ async function validateContracts(): Promise<ValidationResult[]> {
       };
 
       // Check if handler exists
-      if (!handlers[tool.name]) {
+      const handler = handlers.get(tool.name);
+      if (!handler) {
         validation.issues.push(`No handler found for tool: ${tool.name}`);
         results.push(validation);
         continue;
       }
 
       // Validate enum options in schema
-      await validateEnumOptions(tool, handlers[tool.name], validation);
-      
+      await validateEnumOptions(tool, handler, validation);
+
       // Test basic handler execution
-      await testHandlerExecution(tool, handlers[tool.name], validation);
-      
+      await testHandlerExecution(tool, handler, validation);
+
       results.push(validation);
     }
   } catch (error) {
@@ -90,16 +98,31 @@ async function validateEnumOptions(tool: any, handler: Function, validation: Val
 }
 
 async function validateWorkflowTypes(enumValues: string[], validation: ValidationResult) {
-  // These should match the pipeline definitions in WorkflowService
-  const expectedTypes = [
+  // Expected types for v1 WorkflowService
+  const v1Types = [
     'new-bc-app', 'enhance-bc-app', 'review-bc-code', 'debug-bc-issues',
     'modernize-bc-code', 'onboard-developer', 'upgrade-bc-version',
     'add-ecosystem-features', 'document-bc-solution'
   ];
-  
+
+  // Built-in types for v2 WorkflowSessionManagerV2
+  // Note: v2 also supports custom workflow types from company/project layers,
+  // which are registered at runtime and cannot be validated statically
+  const v2BuiltInTypes = [
+    'code-review', 'proposal-review', 'performance-audit', 'security-audit',
+    'onboarding', 'error-to-errorinfo-migration', 'bc-version-upgrade'
+  ];
+
+  // Combine both for validation - tool can use either system
+  const allKnownTypes = [...v1Types, ...v2BuiltInTypes];
+
   for (const enumValue of enumValues) {
-    if (!expectedTypes.includes(enumValue)) {
-      validation.issues.push(`Workflow type '${enumValue}' not implemented in WorkflowService`);
+    if (!allKnownTypes.includes(enumValue)) {
+      // Only warn, don't error - could be a custom type from a layer
+      validation.warnings.push(
+        `Workflow type '${enumValue}' is not a built-in type. ` +
+        `Ensure it's registered as a custom workflow in a company/project layer.`
+      );
     }
   }
 }
@@ -171,19 +194,27 @@ function createTestValue(propSchema: any): any {
     }
     return 'test-value';
   }
-  
+
+  if (propSchema.type === 'array') {
+    // For arrays, return empty array or array with test items based on item schema
+    if (propSchema.items?.type === 'string') {
+      return ['test-item'];
+    }
+    return [];
+  }
+
   if (propSchema.type === 'number') {
     return propSchema.default || 10;
   }
-  
+
   if (propSchema.type === 'boolean') {
     return propSchema.default || false;
   }
-  
+
   if (propSchema.type === 'object') {
     return {};
   }
-  
+
   return 'test';
 }
 
@@ -221,7 +252,53 @@ function createMockWorkflowService() {
 }
 
 function createMockLayerService() {
-  return {};
+  return {
+    getAllSpecialists: async () => [],
+    getLayers: () => []
+  };
+}
+
+function createMockWorkflowSessionManagerV2() {
+  const mockSession = {
+    id: 'wf-test-session',
+    workflow_type: 'code-review',
+    status: 'in_progress',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    file_inventory: [],
+    file_glob_pattern: '**/*.al',
+    phases: [{ id: 'analysis', name: 'Analysis', description: '', status: 'in_progress', mode: 'guided', required: true }],
+    current_phase: 'analysis',
+    current_file_index: 0,
+    files_completed: 0,
+    files_total: 0,
+    findings: [],
+    proposed_changes: [],
+    options: {}
+  };
+
+  return {
+    setWorkspaceRoot: () => {},
+    getSession: async () => mockSession,
+    createSession: async () => {},
+    updateSession: async () => {},
+    deleteSession: async () => {},
+    startWorkflow: async () => ({
+      session: mockSession,
+      analysisSummary: undefined,
+      duration_ms: 100
+    }),
+    getNextAction: () => ({
+      type: 'complete_workflow',
+      instruction: 'Test instruction'
+    }),
+    expandChecklist: () => {},
+    reportProgress: async () => ({
+      type: 'complete_workflow',
+      instruction: 'Test instruction'
+    }),
+    generateReport: async () => '# Test Report'
+  };
 }
 
 // Main execution

@@ -3,9 +3,10 @@
  * Dynamic methodology loading and guidance using the layered knowledge system
  */
 
-import { readFileSync, existsSync } from 'fs';
-import { join, dirname } from 'path';
+import { readFileSync, existsSync, readdirSync } from 'fs';
+import { join, dirname, basename } from 'path';
 import { fileURLToPath } from 'url';
+import { parse as parseYaml } from 'yaml';
 import { KnowledgeService } from './knowledge-service.js';
 import { AtomicTopic } from '../types/bc-knowledge.js';
 
@@ -64,7 +65,7 @@ export interface ValidationResult {
 }
 
 export class MethodologyService {
-  private methodologyPath: string;
+  private workflowsPath: string;
   private indexData: any;
   private loadedPhases: Record<string, PhaseContent> = {};
   private currentSession: {
@@ -77,13 +78,26 @@ export class MethodologyService {
 
   constructor(
     private knowledgeService: KnowledgeService,
-    methodologyPath?: string
+    workflowsPath?: string
   ) {
-    // Keep methodology loading from files, but add knowledge service for BC content
+    // Keep workflow loading from files, but add knowledge service for BC content
     // ES module: __dirname equivalent
     const __filename = fileURLToPath(import.meta.url);
     const __dirname = dirname(__filename);
-    this.methodologyPath = methodologyPath || join(__dirname, '../../embedded-knowledge', 'methodologies');
+
+    // Prefer workflows/, fall back to methodologies/ for backward compatibility
+    const preferredPath = workflowsPath || join(__dirname, '../../embedded-knowledge', 'workflows');
+    const legacyPath = join(__dirname, '../../embedded-knowledge', 'methodologies');
+
+    if (existsSync(preferredPath)) {
+      this.workflowsPath = preferredPath;
+    } else if (existsSync(legacyPath)) {
+      this.workflowsPath = legacyPath;
+      console.error(`⚠️  Using deprecated 'methodologies/' directory. Please rename to 'workflows/'`);
+    } else {
+      this.workflowsPath = preferredPath; // Will fail in loadIndex() with helpful error
+    }
+
     this.indexData = this.loadIndex();
     this.currentSession = {
       intent: null,
@@ -94,14 +108,51 @@ export class MethodologyService {
     };
   }
 
+  /**
+   * Get the workflow index data for tool access
+   */
+  public getIndexData(): any {
+    return this.indexData;
+  }
+
   private loadIndex(): any {
-    const indexFile = join(this.methodologyPath, 'index.json');
+    const indexFile = join(this.workflowsPath, 'index.json');
+
+    // V2: Try loading from YAML workflow files first
     if (!existsSync(indexFile)) {
+      return this.loadIndexFromYamlWorkflows();
+    }
+
+    // Legacy: Load from index.json
+    try {
+      const content = readFileSync(indexFile, 'utf-8');
+      const indexData = JSON.parse(content);
+
+      // Log detailed information about loaded workflows
+      console.error(`Loaded workflow index with ${Object.keys(indexData.intents || {}).length} intents`);
+
+      const availablePhases = new Set<string>();
+      Object.values(indexData.intents || {}).forEach((intent: any) => {
+        (intent.phases || []).forEach((phase: string) => availablePhases.add(phase));
+      });
+      console.error(`Available phases: ${Array.from(availablePhases).join(', ')}`);
+
+      return indexData;
+    } catch (error) {
+      throw new Error(`Failed to load workflow index: ${error}`);
+    }
+  }
+
+  /**
+   * V2: Build index dynamically from YAML workflow files
+   */
+  private loadIndexFromYamlWorkflows(): any {
+    if (!existsSync(this.workflowsPath)) {
       throw new Error(`
 🚨 BC Code Intelligence MCP Server Setup Issue
 
 PROBLEM: Missing embedded knowledge content
-FILE: ${indexFile}
+DIRECTORY: ${this.workflowsPath}
 
 LIKELY CAUSE: The git submodule 'embedded-knowledge' was not initialized when this package was built/installed.
 
@@ -114,26 +165,118 @@ This error indicates the embedded BC knowledge base is missing, which contains t
       `.trim());
     }
 
-    try {
-      const content = readFileSync(indexFile, 'utf-8');
-      const indexData = JSON.parse(content);
-      
-      // Log detailed information about loaded methodology
-      console.error(`Loaded methodology index with ${Object.keys(indexData.intents || {}).length} intents`);
-      if (indexData.intents) {
-        // Silently load intents without verbose logging
-      }
-      
-      const availablePhases = new Set<string>();
-      Object.values(indexData.intents || {}).forEach((intent: any) => {
-        (intent.phases || []).forEach((phase: string) => availablePhases.add(phase));
-      });
-      console.error(`Available phases: ${Array.from(availablePhases).join(', ')}`);
-      
-      return indexData;
-    } catch (error) {
-      throw new Error(`Failed to load methodology index: ${error}`);
+    // Find all YAML workflow files
+    const files = readdirSync(this.workflowsPath).filter(f => f.endsWith('.yaml') || f.endsWith('.yml'));
+
+    if (files.length === 0) {
+      throw new Error(`No workflow YAML files found in ${this.workflowsPath}`);
     }
+
+    const workflows: Map<string, any> = new Map();
+    const intents: Record<string, any> = {};
+    const allPhases = new Set<string>();
+    const phaseDependencies: Record<string, string[]> = {};
+
+    for (const file of files) {
+      try {
+        const filePath = join(this.workflowsPath, file);
+        const content = readFileSync(filePath, 'utf-8');
+        const workflow = parseYaml(content);
+
+        if (!workflow.type) continue;
+
+        workflows.set(workflow.type, workflow);
+
+        // Build intent from workflow
+        const intentKeywords = this.extractKeywordsFromWorkflow(workflow);
+        const phaseIds = (workflow.phases || []).map((p: any) => p.id);
+
+        intents[workflow.type] = {
+          keywords: intentKeywords,
+          phases: phaseIds,
+          description: workflow.description || workflow.name,
+          specialist: workflow.specialist
+        };
+
+        // Collect phases and their dependencies
+        for (const phase of workflow.phases || []) {
+          allPhases.add(phase.id);
+
+          // Extract dependencies from entry_conditions
+          if (phase.entry_conditions) {
+            const deps: string[] = [];
+            for (const condition of phase.entry_conditions) {
+              // Parse "X phase completed" pattern
+              const match = condition.match(/^(\w+)\s+phase\s+completed$/i);
+              if (match) {
+                deps.push(match[1]);
+              }
+            }
+            if (deps.length > 0) {
+              phaseDependencies[phase.id] = deps;
+            }
+          }
+        }
+      } catch (error) {
+        console.error(`Warning: Failed to parse workflow file ${file}:`, error);
+      }
+    }
+
+    console.error(`Loaded ${workflows.size} workflow definitions from YAML files`);
+    console.error(`Available phases: ${Array.from(allPhases).join(', ')}`);
+
+    return {
+      intents,
+      phase_dependencies: phaseDependencies,
+      workflow_mappings: Object.fromEntries(
+        Array.from(workflows.entries()).map(([type, wf]) => [
+          type,
+          {
+            description: wf.description,
+            phases: (wf.phases || []).map((p: any) => p.id),
+            methodology_type: wf.type,
+            specialist: wf.specialist
+          }
+        ])
+      ),
+      validation_criteria: {},
+      _workflows: workflows  // Store full workflow data for later use
+    };
+  }
+
+  /**
+   * Extract keywords from workflow definition for intent matching
+   */
+  private extractKeywordsFromWorkflow(workflow: any): string[] {
+    const keywords: string[] = [];
+
+    // Add type as keyword
+    if (workflow.type) {
+      keywords.push(...workflow.type.split('-'));
+    }
+
+    // Add name words
+    if (workflow.name) {
+      keywords.push(...workflow.name.toLowerCase().split(/\s+/).filter((w: string) => w.length > 3));
+    }
+
+    // Add description words
+    if (workflow.description) {
+      const descWords = workflow.description.toLowerCase()
+        .split(/\s+/)
+        .filter((w: string) => w.length > 4 && !['using', 'focusing', 'based'].includes(w));
+      keywords.push(...descWords.slice(0, 5));
+    }
+
+    // Add phase names
+    for (const phase of workflow.phases || []) {
+      if (phase.name) {
+        keywords.push(...phase.name.toLowerCase().split(/\s+/).filter((w: string) => w.length > 3));
+      }
+    }
+
+    // Deduplicate
+    return [...new Set(keywords)];
   }
 
   /**
@@ -346,10 +489,25 @@ This error indicates the embedded BC knowledge base is missing, which contains t
   }
 
   private async loadPhaseContent(phaseName: string, domain: string): Promise<PhaseContent> {
-    const phaseFile = join(this.methodologyPath, 'phases', `${phaseName}.md`);
+    // V2: Try to load from YAML workflow phases first
+    const phaseFromYaml = this.loadPhaseFromYamlWorkflows(phaseName);
+    if (phaseFromYaml) {
+      const domainKnowledge = await this.loadDomainKnowledge(domain, phaseName);
+      return {
+        phase_name: phaseName,
+        methodology_content: phaseFromYaml.content,
+        domain_knowledge: domainKnowledge,
+        checklists: phaseFromYaml.checklists,
+        success_criteria: phaseFromYaml.successCriteria
+      };
+    }
+
+    // Legacy: Try to load from phases/*.md files
+    const phaseFile = join(this.workflowsPath, 'phases', `${phaseName}.md`);
 
     if (!existsSync(phaseFile)) {
-      throw new Error(`Phase file not found: ${phaseFile}`);
+      // Generate fallback content from available workflow data
+      return this.generateFallbackPhaseContent(phaseName, domain);
     }
 
     const content = readFileSync(phaseFile, 'utf-8');
@@ -363,6 +521,148 @@ This error indicates the embedded BC knowledge base is missing, which contains t
       domain_knowledge: domainKnowledge,
       checklists: this.extractChecklists(content),
       success_criteria: this.extractSuccessCriteria(content)
+    };
+  }
+
+  /**
+   * V2: Load phase content from YAML workflow definitions
+   */
+  private loadPhaseFromYamlWorkflows(phaseId: string): { content: string; checklists: ChecklistItem[]; successCriteria: string[] } | null {
+    const workflows = this.indexData._workflows as Map<string, any> | undefined;
+    if (!workflows) return null;
+
+    // Search for phase in all workflows
+    for (const workflow of workflows.values()) {
+      const phase = (workflow.phases || []).find((p: any) => p.id === phaseId);
+      if (phase) {
+        // Build content from phase definition
+        const content = this.buildPhaseMarkdown(phase, workflow);
+        const checklists = this.buildPhaseChecklists(phase, workflow);
+        const successCriteria = this.buildPhaseSuccessCriteria(phase);
+
+        return { content, checklists, successCriteria };
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Build markdown content from YAML phase definition
+   */
+  private buildPhaseMarkdown(phase: any, workflow: any): string {
+    const lines: string[] = [];
+
+    lines.push(`# ${phase.name || phase.id}`);
+    lines.push('');
+
+    if (phase.description) {
+      lines.push(phase.description);
+      lines.push('');
+    }
+
+    if (phase.mode) {
+      lines.push(`**Mode:** ${phase.mode}`);
+      lines.push('');
+    }
+
+    if (phase.entry_conditions && phase.entry_conditions.length > 0) {
+      lines.push('## Entry Conditions');
+      for (const condition of phase.entry_conditions) {
+        lines.push(`- ${condition}`);
+      }
+      lines.push('');
+    }
+
+    if (phase.available_actions && phase.available_actions.length > 0) {
+      lines.push('## Available Actions');
+      for (const action of phase.available_actions) {
+        lines.push(`- [ ] **${action}**`);
+      }
+      lines.push('');
+    }
+
+    // Add per-file checklist items if this workflow has them
+    if (workflow.per_file_checklist) {
+      lines.push('## Checklist Items');
+      for (const item of workflow.per_file_checklist) {
+        lines.push(`- [ ] **${item.description}**`);
+      }
+      lines.push('');
+    }
+
+    return lines.join('\n');
+  }
+
+  /**
+   * Build checklist items from YAML phase definition
+   */
+  private buildPhaseChecklists(phase: any, workflow: any): ChecklistItem[] {
+    const items: ChecklistItem[] = [];
+
+    // Add available actions as checklist items
+    if (phase.available_actions) {
+      for (const action of phase.available_actions) {
+        items.push({ item: action, completed: false });
+      }
+    }
+
+    // Add per-file checklist items if applicable
+    if (workflow.per_file_checklist) {
+      for (const item of workflow.per_file_checklist) {
+        items.push({ item: item.description, completed: false });
+      }
+    }
+
+    return items;
+  }
+
+  /**
+   * Build success criteria from YAML phase definition
+   */
+  private buildPhaseSuccessCriteria(phase: any): string[] {
+    const criteria: string[] = [];
+
+    if (phase.required) {
+      criteria.push(`${phase.name || phase.id} phase completed`);
+    }
+
+    if (phase.entry_conditions) {
+      // Entry conditions of next phase become success criteria for this one
+      criteria.push(...phase.entry_conditions.map((c: string) => `✅ ${c}`));
+    }
+
+    return criteria;
+  }
+
+  /**
+   * Generate fallback phase content when no specific definition exists
+   */
+  private async generateFallbackPhaseContent(phaseName: string, domain: string): Promise<PhaseContent> {
+    const domainKnowledge = await this.loadDomainKnowledge(domain, phaseName);
+
+    const content = `# ${phaseName.charAt(0).toUpperCase() + phaseName.slice(1)} Phase
+
+This phase is part of the ${domain} workflow.
+
+## Objectives
+
+Complete the ${phaseName} phase by following best practices and using available tools.
+
+## Available Tools
+
+Use the BC Code Intelligence tools to assist with this phase:
+- \`find_bc_knowledge\` - Search for relevant topics
+- \`analyze_al_code\` - Analyze code for issues
+- \`ask_bc_expert\` - Consult domain specialists
+`;
+
+    return {
+      phase_name: phaseName,
+      methodology_content: content,
+      domain_knowledge: domainKnowledge,
+      checklists: [{ item: `Complete ${phaseName} phase`, completed: false }],
+      success_criteria: [`${phaseName} phase completed`]
     };
   }
 

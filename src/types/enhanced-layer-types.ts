@@ -12,7 +12,7 @@ import { SpecialistDefinition } from '../services/specialist-loader.js';
 /**
  * Content types supported by the layer system
  */
-export type LayerContentType = 'topics' | 'specialists' | 'methodologies';
+export type LayerContentType = 'topics' | 'specialists' | 'workflows';
 
 /**
  * Generic content item that can be stored in layers
@@ -152,8 +152,8 @@ export interface EnhancedLayerSource {
   
   specialists_config?: SpecialistLayerConfig;
   
-  methodologies_config?: {
-    methodologies_path?: string;
+  workflows_config?: {
+    workflows_path?: string;
     auto_load?: boolean;
   };
 }
