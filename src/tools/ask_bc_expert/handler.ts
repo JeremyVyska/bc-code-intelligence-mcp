@@ -5,7 +5,7 @@
  */
 
 export function createAskBcExpertHandler(services: any) {
-  const { knowledgeService, workflowService } = services;
+  const { knowledgeService, workflowService, codeAnalysisService } = services;
 
   return async (args: any) => {
     try {
@@ -108,6 +108,50 @@ export function createAskBcExpertHandler(services: any) {
         specialist.follow_up_suggestions.forEach((s: string) => {
           agentInstructions += `- Consider involving ${s} if needed\n`;
         });
+      }
+
+      // If context contains code, analyze it for relevant topics
+      let recommendedTopics: any[] = [];
+      if (context && codeAnalysisService) {
+        try {
+          const analysisResult = await codeAnalysisService.analyzeCode({
+            code_snippet: context,
+            analysis_type: 'comprehensive',
+            suggest_topics: true
+          });
+
+          // Extract relevant knowledge topics
+          const relevanceMatches = codeAnalysisService.getLastRelevanceMatches?.() || [];
+          recommendedTopics = relevanceMatches.slice(0, 5).map((match: any) => ({
+            topic_id: match.topicId,
+            title: match.title,
+            relevance_score: match.relevanceScore,
+            domain: match.domain,
+            matched_signals: match.matchedSignals || []
+          }));
+
+          // Also include suggested_topics from analysis if relevance matches are empty
+          if (recommendedTopics.length === 0 && analysisResult.suggested_topics) {
+            recommendedTopics = analysisResult.suggested_topics.slice(0, 5).map((topic: any) => ({
+              topic_id: topic.id || topic.topic_id,
+              title: topic.title || topic.description,
+              relevance_score: topic.relevance_score || 0.7,
+              domain: topic.domain || specialist.specialist?.id
+            }));
+          }
+        } catch (analysisError) {
+          // Code analysis failed - continue without topics
+          console.error('Code analysis for ask_bc_expert failed:', analysisError);
+        }
+      }
+
+      // Add recommended topics to instructions if found
+      if (recommendedTopics.length > 0) {
+        agentInstructions += `\nRECOMMENDED TOPICS (use get_bc_topic to retrieve full content):\n`;
+        recommendedTopics.forEach((topic: any) => {
+          agentInstructions += `- ${topic.topic_id}: ${topic.title} (relevance: ${(topic.relevance_score * 100).toFixed(0)}%)\n`;
+        });
+        agentInstructions += `\nThese topics are directly relevant to the code context provided. Consider fetching them to inform your response.\n`;
       }
 
       return {
