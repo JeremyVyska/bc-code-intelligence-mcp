@@ -838,18 +838,69 @@ export class MultiContentLayerService {
     if (params.bc_version && topic.frontmatter.bc_versions) {
       const bcVersions = topic.frontmatter.bc_versions;
       const requestedVersion = params.bc_version;
+      const requestedVersionNum = parseInt(requestedVersion.replace(/^BC/, ''), 10);
 
-      // Handle version ranges like "14+", "18+", "BC14+", "BC18+"
-      const rangeMatch = bcVersions.match(/^(?:BC)?(\d+)\+$/);
-      if (rangeMatch) {
-        const minVersion = parseInt(rangeMatch[1], 10);
-        const requestedVersionNum = parseInt(requestedVersion.replace(/^BC/, ''), 10);
-
-        if (requestedVersionNum < minVersion) {
-          return false; // Requested version is below minimum
+      // Handle "x->y" (migration guide: BC19->20 matches both 19 and 20)
+      const migrationMatch = bcVersions.match(/^(?:BC)?(\d+)->(?:BC)?(\d+)$/);
+      if (migrationMatch) {
+        const fromVersion = parseInt(migrationMatch[1], 10);
+        const toVersion = parseInt(migrationMatch[2], 10);
+        // Migration guides match source version, target version, and everything in between
+        if (requestedVersionNum < fromVersion || requestedVersionNum > toVersion) {
+          return false;
         }
-      } else if (!bcVersions.includes(requestedVersion)) {
-        // Exact version match required if not a range
+      }
+      // Handle "x,y,z" (discrete versions: 18,20,22)
+      else if (bcVersions.includes(',')) {
+        const versions = bcVersions.split(',').map(v => parseInt(v.trim().replace(/^BC/, ''), 10));
+        if (!versions.includes(requestedVersionNum)) {
+          return false;
+        }
+      }
+      // Handle "x.." (minimum version: BC14..)
+      else if (bcVersions.match(/^(?:BC)?(\d+)\.\.$/)) {
+        const minRangeMatch = bcVersions.match(/^(?:BC)?(\d+)\.\.$/);
+        const minVersion = parseInt(minRangeMatch![1], 10);
+        if (requestedVersionNum < minVersion) {
+          return false;
+        }
+      }
+      // Handle "..x" (maximum version: ..BC23)
+      else if (bcVersions.match(/^\.\.(?:BC)?(\d+)$/)) {
+        const maxRangeMatch = bcVersions.match(/^\.\.(?:BC)?(\d+)$/);
+        const maxVersion = parseInt(maxRangeMatch![1], 10);
+        if (requestedVersionNum > maxVersion) {
+          return false;
+        }
+      }
+      // Handle "x..y" (range: BC19..20)
+      else if (bcVersions.match(/^(?:BC)?(\d+)\.\.(?:BC)?(\d+)$/)) {
+        const rangeMatch = bcVersions.match(/^(?:BC)?(\d+)\.\.(?:BC)?(\d+)$/);
+        const minVersion = parseInt(rangeMatch![1], 10);
+        const maxVersion = parseInt(rangeMatch![2], 10);
+        if (requestedVersionNum < minVersion || requestedVersionNum > maxVersion) {
+          return false;
+        }
+      }
+      // Handle "x-y" (alternative range syntax: BC18-20)
+      else if (bcVersions.match(/^(?:BC)?(\d+)-(?:BC)?(\d+)$/)) {
+        const dashRangeMatch = bcVersions.match(/^(?:BC)?(\d+)-(?:BC)?(\d+)$/);
+        const minVersion = parseInt(dashRangeMatch![1], 10);
+        const maxVersion = parseInt(dashRangeMatch![2], 10);
+        if (requestedVersionNum < minVersion || requestedVersionNum > maxVersion) {
+          return false;
+        }
+      }
+      // LEGACY: Handle old "x+" syntax (14+, BC18+) for backward compatibility
+      else if (bcVersions.match(/^(?:BC)?(\d+)\+$/)) {
+        const legacyMatch = bcVersions.match(/^(?:BC)?(\d+)\+$/);
+        const minVersion = parseInt(legacyMatch![1], 10);
+        if (requestedVersionNum < minVersion) {
+          return false;
+        }
+      }
+      // Exact version match required if not a range
+      else if (!bcVersions.includes(requestedVersion)) {
         return false;
       }
     }
