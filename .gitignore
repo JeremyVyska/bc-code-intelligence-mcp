@@ -48,5 +48,8 @@ coverage/
 *.tmp
 *.temp
 
+# Testing paths
+test-value/
+
 # Claude local settings
 .claude/settings.local.json
