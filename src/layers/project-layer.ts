@@ -231,6 +231,18 @@ export class ProjectKnowledgeLayer extends BaseKnowledgeLayer {
    * Load a single override topic from a markdown file
    */
   private async loadAtomicTopic(filePath: string): Promise<AtomicTopic | null> {
+    // Safety check: ensure this is actually a file, not a directory
+    try {
+      const stats = await stat(filePath);
+      if (!stats.isFile()) {
+        console.error(`Skipping non-file in loadAtomicTopic: ${filePath}`);
+        return null;
+      }
+    } catch (error) {
+      console.error(`Failed to stat file ${filePath}:`, error instanceof Error ? error.message : String(error));
+      return null;
+    }
+
     const content = await readFile(filePath, 'utf-8');
     const stats = await stat(filePath);
 
