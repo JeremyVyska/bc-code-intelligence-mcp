@@ -13,6 +13,7 @@ import { createGetBcTopicHandler } from './get_bc_topic/handler.js';
 import { createAskBcExpertHandler } from './ask_bc_expert/handler.js';
 import { createAnalyzeAlCodeHandler } from './analyze_al_code/handler.js';
 import { createListSpecialistsHandler } from './list_specialists/handler.js';
+import { createExtractBcSnapshotHandler } from './extract_bc_snapshot/handler.js';
 import { createSetWorkspaceInfoHandler } from './set_workspace_info/handler.js';
 import { createGetWorkspaceInfoHandler } from './get_workspace_info/handler.js';
 
@@ -81,6 +82,7 @@ export function createToolHandlers(services: HandlerServices, workspaceContext: 
   handlers.set('ask_bc_expert', createAskBcExpertHandler(services));
   handlers.set('analyze_al_code', createAnalyzeAlCodeHandler(services));
   handlers.set('list_specialists', createListSpecialistsHandler(services));
+  handlers.set('extract_bc_snapshot', createExtractBcSnapshotHandler(services));
 
   // Workspace tools
   handlers.set('set_workspace_info', createSetWorkspaceInfoHandler(workspaceContext));

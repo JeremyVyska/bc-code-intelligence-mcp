@@ -15,7 +15,7 @@
 import { Tool } from '@modelcontextprotocol/sdk/types.js';
 
 // ============================================================================
-// CORE KNOWLEDGE TOOLS (5 tools)
+// CORE KNOWLEDGE TOOLS (6 tools)
 // ============================================================================
 
 // Knowledge Query Tools (2 tools)
@@ -30,6 +30,9 @@ export { analyzeAlCodeTool } from './analyze_al_code/schema.js';
 
 // Specialist Listing (1 tool)
 export { listSpecialistsTool } from './list_specialists/schema.js';
+
+// Snapshot Debugging (1 tool)
+export { extractBcSnapshotTool } from './extract_bc_snapshot/schema.js';
 
 // ============================================================================
 // WORKFLOW TOOLS (8 tools - unified workflow_* naming)
@@ -81,6 +84,7 @@ import { getBcTopicTool } from './get_bc_topic/schema.js';
 import { askBcExpertTool } from './ask_bc_expert/schema.js';
 import { analyzeAlCodeTool } from './analyze_al_code/schema.js';
 import { listSpecialistsTool } from './list_specialists/schema.js';
+import { extractBcSnapshotTool } from './extract_bc_snapshot/schema.js';
 import { setWorkspaceInfoTool } from './set_workspace_info/schema.js';
 import { getWorkspaceInfoTool } from './get_workspace_info/schema.js';
 import { diagnoseGitLayerTool } from './debug/diagnose_git_layer/schema.js';
@@ -113,7 +117,8 @@ export const coreKnowledgeTools: Tool[] = [
   getBcTopicTool,
   askBcExpertTool,
   analyzeAlCodeTool,
-  listSpecialistsTool
+  listSpecialistsTool,
+  extractBcSnapshotTool
 ];
 
 /**
@@ -195,6 +200,7 @@ export const TOOL_NAMES = {
   ASK_BC_EXPERT: 'ask_bc_expert',
   ANALYZE_AL_CODE: 'analyze_al_code',
   LIST_SPECIALISTS: 'list_specialists',
+  EXTRACT_BC_SNAPSHOT: 'extract_bc_snapshot',
 
   // Workspace tools
   SET_WORKSPACE_INFO: 'set_workspace_info',

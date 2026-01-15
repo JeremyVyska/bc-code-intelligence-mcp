@@ -50,6 +50,12 @@ The BC Code Intelligence specialists are ready to help. Just type naturally - he
 - "I inherited this old extension - can Logan help me understand what it does?"
 - "Help me modernize this C/AL-style code to proper AL patterns"
 
+### 🔄 Version Migration & Breaking Changes (Victor)
+- "Victor, help me upgrade from BC25 to BC26"
+- "I'm seeing obsolete warnings after upgrading - what do I need to change?"
+- "What breaking changes should I know about in BC27?"
+- "Help me resolve this compile error after a runtime upgrade"
+
 ### 🏗️ Architecture & Design (Alex)
 - "Alex, review my extension's architecture before I submit to AppSource"
 - "I need to design an integration with an external warehouse system"
@@ -125,6 +131,7 @@ The BC Code Intelligence specialists are ready to help. Just type naturally - he
 | **🔒 Seth** | Security | Permissions, data protection, API security |
 | **🌉 Jordan** | Integration | APIs, events, external connections |
 | **🏛️ Logan** | Legacy & Upgrades | Version migrations, old code, modernization |
+| **🔄 Victor** | Version Migration | BC upgrades, breaking changes, deprecations |
 | **🎨 Uma** | User Experience | Page design, usability, UI patterns |
 | **🏪 Morgan** | AppSource & ISV | Publishing, validation, business concerns |
 | **👩‍🏫 Maya** | Mentoring | Learning concepts, explanations, training |
