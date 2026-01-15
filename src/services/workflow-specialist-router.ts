@@ -205,7 +205,8 @@ export class WorkflowSpecialistRouter {
       'roger-reviewer': `Review code quality in ${workflowContext}`,
       'maya-mentor': `Learn best practices for ${workflowContext}`,
       'taylor-docs': `Document ${workflowContext} solution`,
-      'casey-copilot': `Get AI assistance with ${workflowContext}`,
+      'lena-pipe': `Get CI/CD pipeline guidance for ${workflowContext}`,
+      'victor-versioning': `Get version upgrade guidance for ${workflowContext}`,
       'morgan-market': `Prepare ${workflowContext} for AppSource`
     };
 

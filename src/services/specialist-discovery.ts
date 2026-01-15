@@ -397,7 +397,7 @@ export class SpecialistDiscoveryService {
    */
   private getDefaultSpecialists(): SpecialistSuggestion[] {
     // Return most versatile specialists as defaults
-    const defaultIds = ['casey-copilot', 'sam-coder', 'alex-architect'];
+    const defaultIds = ['sam-coder', 'alex-architect', 'chris-config'];
     
     return this.specialists
       .filter(s => defaultIds.includes(s.specialist_id))
@@ -423,7 +423,7 @@ export class SpecialistDiscoveryService {
    */
   formatSuggestions(suggestions: SpecialistSuggestion[]): string {
     if (suggestions.length === 0) {
-      return "No specific specialist recommendations. Try asking Casey Copilot for general guidance!";
+      return "No specific specialist recommendations. Try asking Sam Coder or Chris Config for general guidance!";
     }
 
     let result = "🎯 **Specialist Recommendations:**\n\n";
@@ -469,7 +469,7 @@ export class SpecialistDiscoveryService {
    */
   private extractNameFromQuery(query: string): string {
     const words = query.toLowerCase().split(/\s+/);
-    const commonNames = ['sam', 'alex', 'dean', 'eva', 'jordan', 'logan', 'maya', 'morgan', 'quinn', 'roger', 'seth', 'taylor', 'uma', 'casey', 'chris'];
+    const commonNames = ['sam', 'alex', 'dean', 'eva', 'jordan', 'logan', 'maya', 'morgan', 'quinn', 'roger', 'seth', 'taylor', 'uma', 'lena', 'victor', 'parker', 'chris'];
     
     for (const word of words) {
       if (commonNames.includes(word)) {
