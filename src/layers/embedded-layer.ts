@@ -171,6 +171,13 @@ Expected structure: (domains/ or topics/), specialists/, workflows/ directories 
       let loadedCount = 0;
       for (const filePath of topicFiles) {
         try {
+          // Double-check that this is actually a file, not a directory
+          const stats = await stat(filePath);
+          if (!stats.isFile()) {
+            console.error(`Skipping non-file: ${filePath}`);
+            continue;
+          }
+
           const topic = await this.loadAtomicTopic(filePath);
           if (topic && this.validateTopic(topic)) {
             this.topics.set(topic.id, topic);
