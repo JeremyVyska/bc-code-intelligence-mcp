@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-01-15
+
+### 🚀 Features
+
+**New Specialists**
+- **NEW** Lena Pipeline (lena-pipe) - Specialist for AL data pipelines, integration patterns, and data flow architecture
+- **NEW** Victor Versioning (victor-versioning) - Specialist for BC version management, upgrade strategies, and compatibility analysis
+- **REMOVED** Casey Copilot - Consolidated functionality into other specialists
+
+**BC Version Management**
+- **NEW** Comprehensive BC version range syntax support (>=, >, <=, <, ||, ranges)
+- **NEW** BC snapshot extraction tool for analyzing version-specific features and changes
+- Enhanced version filtering and compatibility checking across all tools
+
+**Knowledge Enhancements**
+- **NEW** MCP layer architecture guide in embedded knowledge
+- **NEW** Recommended topics feature in `ask_bc_expert` interactive mode
+- Expanded domain coverage with new specialist areas
+
+### 🔧 Improvements
+
+- Updated embedded-knowledge submodule with new specialists and expanded domains
+- Improved specialist discovery and recommendation system
+- Enhanced documentation for layer architecture and specialist roles
+
 ## [1.6.1] - 2026-01-13
 
 ### 🐛 Bug Fixes
