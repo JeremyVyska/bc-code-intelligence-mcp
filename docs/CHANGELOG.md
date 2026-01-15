@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.1] - 2026-01-13
+
+### 🐛 Bug Fixes
+
+**Performance: Add mutex guards to prevent race conditions**
+- **FIXED** Git layer race condition when multiple tools call `find_bc_knowledge` simultaneously
+- **FIXED** Multi-content layer service race condition during concurrent initialization
+- Added mutex guards with `initializationPromise` to prevent duplicate git sync operations
+- Result: 5 simultaneous calls now complete in seconds instead of minutes
+- Proper cleanup in `finally` blocks ensures mutex is always released
+- Smart caching of initialization results prevents unnecessary re-initialization
+- Contributed by @jwikman in PR #23
+
+**Logging: Fix MCP server output for proper debugging**
+- **CHANGED** Configuration loader now uses `console.error()` instead of `console.log()`
+- In MCP servers, stdout is reserved for protocol messages, stderr for logging
+- Ensures configuration messages appear in logs instead of breaking MCP protocol
+
 ## [1.6.0] - 2026-01-12
 
 ### 🚀 Features

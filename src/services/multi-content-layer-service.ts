@@ -1,14 +1,14 @@
 /**
  * Enhanced Multi-Content Layer Service
- * 
+ *
  * Extends the existing layer system to support specialists alongside
  * atomic topics, enabling companies/teams/projects to have custom specialists
  * that override or supplement the base specialist personas.
  */
 
-import { 
-  MultiContentKnowledgeLayer, 
-  EnhancedLayerLoadResult, 
+import {
+  MultiContentKnowledgeLayer,
+  EnhancedLayerLoadResult,
   LayerContentType,
   SpecialistQueryContext,
   LayerSpecialistSuggestion,
@@ -24,6 +24,7 @@ export class MultiContentLayerService {
   private layerPriorities: string[] = []; // Ordered by priority (high to low)
   private contentCache = new Map<string, Map<string, any>>();
   private initialized = false;
+  private initializationPromise?: Promise<Map<string, EnhancedLayerLoadResult>>;
   private availableMcps: string[] = []; // Track available MCP servers for conditional topics
 
   constructor(
@@ -54,17 +55,17 @@ export class MultiContentLayerService {
    */
   private shouldIncludeTopic(topic: AtomicTopic): boolean {
     const fm = topic.frontmatter;
-    
+
     // Positive conditional: include only if MCP present
     if (fm.conditional_mcp) {
       return this.availableMcps.includes(fm.conditional_mcp);
     }
-    
+
     // Negative conditional: include only if MCP absent
     if (fm.conditional_mcp_missing) {
       return !this.availableMcps.includes(fm.conditional_mcp_missing);
     }
-    
+
     // No conditional: always include
     return true;
   }
@@ -82,10 +83,42 @@ export class MultiContentLayerService {
    * Initialize all layers
    */
   async initialize(): Promise<Map<string, EnhancedLayerLoadResult>> {
+    // If initialization is in progress, wait for it (MUTEX - must be first!)
+    if (this.initializationPromise) {
+      console.error('⏳ Layer service initialization already in progress, waiting...');
+      return this.initializationPromise;
+    }
+
+    // Return cached results if already initialized
+    if (this.initialized) {
+      console.error('📦 Multi-content layer service already initialized');
+      // Create a resolved promise with empty results (already cached in memory)
+      return Promise.resolve(new Map<string, EnhancedLayerLoadResult>());
+    }
+
+    // Create initialization promise to act as mutex
+    this.initializationPromise = this.performInitialization();
+
+    try {
+      const result = await this.initializationPromise;
+      return result;
+    } catch (error) {
+      console.error('❌ Multi-content layer service initialization failed:', error);
+      throw error;
+    } finally {
+      // Clear the promise after completion (success or failure)
+      this.initializationPromise = undefined;
+    }
+  }
+
+  /**
+   * Perform the actual initialization work
+   */
+  private async performInitialization(): Promise<Map<string, EnhancedLayerLoadResult>> {
     const results = new Map<string, EnhancedLayerLoadResult>();
-    
+
     console.error('🚀 Initializing multi-content layer service...');
-    
+
     for (const [name, layer] of this.layers) {
       try {
         console.error(`📋 Initializing layer: ${name}`);
@@ -115,7 +148,7 @@ export class MultiContentLayerService {
         }
 
         results.set(name, result as EnhancedLayerLoadResult);
-        
+
         if (result.success) {
           const contentCounts = result.content_counts || {};
           console.error(`✅ Layer ${name}: ${Object.entries(contentCounts)
@@ -140,7 +173,7 @@ export class MultiContentLayerService {
 
     this.initialized = true;
     console.error(`🎯 Multi-content layer service initialized with ${this.layers.size} layers`);
-    
+
     return results;
   }
 
@@ -184,11 +217,11 @@ export class MultiContentLayerService {
     }
 
     const specialistMap = new Map<string, SpecialistDefinition>();
-    
+
     // Process layers in reverse priority order (lowest priority first)
     // so higher priority layers can override
     const reversePriorities = [...this.layerPriorities].reverse();
-    
+
     for (const layerName of reversePriorities) {
       const layer = this.layers.get(layerName);
       if (!layer || !(layer.supported_content_types?.includes('specialists'))) {
@@ -196,7 +229,7 @@ export class MultiContentLayerService {
       }
 
       const layerSpecialistIds = layer.getContentIds('specialists');
-      
+
       for (const specialistId of layerSpecialistIds) {
         const specialist = await layer.getContent('specialists', specialistId);
         if (specialist) {
@@ -228,10 +261,10 @@ export class MultiContentLayerService {
 
     for (const specialist of allSpecialists) {
       const score = this.calculateSpecialistScore(specialist, context, queryContext);
-      
+
       if (score > 0) {
         const collaborationOptions = await this.getCollaborationOptions(specialist);
-        
+
         suggestions.push({
           specialist,
           source_layer: this.findSpecialistSourceLayer(specialist.specialist_id),
@@ -302,13 +335,13 @@ export class MultiContentLayerService {
     switch (this.specialistResolutionStrategy.conflict_resolution) {
       case 'override':
         return incoming; // Higher priority layer wins
-        
+
       case 'merge':
         return this.mergeSpecialists(existing, incoming);
-        
+
       case 'extend':
         return this.extendSpecialist(existing, incoming);
-        
+
       default:
         return incoming;
     }
@@ -400,7 +433,7 @@ export class MultiContentLayerService {
         score += 8;
       }
     }
-    
+
     for (const expertise of specialist.expertise.secondary) {
       if (contextLower.includes(expertise.toLowerCase())) {
         score += 5;
@@ -419,11 +452,11 @@ export class MultiContentLayerService {
       if (queryContext.domain && specialist.domains.includes(queryContext.domain)) {
         score += 15;
       }
-      
+
       if (queryContext.urgency === 'high') {
         // Prefer specialists with quick response traits
-        if (specialist.persona.personality.some(p => 
-          p.toLowerCase().includes('quick') || 
+        if (specialist.persona.personality.some(p =>
+          p.toLowerCase().includes('quick') ||
           p.toLowerCase().includes('direct') ||
           p.toLowerCase().includes('efficient'))) {
           score += 5;
@@ -446,21 +479,21 @@ export class MultiContentLayerService {
     const contextLower = context.toLowerCase();
 
     // Check expertise matches
-    const primaryMatches = specialist.expertise.primary.filter(e => 
+    const primaryMatches = specialist.expertise.primary.filter(e =>
       contextLower.includes(e.toLowerCase()));
     if (primaryMatches.length > 0) {
       reasons.push(`Primary expertise: ${primaryMatches.join(', ')}`);
     }
 
     // Check scenario matches
-    const scenarioMatches = specialist.when_to_use.filter(s => 
+    const scenarioMatches = specialist.when_to_use.filter(s =>
       contextLower.includes(s.toLowerCase()) || s.toLowerCase().includes(contextLower));
     if (scenarioMatches.length > 0) {
       reasons.push(`Relevant scenarios: ${scenarioMatches.join(', ')}`);
     }
 
     // Check domain matches
-    const domainMatches = specialist.domains.filter(d => 
+    const domainMatches = specialist.domains.filter(d =>
       contextLower.includes(d.toLowerCase()));
     if (domainMatches.length > 0) {
       reasons.push(`Domain expertise: ${domainMatches.join(', ')}`);
@@ -569,7 +602,7 @@ export class MultiContentLayerService {
 
     const results: TopicSearchResult[] = [];
     const limit = params.limit || 50;
-    
+
     // Search across all layers in priority order
     for (const layerName of this.layerPriorities) {
       const layer = this.layers.get(layerName);
@@ -578,7 +611,7 @@ export class MultiContentLayerService {
       try {
         // Get all topic IDs from this layer
         const topicIds = layer.getContentIds('topics');
-        
+
         // Load each topic and filter
         for (const topicId of topicIds) {
           const topic = await layer.getContent('topics', topicId);
@@ -619,7 +652,7 @@ export class MultiContentLayerService {
 
     const results: SpecialistDefinition[] = [];
     const queryLower = query.toLowerCase();
-    
+
     // Search across all layers in priority order
     for (const layerName of this.layerPriorities) {
       const layer = this.layers.get(layerName);
@@ -630,7 +663,7 @@ export class MultiContentLayerService {
       try {
         // Get all specialist IDs from this layer
         const specialistIds = layer.getContentIds('specialists');
-        
+
         // Load each specialist and check for matches
         for (const specialistId of specialistIds) {
           const specialist = await layer.getContent('specialists', specialistId);
@@ -649,7 +682,7 @@ export class MultiContentLayerService {
 
   /**
    * Check if specialist matches query using token-based matching
-   * 
+   *
    * Fixes Issue #17: Complex compound questions now tokenized for matching.
    * Instead of requiring full query as substring, matches any individual token.
    */
@@ -669,10 +702,10 @@ export class MultiContentLayerService {
       .split(/[\s,]+/)
       .filter(token => token.length > 3)
       .map(token => token.replace(/[^a-z0-9]/g, ''));
-    
+
     // Match if ANY query token matches ANY searchable field (bidirectional partial matching)
-    return queryTokens.some(token => 
-      searchableFields.some(field => 
+    return queryTokens.some(token =>
+      searchableFields.some(field =>
         field.includes(token) || token.includes(field)
       )
     );
@@ -792,10 +825,10 @@ export class MultiContentLayerService {
 
     // Domain filtering
     if (params.domain) {
-      const topicDomains = Array.isArray(topic.frontmatter.domain) 
-        ? topic.frontmatter.domain 
+      const topicDomains = Array.isArray(topic.frontmatter.domain)
+        ? topic.frontmatter.domain
         : topic.frontmatter.domain ? [topic.frontmatter.domain] : [];
-      
+
       if (!topicDomains.includes(params.domain)) {
         return false;
       }
@@ -805,18 +838,69 @@ export class MultiContentLayerService {
     if (params.bc_version && topic.frontmatter.bc_versions) {
       const bcVersions = topic.frontmatter.bc_versions;
       const requestedVersion = params.bc_version;
-      
-      // Handle version ranges like "14+", "18+", "BC14+", "BC18+"
-      const rangeMatch = bcVersions.match(/^(?:BC)?(\d+)\+$/);
-      if (rangeMatch) {
-        const minVersion = parseInt(rangeMatch[1], 10);
-        const requestedVersionNum = parseInt(requestedVersion.replace(/^BC/, ''), 10);
-        
-        if (requestedVersionNum < minVersion) {
-          return false; // Requested version is below minimum
+      const requestedVersionNum = parseInt(requestedVersion.replace(/^BC/, ''), 10);
+
+      // Handle "x->y" (migration guide: BC19->20 matches both 19 and 20)
+      const migrationMatch = bcVersions.match(/^(?:BC)?(\d+)->(?:BC)?(\d+)$/);
+      if (migrationMatch) {
+        const fromVersion = parseInt(migrationMatch[1], 10);
+        const toVersion = parseInt(migrationMatch[2], 10);
+        // Migration guides match source version, target version, and everything in between
+        if (requestedVersionNum < fromVersion || requestedVersionNum > toVersion) {
+          return false;
         }
-      } else if (!bcVersions.includes(requestedVersion)) {
-        // Exact version match required if not a range
+      }
+      // Handle "x,y,z" (discrete versions: 18,20,22)
+      else if (bcVersions.includes(',')) {
+        const versions = bcVersions.split(',').map(v => parseInt(v.trim().replace(/^BC/, ''), 10));
+        if (!versions.includes(requestedVersionNum)) {
+          return false;
+        }
+      }
+      // Handle "x.." (minimum version: BC14..)
+      else if (bcVersions.match(/^(?:BC)?(\d+)\.\.$/)) {
+        const minRangeMatch = bcVersions.match(/^(?:BC)?(\d+)\.\.$/);
+        const minVersion = parseInt(minRangeMatch![1], 10);
+        if (requestedVersionNum < minVersion) {
+          return false;
+        }
+      }
+      // Handle "..x" (maximum version: ..BC23)
+      else if (bcVersions.match(/^\.\.(?:BC)?(\d+)$/)) {
+        const maxRangeMatch = bcVersions.match(/^\.\.(?:BC)?(\d+)$/);
+        const maxVersion = parseInt(maxRangeMatch![1], 10);
+        if (requestedVersionNum > maxVersion) {
+          return false;
+        }
+      }
+      // Handle "x..y" (range: BC19..20)
+      else if (bcVersions.match(/^(?:BC)?(\d+)\.\.(?:BC)?(\d+)$/)) {
+        const rangeMatch = bcVersions.match(/^(?:BC)?(\d+)\.\.(?:BC)?(\d+)$/);
+        const minVersion = parseInt(rangeMatch![1], 10);
+        const maxVersion = parseInt(rangeMatch![2], 10);
+        if (requestedVersionNum < minVersion || requestedVersionNum > maxVersion) {
+          return false;
+        }
+      }
+      // Handle "x-y" (alternative range syntax: BC18-20)
+      else if (bcVersions.match(/^(?:BC)?(\d+)-(?:BC)?(\d+)$/)) {
+        const dashRangeMatch = bcVersions.match(/^(?:BC)?(\d+)-(?:BC)?(\d+)$/);
+        const minVersion = parseInt(dashRangeMatch![1], 10);
+        const maxVersion = parseInt(dashRangeMatch![2], 10);
+        if (requestedVersionNum < minVersion || requestedVersionNum > maxVersion) {
+          return false;
+        }
+      }
+      // LEGACY: Handle old "x+" syntax (14+, BC18+) for backward compatibility
+      else if (bcVersions.match(/^(?:BC)?(\d+)\+$/)) {
+        const legacyMatch = bcVersions.match(/^(?:BC)?(\d+)\+$/);
+        const minVersion = parseInt(legacyMatch![1], 10);
+        if (requestedVersionNum < minVersion) {
+          return false;
+        }
+      }
+      // Exact version match required if not a range
+      else if (!bcVersions.includes(requestedVersion)) {
         return false;
       }
     }
@@ -989,12 +1073,12 @@ export class MultiContentLayerService {
    * Convert topic to search result
    */
   private topicToSearchResult(topic: AtomicTopic, relevanceScore: number): TopicSearchResult {
-    const primaryDomain = Array.isArray(topic.frontmatter.domain) 
-      ? topic.frontmatter.domain[0] 
+    const primaryDomain = Array.isArray(topic.frontmatter.domain)
+      ? topic.frontmatter.domain[0]
       : topic.frontmatter.domain || '';
-    
-    const allDomains = Array.isArray(topic.frontmatter.domain) 
-      ? topic.frontmatter.domain 
+
+    const allDomains = Array.isArray(topic.frontmatter.domain)
+      ? topic.frontmatter.domain
       : topic.frontmatter.domain ? [topic.frontmatter.domain] : [];
 
     return {

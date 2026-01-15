@@ -29,7 +29,7 @@ export const AtomicTopicFrontmatterSchema = z.object({
     z.array(z.string())
   ]).optional().describe("Knowledge domain(s) - single domain or array for shared topics"),
   difficulty: z.enum(["beginner", "intermediate", "advanced", "expert"]).optional().describe("Complexity level"),
-  bc_versions: z.string().optional().describe("Supported BC versions (e.g., '14+', '18+')"),
+  bc_versions: z.string().optional().describe("BC version compatibility. Syntax: 'x..' (min), 'x..y' or 'x-y' (range), '..y' (max), 'x->y' (migration), 'x,y,z' (discrete), 'x+' (legacy min)"),
   tags: z.array(z.string()).optional().describe("Searchable tags for topic discovery"),
   prerequisites: z.array(z.string()).optional().describe("Required prerequisite topics"),
   related_topics: z.array(z.string()).optional().describe("Related and complementary topics"),

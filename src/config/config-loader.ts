@@ -100,7 +100,7 @@ export class ConfigurationLoader {
           });
           loadedFilePath = customConfigPath;
           loadedFileFormat = this.getFileFormat(customConfigPath);
-          console.log(`[config] Loaded configuration from ${loadedFromEnvVarName}: ${customConfigPath}`);
+          console.error(`[config] Loaded configuration from ${loadedFromEnvVarName}: ${customConfigPath}`);
         } else {
           validationErrors.push({
             field: 'BCKB_CONFIG_PATH',
@@ -118,7 +118,7 @@ export class ConfigurationLoader {
         if (!loadedFilePath && userConfig.sources.length > 0) {
           loadedFilePath = userConfig.sources[0].path;
           loadedFileFormat = userConfig.sources[0].format;
-          console.log(`[config] Loaded user configuration: ${loadedFilePath} (${loadedFileFormat})`);
+          console.error(`[config] Loaded user configuration: ${loadedFilePath} (${loadedFileFormat})`);
         }
       }
       warnings.push(...userConfig.warnings);
@@ -132,8 +132,8 @@ export class ConfigurationLoader {
           if (projectConfig.sources.length > 0) {
             const projectFilePath = projectConfig.sources[0].path;
             const projectFileFormat = projectConfig.sources[0].format;
-            console.log(`[config] Loaded project configuration: ${projectFilePath} (${projectFileFormat})`);
-            console.log(`[config] Merged user + project configs. Active layers: ${config.layers.map(l => `${l.name}(p${l.priority})`).join(', ')}`);
+            console.error(`[config] Loaded project configuration: ${projectFilePath} (${projectFileFormat})`);
+            console.error(`[config] Merged user + project configs. Active layers: ${config.layers.map(l => `${l.name}(p${l.priority})`).join(', ')}`);
           }
         }
         warnings.push(...projectConfig.warnings);
@@ -148,7 +148,7 @@ export class ConfigurationLoader {
           priority: 100
         });
         envOverridesApplied = true;
-        console.log(`[config] Applied environment overrides`);
+        console.error(`[config] Applied environment overrides`);
       }
       warnings.push(...envConfig.warnings);
 
@@ -160,7 +160,7 @@ export class ConfigurationLoader {
       // Emit summary if no file-based configuration was found
       const hasFileSource = sources.some(s => s.type === 'file');
       if (!hasFileSource) {
-        console.log(`[config] No configuration file found; using defaults${envOverridesApplied ? ' + environment overrides' : ''}.`);
+        console.error(`[config] No configuration file found; using defaults${envOverridesApplied ? ' + environment overrides' : ''}.`);
       }
 
       return {
@@ -209,7 +209,7 @@ export class ConfigurationLoader {
           format: this.getFileFormat(configPath),
           priority: 10
         });
-        
+
         if (isLegacy) {
           warnings.push({
             type: 'deprecated',
@@ -217,7 +217,7 @@ export class ConfigurationLoader {
             suggestion: 'Consider moving to ~/.bc-code-intel/config.json or config.yaml'
           });
         }
-        
+
         break; // Use first found config file
       } else if (result.error && !result.error.includes('ENOENT')) {
         // File exists but couldn't be loaded
@@ -258,7 +258,7 @@ export class ConfigurationLoader {
           format: this.getFileFormat(configPath),
           priority: 20
         });
-        
+
         if (isLegacy) {
           warnings.push({
             type: 'deprecated',
@@ -266,7 +266,7 @@ export class ConfigurationLoader {
             suggestion: 'Consider renaming to bc-code-intel-config.json or bc-code-intel-config.yaml'
           });
         }
-        
+
         break; // Use first found config file
       } else if (result.error && !result.error.includes('ENOENT')) {
         // File exists but couldn't be loaded
