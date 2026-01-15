@@ -56,6 +56,12 @@ The BC Code Intelligence specialists are ready to help. Just type naturally - he
 - "What breaking changes should I know about in BC27?"
 - "Help me resolve this compile error after a runtime upgrade"
 
+### 🔧 DevOps & CI/CD (Lena)
+- "Lena, help me set up AL-Go for my BC extension"
+- "I need to configure an Azure DevOps pipeline with ALOps"
+- "How do I use BCContainerHelper for local BC development?"
+- "Help me integrate Cosmo Alpaca for automated testing"
+
 ### 🏗️ Architecture & Design (Alex)
 - "Alex, review my extension's architecture before I submit to AppSource"
 - "I need to design an integration with an external warehouse system"
@@ -111,10 +117,6 @@ The BC Code Intelligence specialists are ready to help. Just type naturally - he
 - "Generate XML documentation for my public procedures"
 - "Review my app's README for completeness"
 
-### 🤖 AI-Assisted Development (Casey)
-- "Casey, help me use AI tools effectively in my BC development"
-- "Based on this current project, what are some good instructions to help future agents understand working with this app immediately?"
-
 ---
 
 ## 👥 Meet Your BC Specialist Team
@@ -132,12 +134,12 @@ The BC Code Intelligence specialists are ready to help. Just type naturally - he
 | **🌉 Jordan** | Integration | APIs, events, external connections |
 | **🏛️ Logan** | Legacy & Upgrades | Version migrations, old code, modernization |
 | **🔄 Victor** | Version Migration | BC upgrades, breaking changes, deprecations |
+| **🔧 Lena** | DevOps & CI/CD | AL-Go, ALOps, BCContainerHelper, pipelines |
 | **🎨 Uma** | User Experience | Page design, usability, UI patterns |
 | **🏪 Morgan** | AppSource & ISV | Publishing, validation, business concerns |
 | **👩‍🏫 Maya** | Mentoring | Learning concepts, explanations, training |
 | **📚 Taylor** | Documentation | Code docs, READMEs, knowledge sharing |
-| **🤖 Casey** | AI Development | Using AI tools, prompt engineering |
-| **⚙️ Chris** | MCP Configuiration | Company/Project MCP knowledge layer help|
+| **⚙️ Chris** | MCP Configuration | Company/Project MCP knowledge layer help |
 
 ---
 
