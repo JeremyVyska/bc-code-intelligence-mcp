@@ -217,14 +217,59 @@ export class ProjectKnowledgeLayer extends BaseKnowledgeLayer {
         console.error(`⚠️  Using deprecated 'methodologies/' directory in project overrides. Please rename to 'workflows/'`);
       } catch {
         // Neither directory exists - that's okay
+        return 0;
       }
     }
 
-    if (activePath) {
-      // TODO: Implement workflow loading when needed
+    if (!activePath) {
+      return 0;
     }
 
+    // Load workflow files
+    const workflowFiles = await glob('*.yaml', { cwd: activePath });
+    console.error(`📋 Found ${workflowFiles.length} workflow files in project layer`);
+
+    let loadedCount = 0;
+    for (const workflowFile of workflowFiles) {
+      try {
+        const filePath = join(activePath, workflowFile);
+        const workflow = await this.loadWorkflow(filePath);
+        if (workflow) {
+          const workflowId = workflow.type || basename(workflowFile, '.yaml');
+          this.workflows.set(workflowId, workflow);
+          loadedCount++;
+        }
+      } catch (error) {
+        console.error(`Failed to load project workflow ${workflowFile}:`, error instanceof Error ? error.message : String(error));
+      }
+    }
+
+    console.error(`📋 Loaded ${loadedCount} workflows from project layer`);
     return this.workflows.size;
+  }
+
+  /**
+   * Load a single workflow definition from YAML file
+   */
+  private async loadWorkflow(filePath: string): Promise<any | null> {
+    try {
+      const content = await readFile(filePath, 'utf-8');
+      const normalizedContent = content.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n');
+
+      // Parse YAML content
+      const workflowData = yaml.parse(normalizedContent);
+
+      // Validate required fields
+      if (!workflowData.type || !workflowData.name) {
+        console.error(`⚠️  Missing required fields in workflow ${filePath}`);
+        return null;
+      }
+
+      return workflowData;
+    } catch (error) {
+      console.error(`❌ Failed to parse workflow file ${filePath}:`, error);
+      return null;
+    }
   }
 
   /**

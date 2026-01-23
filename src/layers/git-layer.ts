@@ -17,6 +17,7 @@ import { join, resolve, dirname, basename } from 'path';
 import { existsSync } from 'fs';
 import simpleGit, { SimpleGit, SimpleGitOptions } from 'simple-git';
 import * as yaml from 'yaml';
+import { glob } from 'glob';
 
 import { BaseKnowledgeLayer } from './base-layer.js';
 import { AtomicTopic, AtomicTopicFrontmatterSchema } from '../types/bc-knowledge.js';
@@ -505,14 +506,63 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
         console.error(`⚠️  Using deprecated 'methodologies/' directory in ${this.name}. Please rename to 'workflows/'`);
       } catch {
         // Neither directory exists - that's okay
+        return 0;
       }
     }
 
-    if (activePath) {
-      // TODO: Implement workflow loading when structure is defined
+    if (!activePath) {
+      return 0;
     }
 
+    // Load workflow files
+    let pattern = join(activePath, '*.yaml').replace(/\\/g, '/');
+    if (pattern.startsWith('/c/')) {
+      pattern = 'C:' + pattern.substring(2);
+    }
+
+    const workflowFiles = await glob(pattern);
+    console.error(`📋 Found ${workflowFiles.length} workflow files in git layer`);
+
+    let loadedCount = 0;
+    for (const filePath of workflowFiles) {
+      try {
+        const workflow = await this.loadWorkflow(filePath);
+        if (workflow) {
+          const workflowId = workflow.type || basename(filePath, '.yaml');
+          this.workflows.set(workflowId, workflow);
+          loadedCount++;
+        }
+      } catch (error) {
+        console.error(`Failed to load git workflow ${filePath}:`, error instanceof Error ? error.message : String(error));
+      }
+    }
+
+    console.error(`📋 Loaded ${loadedCount} workflows from git layer`);
     return this.workflows.size;
+  }
+
+  /**
+   * Load a single workflow definition from YAML file
+   */
+  private async loadWorkflow(filePath: string): Promise<any | null> {
+    try {
+      const content = await readFile(filePath, 'utf-8');
+      const normalizedContent = content.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n');
+
+      // Parse YAML content
+      const workflowData = yaml.parse(normalizedContent);
+
+      // Validate required fields
+      if (!workflowData.type || !workflowData.name) {
+        console.error(`⚠️  Missing required fields in workflow ${filePath}`);
+        return null;
+      }
+
+      return workflowData;
+    } catch (error) {
+      console.error(`❌ Failed to parse workflow file ${filePath}:`, error);
+      return null;
+    }
   }
 
   /**
