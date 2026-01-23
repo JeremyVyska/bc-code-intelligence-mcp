@@ -59,7 +59,7 @@ export const AtomicTopicFrontmatterSchema = z.object({
   relevance_signals: RelevanceSignalsSchema.optional().describe("Signals for knowledge-driven detection"),
   applicable_object_types: z.array(z.string()).optional().describe("AL object types this knowledge applies to (e.g., 'codeunit', 'page')"),
   relevance_threshold: z.number().min(0).max(1).optional().describe("Minimum relevance score (0.0-1.0) to surface this topic"),
-});
+}).passthrough();
 
 export type AtomicTopicFrontmatter = z.infer<typeof AtomicTopicFrontmatterSchema>;
 
