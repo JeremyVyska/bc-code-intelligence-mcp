@@ -165,6 +165,14 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
     if (!this.auth || !this.git) return;
 
     switch (this.auth.type) {
+      case AuthType.GH_CLI:
+        // GitHub CLI authentication - verify gh CLI is installed and user is authenticated
+        await this.verifyGhCliInstalled();
+        await this.verifyGhCliAuthenticated();
+        console.error('🔑 Using GitHub CLI authentication (gh auth token)');
+        // No URL modification needed - we'll fetch token from gh CLI for each operation
+        break;
+
       case AuthType.AZ_CLI:
         // Azure CLI authentication - verify az CLI is installed and user is logged in
         await this.verifyAzCliInstalled();
@@ -227,8 +235,8 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
 
       try {
         // For authenticated pulls, we need to update the remote URL with auth
-        if (this.auth && (this.auth.type === AuthType.TOKEN || this.auth.type === AuthType.BASIC)) {
-          const authenticatedUrl = this.prepareUrlWithAuth(this.gitConfig.url);
+        if (this.auth && (this.auth.type === AuthType.TOKEN || this.auth.type === AuthType.BASIC || this.auth.type === AuthType.GH_CLI)) {
+          const authenticatedUrl = await this.prepareUrlWithAuth(this.gitConfig.url);
           await this.git.remote(['set-url', 'origin', authenticatedUrl]);
         }
 
@@ -242,7 +250,7 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
       // Repository doesn't exist, clone it
       console.error(`📦 Cloning repository ${this.gitConfig.url}...`);
 
-      const cloneUrl = this.prepareUrlWithAuth(this.gitConfig.url);
+      const cloneUrl = await this.prepareUrlWithAuth(this.gitConfig.url);
 
       await this.git.clone(cloneUrl, this.localPath, [
         '--depth', '1', // Shallow clone for faster downloads
@@ -254,10 +262,10 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
     }
   }
 
-  private prepareUrlWithAuth(url: string): string {
+  private async prepareUrlWithAuth(url: string): Promise<string> {
     if (!this.auth) return url;
 
-    // Azure CLI handles authentication via Git credential manager - don't modify URL
+    // Azure CLI and GH CLI handle authentication via credential managers/token fetch - don't modify URL initially
     if (this.auth.type === AuthType.AZ_CLI) {
       return url;
     }
@@ -266,6 +274,15 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
     if (!url.startsWith('https://')) return url;
 
     switch (this.auth.type) {
+      case AuthType.GH_CLI:
+        // Fetch token from gh CLI dynamically
+        const ghToken = await this.getGhCliToken();
+        if (ghToken) {
+          // For GitHub: https://token@github.com/...
+          return url.replace('https://', `https://${ghToken}@`);
+        }
+        break;
+
       case AuthType.TOKEN:
         const token = this.auth.token ||
           (this.auth.token_env_var ? process.env[this.auth.token_env_var] : undefined);
@@ -292,6 +309,55 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
   /**
    * Verify Azure CLI is installed on the system
    */
+  private async verifyGhCliInstalled(): Promise<void> {
+    const { execSync } = await import('child_process');
+    try {
+      execSync('gh --version', { stdio: 'ignore' });
+    } catch {
+      throw new Error(
+        'GitHub CLI not found. Install from https://cli.github.com/\n' +
+        'After installation, run: gh auth login'
+      );
+    }
+  }
+
+  /**
+   * Verify user is authenticated with GitHub CLI
+   */
+  private async verifyGhCliAuthenticated(): Promise<void> {
+    const { execSync } = await import('child_process');
+    try {
+      // Check if user is authenticated by attempting to get auth status
+      execSync('gh auth status', { stdio: 'ignore' });
+    } catch {
+      throw new Error(
+        'Not logged in to GitHub CLI. Run: gh auth login\n' +
+        'For organization access, ensure your token has appropriate repo scopes'
+      );
+    }
+  }
+
+  /**
+   * Get GitHub token from gh CLI
+   */
+  private async getGhCliToken(): Promise<string> {
+    const { execSync } = await import('child_process');
+    try {
+      // Get token for github.com (or enterprise host if specified)
+      const output = execSync('gh auth token', { encoding: 'utf8' });
+      const token = output.trim();
+      if (!token) {
+        throw new Error('gh CLI returned empty token');
+      }
+      return token;
+    } catch (error) {
+      throw new Error(
+        `Failed to get GitHub CLI token: ${error instanceof Error ? error.message : String(error)}\n` +
+        'Ensure you are authenticated with: gh auth login'
+      );
+    }
+  }
+
   private async verifyAzCliInstalled(): Promise<void> {
     const { execSync } = await import('child_process');
     try {
