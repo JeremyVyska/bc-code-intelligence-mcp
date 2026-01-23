@@ -56,6 +56,9 @@ export function createAskBcExpertHandler(services: any) {
 
       // AUTONOMOUS MODE: Return structured action plan
       if (autonomous_mode) {
+        // Extract response text - available at top level, not nested in consultation
+        const responseText = specialist.response || specialist.consultation?.response || '';
+        
         const actionPlan = {
           response_type: 'autonomous_action_plan',
           specialist: {
@@ -64,20 +67,20 @@ export function createAskBcExpertHandler(services: any) {
             expertise: specialist.specialist.expertise
           },
           action_plan: {
-            primary_action: specialist.consultation.response.split('\n')[0],
-            steps: specialist.consultation.response
+            primary_action: responseText.split('\n')[0] || '',
+            steps: responseText
               .split('\n')
               .filter((line: string) => /^\d+\.|^-|^•/.test(line.trim()))
               .map((step: string) => step.trim()),
-            required_tools: specialist.recommended_topics
+            required_tools: (specialist.recommended_topics || [])
               .filter((t: any) => t.domain === 'tools' || t.domain === 'workflows')
               .map((t: any) => t.id),
-            confidence: specialist.consultation.confidence || 0.85,
-            blocking_issues: specialist.consultation.blocking_issues || [],
-            alternatives: specialist.consultation.alternatives || []
+            confidence: specialist.consultation?.confidence || 0.85,
+            blocking_issues: specialist.consultation?.blocking_issues || [],
+            alternatives: specialist.consultation?.alternatives || []
           },
-          recommended_topics: specialist.recommended_topics,
-          next_specialist: specialist.consultation.hand_off_to || null,
+          recommended_topics: specialist.recommended_topics || [],
+          next_specialist: specialist.consultation?.hand_off_to || null,
           context: context
         };
 
