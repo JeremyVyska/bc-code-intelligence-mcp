@@ -9,6 +9,7 @@
     "embedded-knowledge/"
   ],
   "bin": {
+    "bc-code-intel": "dist/cli.js",
     "bc-code-intel-server": "dist/index.js",
     "bc-code-intelligence-mcp": "dist/index.js"
   },
