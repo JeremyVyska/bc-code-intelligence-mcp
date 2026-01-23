@@ -956,6 +956,16 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
       const version = this.getPackageVersion();
       console.error(`🚀 BC Code Intelligence MCP Server v${version} starting...`);
 
+      // CRITICAL FIX for Issue #31: Connect transport BEFORE heavy initialization
+      // This allows the MCP handshake to complete quickly, preventing timeouts
+      console.error('🔌 Connecting MCP transport (fast handshake)...');
+      const transport = new StdioServerTransport();
+      await this.server.connect(transport);
+      console.error('✅ MCP transport connected - handshake complete');
+
+      // Now perform heavy initialization in background
+      console.error('📦 Starting service initialization (deferred after handshake)...');
+
       // Verify embedded knowledge path BEFORE any service initialization
       const __filename = fileURLToPath(import.meta.url);
       const __dirname = dirname(__filename);
@@ -1000,9 +1010,7 @@ ${enhancedResult.routingOptions.map(option => `- ${option.replace('🎯 Start se
       } catch (error) {
         console.error('⚠️  Failed to load user configuration, falling back to embedded-only:', error instanceof Error ? error.message : String(error));
         await this.initializeEmbeddedOnly();
-      }      // Start MCP server
-      const transport = new StdioServerTransport();
-      await this.server.connect(transport);
+      }
 
       console.error(`✅ BC Code Intelligence MCP Server v${this.getPackageVersion()} started successfully`);
       console.error(`💡 To enable project-specific layers, call set_workspace_info with your project path`);
