@@ -1,6 +1,6 @@
 {
   "name": "bc-code-intelligence-mcp",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "description": "BC Code Intelligence MCP Server - Complete Specialist Bundle with AI-driven expert consultation, seamless handoffs, and context-preserving workflows",
   "main": "dist/index.js",
   "type": "module",
