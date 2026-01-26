@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.2] - 2026-01-26
+
+### 🐛 Bug Fixes
+
+**Dependencies: Fix missing glob package**
+- **FIXED** Git-based layers failing with "Cannot find package 'glob'" error (Issue #34)
+- Replaced `glob` import in `git-layer.ts` with `fast-glob` (already in dependencies)
+- Maintains consistency with rest of codebase which uses `fast-glob` throughout
+- Reported by @jwikman and @waldo1001
+
 ## [1.7.0] - 2026-01-15
 
 ### 🚀 Features
