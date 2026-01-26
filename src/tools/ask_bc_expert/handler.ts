@@ -9,95 +9,123 @@ export function createAskBcExpertHandler(services: any) {
 
   return async (args: any) => {
     try {
-      const { question, context, preferred_specialist, autonomous_mode = false } = args;
+      const {
+        question,
+        context,
+        preferred_specialist,
+        autonomous_mode = false,
+      } = args;
 
       // Validate required parameters
       if (!question) {
         return {
           isError: true,
-          error: 'question parameter is required',
-          content: [{
-            type: 'text' as const,
-            text: 'Error: question parameter is required'
-          }]
+          error: "question parameter is required",
+          content: [
+            {
+              type: "text" as const,
+              text: "Error: question parameter is required",
+            },
+          ],
         };
       }
 
       // Auto-detect if this is a "took over app" scenario
-      const isOnboardingScenario = /took over|inherited|new to|understand.*app|unfamiliar/i.test(question + ' ' + (context || ''));
+      const isOnboardingScenario =
+        /took over|inherited|new to|understand.*app|unfamiliar/i.test(
+          question + " " + (context || ""),
+        );
 
       if (isOnboardingScenario && !preferred_specialist) {
         // Start onboarding workflow automatically
         const startRequest = {
-          workflow_type: 'onboard-developer',
+          workflow_type: "onboard-developer",
           project_context: context || question,
-          bc_version: 'BC22' // default
+          bc_version: "BC22", // default
         };
 
         const session = await workflowService.startWorkflow(startRequest);
         const guidance = await workflowService.getPhaseGuidance(session.id);
 
         return {
-          content: [{
-            type: 'text' as const,
-            text: JSON.stringify({
-              response_type: 'workflow_started',
-              workflow_id: session.id,
-              workflow_type: 'developer_onboarding',
-              message: 'I detected this is a new developer onboarding scenario. Starting the systematic onboarding workflow.',
-              guidance
-            }, null, 2)
-          }]
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(
+                {
+                  response_type: "workflow_started",
+                  workflow_id: session.id,
+                  workflow_type: "developer_onboarding",
+                  message:
+                    "I detected this is a new developer onboarding scenario. Starting the systematic onboarding workflow.",
+                  guidance,
+                },
+                null,
+                2,
+              ),
+            },
+          ],
         };
       }
 
       // Normal specialist consultation
-      const specialist = await knowledgeService.askSpecialist(question, preferred_specialist);
+      const specialist = await knowledgeService.askSpecialist(
+        question,
+        preferred_specialist,
+      );
 
       // AUTONOMOUS MODE: Return structured action plan
       if (autonomous_mode) {
         // Extract response text - available at top level, not nested in consultation
-        const responseText = specialist.response || specialist.consultation?.response || '';
-        
+        const responseText =
+          specialist.response || specialist.consultation?.response || "";
+
         const actionPlan = {
-          response_type: 'autonomous_action_plan',
+          response_type: "autonomous_action_plan",
           specialist: {
             id: specialist.specialist.id,
             name: specialist.specialist.name,
-            expertise: specialist.specialist.expertise
+            expertise: specialist.specialist.expertise,
           },
           action_plan: {
-            primary_action: responseText.split('\n')[0] || '',
+            primary_action: responseText.split("\n")[0] || "",
             steps: responseText
-              .split('\n')
+              .split("\n")
               .filter((line: string) => /^\d+\.|^-|^•/.test(line.trim()))
               .map((step: string) => step.trim()),
             required_tools: (specialist.recommended_topics || [])
-              .filter((t: any) => t.domain === 'tools' || t.domain === 'workflows')
+              .filter(
+                (t: any) => t.domain === "tools" || t.domain === "workflows",
+              )
               .map((t: any) => t.id),
             confidence: specialist.consultation?.confidence || 0.85,
             blocking_issues: specialist.consultation?.blocking_issues || [],
-            alternatives: specialist.consultation?.alternatives || []
+            alternatives: specialist.consultation?.alternatives || [],
           },
           recommended_topics: specialist.recommended_topics || [],
           next_specialist: specialist.consultation?.hand_off_to || null,
-          context: context
+          context: context,
         };
 
         return {
-          content: [{
-            type: 'text' as const,
-            text: JSON.stringify(actionPlan, null, 2)
-          }]
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(actionPlan, null, 2),
+            },
+          ],
         };
       }
 
       // INTERACTIVE MODE: Return full specialist content as agent instructions
-      let agentInstructions = '';
+      let agentInstructions = "";
 
       agentInstructions += `SPECIALIST DEFINITION AND INSTRUCTIONS:\n\n`;
-      agentInstructions += specialist.specialist_full_content || specialist.consultation_guidance || '';
-      agentInstructions += `\n\n${'='.repeat(80)}\n\n`;
+      agentInstructions +=
+        specialist.specialist_full_content ||
+        specialist.consultation_guidance ||
+        "";
+      agentInstructions += `\n\n${"=".repeat(80)}\n\n`;
       agentInstructions += `USER QUESTION: ${question}\n`;
       if (context) {
         agentInstructions += `CONTEXT: ${context}\n`;
@@ -106,7 +134,10 @@ export function createAskBcExpertHandler(services: any) {
       agentInstructions += `GUIDANCE: ${specialist.response}\n\n`;
       agentInstructions += `CRITICAL: You ARE ${specialist.specialist.name}. Respond directly as this specialist, not as an AI assistant describing what they would say. Use their communication style, expertise, and personality.\n\n`;
 
-      if (specialist.follow_up_suggestions && specialist.follow_up_suggestions.length > 0) {
+      if (
+        specialist.follow_up_suggestions &&
+        specialist.follow_up_suggestions.length > 0
+      ) {
         agentInstructions += `HANDOFF OPPORTUNITIES:\n`;
         specialist.follow_up_suggestions.forEach((s: string) => {
           agentInstructions += `- Consider involving ${s} if needed\n`;
@@ -119,32 +150,43 @@ export function createAskBcExpertHandler(services: any) {
         try {
           const analysisResult = await codeAnalysisService.analyzeCode({
             code_snippet: context,
-            analysis_type: 'comprehensive',
-            suggest_topics: true
+            analysis_type: "comprehensive",
+            suggest_topics: true,
           });
 
           // Extract relevant knowledge topics
-          const relevanceMatches = codeAnalysisService.getLastRelevanceMatches?.() || [];
-          recommendedTopics = relevanceMatches.slice(0, 5).map((match: any) => ({
-            topic_id: match.topicId,
-            title: match.title,
-            relevance_score: match.relevanceScore,
-            domain: match.domain,
-            matched_signals: match.matchedSignals || []
-          }));
+          const relevanceMatches =
+            codeAnalysisService.getLastRelevanceMatches?.() || [];
+          recommendedTopics = relevanceMatches
+            .slice(0, 5)
+            .map((match: any) => ({
+              topic_id: match.topicId,
+              title: match.title,
+              relevance_score: match.relevanceScore,
+              domain: match.domain,
+              matched_signals: match.matchedSignals || [],
+            }));
 
           // Also include suggested_topics from analysis if relevance matches are empty
-          if (recommendedTopics.length === 0 && analysisResult.suggested_topics) {
-            recommendedTopics = analysisResult.suggested_topics.slice(0, 5).map((topic: any) => ({
-              topic_id: topic.id || topic.topic_id,
-              title: topic.title || topic.description,
-              relevance_score: topic.relevance_score || 0.7,
-              domain: topic.domain || specialist.specialist?.id
-            }));
+          if (
+            recommendedTopics.length === 0 &&
+            analysisResult.suggested_topics
+          ) {
+            recommendedTopics = analysisResult.suggested_topics
+              .slice(0, 5)
+              .map((topic: any) => ({
+                topic_id: topic.id || topic.topic_id,
+                title: topic.title || topic.description,
+                relevance_score: topic.relevance_score || 0.7,
+                domain: topic.domain || specialist.specialist?.id,
+              }));
           }
         } catch (analysisError) {
           // Code analysis failed - continue without topics
-          console.error('Code analysis for ask_bc_expert failed:', analysisError);
+          console.error(
+            "Code analysis for ask_bc_expert failed:",
+            analysisError,
+          );
         }
       }
 
@@ -158,19 +200,26 @@ export function createAskBcExpertHandler(services: any) {
       }
 
       return {
-        content: [{
-          type: 'text' as const,
-          text: agentInstructions
-        }]
+        content: [
+          {
+            type: "text" as const,
+            text: agentInstructions,
+          },
+        ],
       };
     } catch (error) {
       return {
         isError: true,
-        error: (error && (error as any).message) ? (error as any).message : 'Service error occurred',
-        content: [{
-          type: 'text' as const,
-          text: `Error: ${(error && (error as any).message) ? (error as any).message : 'Service error occurred'}`
-        }]
+        error:
+          error && (error as any).message
+            ? (error as any).message
+            : "Service error occurred",
+        content: [
+          {
+            type: "text" as const,
+            text: `Error: ${error && (error as any).message ? (error as any).message : "Service error occurred"}`,
+          },
+        ],
       };
     }
   };

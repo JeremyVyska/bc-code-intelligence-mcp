@@ -1,14 +1,14 @@
 /**
  * BC Code Intelligence SDK Client
- * 
+ *
  * Programmatic access to BC specialists without MCP registration.
  * Provides methods for CLI and other programmatic use cases.
  */
 
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -16,7 +16,7 @@ const __dirname = dirname(__filename);
 export interface AskExpertOptions {
   context?: string;
   bcVersion?: string;
-  format?: 'detailed' | 'concise';
+  format?: "detailed" | "concise";
 }
 
 export interface SpecialistAdviceOptions {
@@ -62,24 +62,24 @@ export class BCCodeIntelClient {
    */
   async connect(): Promise<void> {
     // Spawn the MCP server as a child process
-    const serverPath = join(__dirname, '..', 'index.js');
+    const serverPath = join(__dirname, "..", "index.js");
 
     // Create MCP client
     this.client = new Client(
       {
-        name: 'bc-code-intel-cli',
-        version: '1.0.0',
+        name: "bc-code-intel-cli",
+        version: "1.0.0",
       },
       {
         capabilities: {},
-      }
+      },
     );
 
     // Create stdio transport using the server process stdio streams
     this.transport = new StdioClientTransport({
-      command: 'node',
+      command: "node",
       args: [serverPath],
-      env: { ...process.env, MCP_SERVER_MODE: 'stdio' },
+      env: { ...process.env, MCP_SERVER_MODE: "stdio" },
     });
 
     // Connect
@@ -105,39 +105,39 @@ export class BCCodeIntelClient {
    */
   async askExpert(
     question: string,
-    options: AskExpertOptions = {}
+    options: AskExpertOptions = {},
   ): Promise<AskExpertResult> {
     if (!this.client) {
-      throw new Error('Client not connected. Call connect() first.');
+      throw new Error("Client not connected. Call connect() first.");
     }
 
     const response = await this.client.callTool({
-      name: 'ask_bc_expert',
+      name: "ask_bc_expert",
       arguments: {
         question,
-        context: options.context || '',
+        context: options.context || "",
         bc_version: options.bcVersion,
         autonomous_mode: true, // Get full structured response
       },
     });
 
     if (response.isError) {
-      throw new Error(response.content[0]?.text || 'Unknown error');
+      throw new Error(response.content[0]?.text || "Unknown error");
     }
 
     // Parse the response
-    const resultText = response.content[0]?.text || '{}';
+    const resultText = response.content[0]?.text || "{}";
     const result = JSON.parse(resultText);
 
     return {
       specialist: {
-        id: result.specialist_used || 'unknown',
-        name: result.specialist_name || 'Unknown Specialist',
-        role: result.specialist_role || '',
-        emoji: result.specialist_emoji || '🤖',
+        id: result.specialist_used || "unknown",
+        name: result.specialist_name || "Unknown Specialist",
+        role: result.specialist_role || "",
+        emoji: result.specialist_emoji || "🤖",
         expertise: result.specialist_expertise || [],
       },
-      response: result.response || result.answer || '',
+      response: result.response || result.answer || "",
       recommended_topics: result.recommended_topics || [],
       follow_up_suggestions: result.follow_up_suggestions || [],
     };
@@ -148,25 +148,25 @@ export class BCCodeIntelClient {
    */
   async suggestSpecialist(question: string): Promise<SpecialistSuggestion> {
     if (!this.client) {
-      throw new Error('Client not connected. Call connect() first.');
+      throw new Error("Client not connected. Call connect() first.");
     }
 
     const response = await this.client.callTool({
-      name: 'discover_specialists',
+      name: "discover_specialists",
       arguments: {
         query: question,
       },
     });
 
     if (response.isError) {
-      throw new Error(response.content[0]?.text || 'Unknown error');
+      throw new Error(response.content[0]?.text || "Unknown error");
     }
 
-    const resultText = response.content[0]?.text || '{}';
+    const resultText = response.content[0]?.text || "{}";
     const result = JSON.parse(resultText);
 
     if (!result.specialists || result.specialists.length === 0) {
-      throw new Error('No specialists found for this question');
+      throw new Error("No specialists found for this question");
     }
 
     const topSpecialist = result.specialists[0];
@@ -177,7 +177,7 @@ export class BCCodeIntelClient {
         id: topSpecialist.id,
         name: topSpecialist.name,
         role: topSpecialist.role,
-        emoji: topSpecialist.emoji || '🤖',
+        emoji: topSpecialist.emoji || "🤖",
         expertise: topSpecialist.expertise || [],
         specializations: topSpecialist.specializations || [],
       },
@@ -192,39 +192,39 @@ export class BCCodeIntelClient {
   async getSpecialistAdvice(
     specialistId: string,
     question: string,
-    options: SpecialistAdviceOptions = {}
+    options: SpecialistAdviceOptions = {},
   ): Promise<AskExpertResult> {
     if (!this.client) {
-      throw new Error('Client not connected. Call connect() first.');
+      throw new Error("Client not connected. Call connect() first.");
     }
 
     const response = await this.client.callTool({
-      name: 'ask_bc_expert',
+      name: "ask_bc_expert",
       arguments: {
         question,
         specialist_id: specialistId,
-        context: options.context || '',
+        context: options.context || "",
         bc_version: options.bcVersion,
         autonomous_mode: true,
       },
     });
 
     if (response.isError) {
-      throw new Error(response.content[0]?.text || 'Unknown error');
+      throw new Error(response.content[0]?.text || "Unknown error");
     }
 
-    const resultText = response.content[0]?.text || '{}';
+    const resultText = response.content[0]?.text || "{}";
     const result = JSON.parse(resultText);
 
     return {
       specialist: {
         id: result.specialist_used || specialistId,
-        name: result.specialist_name || 'Unknown Specialist',
-        role: result.specialist_role || '',
-        emoji: result.specialist_emoji || '🤖',
+        name: result.specialist_name || "Unknown Specialist",
+        role: result.specialist_role || "",
+        emoji: result.specialist_emoji || "🤖",
         expertise: result.specialist_expertise || [],
       },
-      response: result.response || result.answer || '',
+      response: result.response || result.answer || "",
       recommended_topics: result.recommended_topics || [],
       follow_up_suggestions: result.follow_up_suggestions || [],
     };
@@ -235,21 +235,21 @@ export class BCCodeIntelClient {
    */
   async discoverSpecialists(query?: string): Promise<SpecialistInfo[]> {
     if (!this.client) {
-      throw new Error('Client not connected. Call connect() first.');
+      throw new Error("Client not connected. Call connect() first.");
     }
 
     const response = await this.client.callTool({
-      name: 'discover_specialists',
+      name: "discover_specialists",
       arguments: {
-        query: query || '*', // Use wildcard to get all specialists
+        query: query || "*", // Use wildcard to get all specialists
       },
     });
 
     if (response.isError) {
-      throw new Error(response.content[0]?.text || 'Unknown error');
+      throw new Error(response.content[0]?.text || "Unknown error");
     }
 
-    const resultText = response.content[0]?.text || '{}';
+    const resultText = response.content[0]?.text || "{}";
     const result = JSON.parse(resultText);
 
     if (!result.specialists) {
@@ -260,7 +260,7 @@ export class BCCodeIntelClient {
       id: s.id,
       name: s.name,
       role: s.role,
-      emoji: s.emoji || '🤖',
+      emoji: s.emoji || "🤖",
       expertise: s.expertise || [],
       specializations: s.specializations || [],
     }));

@@ -1,77 +1,167 @@
-import { z } from 'zod';
+import { z } from "zod";
 
 /**
  * Business Central Knowledge Base Types
- * 
+ *
  * These types define the structure of our atomic BC knowledge topics,
  * indexes, and relationships for intelligent AI consumption.
  */
 
 // Relevance signals schema for knowledge-driven detection
-export const RelevanceSignalsSchema = z.object({
-  // AL language constructs that indicate this topic may be relevant
-  constructs: z.array(z.string()).optional().describe("AL constructs that trigger this topic (e.g., 'FindSet', 'CalcFields')"),
-  // General keywords to match against code or context
-  keywords: z.array(z.string()).optional().describe("Keywords for text matching"),
-  // Phrases indicating an anti-pattern is present
-  anti_pattern_indicators: z.array(z.string()).optional().describe("Phrases indicating bad patterns"),
-  // Phrases indicating a good pattern is present
-  positive_pattern_indicators: z.array(z.string()).optional().describe("Phrases indicating good patterns"),
-}).describe("Relevance detection signals - how to identify when this knowledge applies");
+export const RelevanceSignalsSchema = z
+  .object({
+    // AL language constructs that indicate this topic may be relevant
+    constructs: z
+      .array(z.string())
+      .optional()
+      .describe(
+        "AL constructs that trigger this topic (e.g., 'FindSet', 'CalcFields')",
+      ),
+    // General keywords to match against code or context
+    keywords: z
+      .array(z.string())
+      .optional()
+      .describe("Keywords for text matching"),
+    // Phrases indicating an anti-pattern is present
+    anti_pattern_indicators: z
+      .array(z.string())
+      .optional()
+      .describe("Phrases indicating bad patterns"),
+    // Phrases indicating a good pattern is present
+    positive_pattern_indicators: z
+      .array(z.string())
+      .optional()
+      .describe("Phrases indicating good patterns"),
+  })
+  .describe(
+    "Relevance detection signals - how to identify when this knowledge applies",
+  );
 
 export type RelevanceSignals = z.infer<typeof RelevanceSignalsSchema>;
 
 // YAML Frontmatter Schema - Extended for structured knowledge types
-export const AtomicTopicFrontmatterSchema = z.object({
-  title: z.string().optional().describe("Human-readable topic title"),
-  domain: z.union([
-    z.string(),
-    z.array(z.string())
-  ]).optional().describe("Knowledge domain(s) - single domain or array for shared topics"),
-  difficulty: z.enum(["beginner", "intermediate", "advanced", "expert"]).optional().describe("Complexity level"),
-  bc_versions: z.string().optional().describe("BC version compatibility. Syntax: 'x..' (min), 'x..y' or 'x-y' (range), '..y' (max), 'x->y' (migration), 'x,y,z' (discrete), 'x+' (legacy min)"),
-  tags: z.array(z.string()).optional().describe("Searchable tags for topic discovery"),
-  prerequisites: z.array(z.string()).optional().describe("Required prerequisite topics"),
-  related_topics: z.array(z.string()).optional().describe("Related and complementary topics"),
-  samples: z.string().optional().describe("Path to companion sample file"),
-  estimated_time: z.string().optional().describe("Time to read/implement (e.g., '15 minutes')"),
+export const AtomicTopicFrontmatterSchema = z
+  .object({
+    title: z.string().optional().describe("Human-readable topic title"),
+    domain: z
+      .union([z.string(), z.array(z.string())])
+      .optional()
+      .describe(
+        "Knowledge domain(s) - single domain or array for shared topics",
+      ),
+    difficulty: z
+      .enum(["beginner", "intermediate", "advanced", "expert"])
+      .optional()
+      .describe("Complexity level"),
+    bc_versions: z
+      .string()
+      .optional()
+      .describe(
+        "BC version compatibility. Syntax: 'x..' (min), 'x..y' or 'x-y' (range), '..y' (max), 'x->y' (migration), 'x,y,z' (discrete), 'x+' (legacy min)",
+      ),
+    tags: z
+      .array(z.string())
+      .optional()
+      .describe("Searchable tags for topic discovery"),
+    prerequisites: z
+      .array(z.string())
+      .optional()
+      .describe("Required prerequisite topics"),
+    related_topics: z
+      .array(z.string())
+      .optional()
+      .describe("Related and complementary topics"),
+    samples: z.string().optional().describe("Path to companion sample file"),
+    estimated_time: z
+      .string()
+      .optional()
+      .describe("Time to read/implement (e.g., '15 minutes')"),
 
-  // Extended properties for structured knowledge types
-  type: z.string().optional().describe("Knowledge type (code-pattern, workflow, etc.)"),
-  name: z.string().optional().describe("Unique name for structured types"),
-  pattern_type: z.enum(["good", "bad", "unknown"]).optional().describe("Pattern classification"),
-  regex_patterns: z.array(z.string()).optional().describe("Regex patterns for code detection"),
-  description: z.string().optional().describe("Brief description for structured types"),
-  category: z.string().optional().describe("Category classification"),
-  severity: z.enum(["low", "medium", "high", "critical"]).optional().describe("Severity level"),
-  impact_level: z.enum(["low", "medium", "high"]).optional().describe("Impact level"),
-  detection_confidence: z.enum(["low", "medium", "high"]).optional().describe("Detection confidence"),
+    // Extended properties for structured knowledge types
+    type: z
+      .string()
+      .optional()
+      .describe("Knowledge type (code-pattern, workflow, etc.)"),
+    name: z.string().optional().describe("Unique name for structured types"),
+    pattern_type: z
+      .enum(["good", "bad", "unknown"])
+      .optional()
+      .describe("Pattern classification"),
+    regex_patterns: z
+      .array(z.string())
+      .optional()
+      .describe("Regex patterns for code detection"),
+    description: z
+      .string()
+      .optional()
+      .describe("Brief description for structured types"),
+    category: z.string().optional().describe("Category classification"),
+    severity: z
+      .enum(["low", "medium", "high", "critical"])
+      .optional()
+      .describe("Severity level"),
+    impact_level: z
+      .enum(["low", "medium", "high"])
+      .optional()
+      .describe("Impact level"),
+    detection_confidence: z
+      .enum(["low", "medium", "high"])
+      .optional()
+      .describe("Detection confidence"),
 
-  // Workflow-specific properties
-  workflow_type: z.string().optional().describe("Type of workflow (checklist, procedure, etc.)"),
-  phases: z.array(z.any()).optional().describe("Workflow phases"),
+    // Workflow-specific properties
+    workflow_type: z
+      .string()
+      .optional()
+      .describe("Type of workflow (checklist, procedure, etc.)"),
+    phases: z.array(z.any()).optional().describe("Workflow phases"),
 
-  // Conditional MCP integration
-  conditional_mcp: z.string().optional().describe("MCP server ID required for this topic (show only if MCP present)"),
-  conditional_mcp_missing: z.string().optional().describe("MCP server ID that excludes this topic (show only if MCP absent)"),
+    // Conditional MCP integration
+    conditional_mcp: z
+      .string()
+      .optional()
+      .describe(
+        "MCP server ID required for this topic (show only if MCP present)",
+      ),
+    conditional_mcp_missing: z
+      .string()
+      .optional()
+      .describe(
+        "MCP server ID that excludes this topic (show only if MCP absent)",
+      ),
 
-  // V2: Relevance-based detection fields
-  relevance_signals: RelevanceSignalsSchema.optional().describe("Signals for knowledge-driven detection"),
-  applicable_object_types: z.array(z.string()).optional().describe("AL object types this knowledge applies to (e.g., 'codeunit', 'page')"),
-  relevance_threshold: z.number().min(0).max(1).optional().describe("Minimum relevance score (0.0-1.0) to surface this topic"),
-}).passthrough();
+    // V2: Relevance-based detection fields
+    relevance_signals: RelevanceSignalsSchema.optional().describe(
+      "Signals for knowledge-driven detection",
+    ),
+    applicable_object_types: z
+      .array(z.string())
+      .optional()
+      .describe(
+        "AL object types this knowledge applies to (e.g., 'codeunit', 'page')",
+      ),
+    relevance_threshold: z
+      .number()
+      .min(0)
+      .max(1)
+      .optional()
+      .describe("Minimum relevance score (0.0-1.0) to surface this topic"),
+  })
+  .passthrough();
 
-export type AtomicTopicFrontmatter = z.infer<typeof AtomicTopicFrontmatterSchema>;
+export type AtomicTopicFrontmatter = z.infer<
+  typeof AtomicTopicFrontmatterSchema
+>;
 
 // Complete Atomic Topic Structure
 export interface AtomicTopic {
-  id: string;                    // Unique topic identifier
-  title: string;                 // Human-readable title (derived from frontmatter or filename)
-  filePath: string;              // File system path
+  id: string; // Unique topic identifier
+  title: string; // Human-readable title (derived from frontmatter or filename)
+  filePath: string; // File system path
   frontmatter: AtomicTopicFrontmatter;
-  content: string;               // Markdown content without frontmatter
-  wordCount: number;             // Content length
-  lastModified: Date;            // File modification date
+  content: string; // Markdown content without frontmatter
+  wordCount: number; // Content length
+  lastModified: Date; // File modification date
   samples?: {
     filePath: string;
     content: string;
@@ -81,7 +171,7 @@ export interface AtomicTopic {
 // Tag Index Entry
 export interface TagIndex {
   tag: string;
-  topics: string[];             // Array of topic file paths
+  topics: string[]; // Array of topic file paths
   count: number;
 }
 
@@ -171,12 +261,15 @@ export interface BCVersionMatrix {
     version_specific_topics: Record<string, string[]>;
   };
   compatibility_testing: {
-    test_matrix: Record<string, {
-      tested_versions: string[];
-      success_rate: number;
-      known_issues: number;
-      last_tested: string;
-    }>;
+    test_matrix: Record<
+      string,
+      {
+        tested_versions: string[];
+        success_rate: number;
+        known_issues: number;
+        last_tested: string;
+      }
+    >;
     testing_methodology: {
       compilation_test: string;
       functionality_test: string;
@@ -219,7 +312,12 @@ export interface TopicSearchResult {
 
 export interface CodeAnalysisParams {
   code_snippet: string;
-  analysis_type?: "performance" | "quality" | "security" | "patterns" | "comprehensive";
+  analysis_type?:
+    | "performance"
+    | "quality"
+    | "security"
+    | "patterns"
+    | "comprehensive";
   suggest_topics?: boolean;
   bc_version?: string | undefined;
 }
@@ -290,10 +388,13 @@ export interface BCKBConfig {
 }
 
 // Utility functions for domain handling
-export function isDomainMatch(topicDomain: string | string[] | undefined, targetDomain: string): boolean {
+export function isDomainMatch(
+  topicDomain: string | string[] | undefined,
+  targetDomain: string,
+): boolean {
   if (!topicDomain) return false;
 
-  if (typeof topicDomain === 'string') {
+  if (typeof topicDomain === "string") {
     return topicDomain === targetDomain;
   }
 
@@ -306,7 +407,6 @@ export function isDomainMatch(topicDomain: string | string[] | undefined, target
 
 export function getDomainList(domain: string | string[] | undefined): string[] {
   if (!domain) return [];
-  if (typeof domain === 'string') return [domain];
+  if (typeof domain === "string") return [domain];
   return domain;
 }
-
