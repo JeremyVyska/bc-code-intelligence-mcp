@@ -12,23 +12,26 @@
  * See docs/GIT-AUTH-FIX.md for detailed explanation of authentication fix
  */
 
-import { access, mkdir, stat, readdir, readFile } from 'fs/promises';
-import { join, resolve, dirname, basename } from 'path';
-import { existsSync } from 'fs';
-import simpleGit, { SimpleGit, SimpleGitOptions } from 'simple-git';
-import * as yaml from 'yaml';
-import { glob } from 'glob';
+import { access, mkdir, stat, readdir, readFile } from "fs/promises";
+import { join, resolve, dirname, basename } from "path";
+import { existsSync } from "fs";
+import simpleGit, { SimpleGit, SimpleGitOptions } from "simple-git";
+import * as yaml from "yaml";
+import glob from "fast-glob";
 
-import { BaseKnowledgeLayer } from './base-layer.js';
-import { AtomicTopic, AtomicTopicFrontmatterSchema } from '../types/bc-knowledge.js';
-import { SpecialistDefinition } from '../services/specialist-loader.js';
+import { BaseKnowledgeLayer } from "./base-layer.js";
+import {
+  AtomicTopic,
+  AtomicTopicFrontmatterSchema,
+} from "../types/bc-knowledge.js";
+import { SpecialistDefinition } from "../services/specialist-loader.js";
 import {
   LayerLoadResult,
   ConfigGitLayerSource,
   AuthConfiguration,
   AuthType,
-  ConfigLayerLoadResult
-} from '../types/index.js';
+  ConfigLayerLoadResult,
+} from "../types/index.js";
 
 export class GitKnowledgeLayer extends BaseKnowledgeLayer {
   private git: SimpleGit | null = null;
@@ -41,25 +44,29 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
     priority: number,
     private readonly gitConfig: ConfigGitLayerSource,
     private readonly auth?: AuthConfiguration,
-    private readonly cacheDir: string = '.bckb-cache'
+    private readonly cacheDir: string = ".bckb-cache",
   ) {
     super(name, priority);
 
     // Generate local cache path based on URL
     const urlHash = this.generateUrlHash(gitConfig.url);
-    this.localPath = join(process.cwd(), cacheDir, 'git-repos', urlHash);
+    this.localPath = join(process.cwd(), cacheDir, "git-repos", urlHash);
   }
 
   async initialize(): Promise<LayerLoadResult> {
     // If initialization is in progress, wait for it (MUTEX - must be first!)
     if (this.initializationPromise) {
-      console.error(`⏳ Git layer ${this.name} initialization in progress, waiting...`);
+      console.error(
+        `⏳ Git layer ${this.name} initialization in progress, waiting...`,
+      );
       return this.initializationPromise;
     }
 
     // Return cached result if already initialized
     if (this.initialized && this.loadResult) {
-      console.error(`📦 Git layer ${this.name} already initialized, returning cached result`);
+      console.error(
+        `📦 Git layer ${this.name} already initialized, returning cached result`,
+      );
       return this.loadResult;
     }
 
@@ -76,13 +83,14 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
   }
 
   private async performInitialization(): Promise<LayerLoadResult> {
-
     const startTime = Date.now();
     const errors: string[] = [];
     const warnings: string[] = [];
 
     try {
-      console.error(`🔄 Initializing Git layer: ${this.name} from ${this.gitConfig.url}`);
+      console.error(
+        `🔄 Initializing Git layer: ${this.name} from ${this.gitConfig.url}`,
+      );
 
       // 1. Ensure local cache directory exists
       await this.ensureCacheDirectory();
@@ -118,11 +126,10 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
         topicsLoaded: this.topics.size,
         indexesLoaded: 0,
         loadTimeMs: Date.now() - startTime,
-        success: true
+        success: true,
       };
 
       return this.loadResult;
-
     } catch (error) {
       const errorMessage = `Failed to initialize Git layer: ${error instanceof Error ? error.message : String(error)}`;
       errors.push(errorMessage);
@@ -134,7 +141,7 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
         indexesLoaded: 0,
         loadTimeMs: Date.now() - startTime,
         success: false,
-        error: errorMessage
+        error: errorMessage,
       };
 
       return this.loadResult;
@@ -149,9 +156,9 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
   private async setupGitWithAuth(): Promise<void> {
     const gitOptions: Partial<SimpleGitOptions> = {
       baseDir: dirname(this.localPath),
-      binary: 'git',
+      binary: "git",
       maxConcurrentProcesses: 1,
-      trimmed: true
+      trimmed: true,
     };
 
     this.git = simpleGit(gitOptions);
@@ -170,7 +177,7 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
         // GitHub CLI authentication - verify gh CLI is installed and user is authenticated
         await this.verifyGhCliInstalled();
         await this.verifyGhCliAuthenticated();
-        console.error('🔑 Using GitHub CLI authentication (gh auth token)');
+        console.error("🔑 Using GitHub CLI authentication (gh auth token)");
         // No URL modification needed - we'll fetch token from gh CLI for each operation
         break;
 
@@ -178,21 +185,28 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
         // Azure CLI authentication - verify az CLI is installed and user is logged in
         await this.verifyAzCliInstalled();
         await this.verifyAzCliAuthenticated();
-        console.error('🔑 Using Azure CLI authentication (Git credential manager will handle tokens)');
+        console.error(
+          "🔑 Using Azure CLI authentication (Git credential manager will handle tokens)",
+        );
         // No URL modification needed - Git credential manager automatically uses az CLI tokens
         break;
 
       case AuthType.TOKEN:
         // For GitHub/GitLab token authentication
-        const token = this.auth.token ||
-          (this.auth.token_env_var ? process.env[this.auth.token_env_var] : undefined);
+        const token =
+          this.auth.token ||
+          (this.auth.token_env_var
+            ? process.env[this.auth.token_env_var]
+            : undefined);
 
         if (token) {
           // For token authentication, we embed credentials directly in URLs
           // This avoids issues with git credential helpers and ensures consistent auth
-          console.error('🔑 Configured token authentication (embedded in URLs)');
+          console.error(
+            "🔑 Configured token authentication (embedded in URLs)",
+          );
         } else {
-          throw new Error('Token not found for git authentication');
+          throw new Error("Token not found for git authentication");
         }
         break;
 
@@ -200,22 +214,32 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
         // SSH key authentication - requires key to be in SSH agent
         if (this.auth.key_path) {
           // Set SSH command to use specific key
-          process.env['GIT_SSH_COMMAND'] = `ssh -i ${this.auth.key_path} -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no`;
-          console.error(`🔑 Configured SSH key authentication: ${this.auth.key_path}`);
+          process.env["GIT_SSH_COMMAND"] =
+            `ssh -i ${this.auth.key_path} -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no`;
+          console.error(
+            `🔑 Configured SSH key authentication: ${this.auth.key_path}`,
+          );
         }
         break;
 
       case AuthType.BASIC:
         // Basic username/password authentication
         const username = this.auth.username;
-        const password = this.auth.password ||
-          (this.auth.password_env_var ? process.env[this.auth.password_env_var] : undefined);
+        const password =
+          this.auth.password ||
+          (this.auth.password_env_var
+            ? process.env[this.auth.password_env_var]
+            : undefined);
 
         if (username && password) {
-          console.error('🔑 Configured basic authentication (embedded in URLs)');
+          console.error(
+            "🔑 Configured basic authentication (embedded in URLs)",
+          );
           // This will be handled in the URL modification
         } else {
-          throw new Error('Username/password not found for basic authentication');
+          throw new Error(
+            "Username/password not found for basic authentication",
+          );
         }
         break;
 
@@ -225,9 +249,9 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
   }
 
   private async ensureRepository(): Promise<boolean> {
-    if (!this.git) throw new Error('Git not initialized');
+    if (!this.git) throw new Error("Git not initialized");
 
-    const repositoryExists = existsSync(join(this.localPath, '.git'));
+    const repositoryExists = existsSync(join(this.localPath, ".git"));
 
     if (repositoryExists) {
       // Repository exists, pull latest changes
@@ -236,15 +260,27 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
 
       try {
         // For authenticated pulls, we need to update the remote URL with auth
-        if (this.auth && (this.auth.type === AuthType.TOKEN || this.auth.type === AuthType.BASIC || this.auth.type === AuthType.GH_CLI)) {
-          const authenticatedUrl = await this.prepareUrlWithAuth(this.gitConfig.url);
-          await this.git.remote(['set-url', 'origin', authenticatedUrl]);
+        if (
+          this.auth &&
+          (this.auth.type === AuthType.TOKEN ||
+            this.auth.type === AuthType.BASIC ||
+            this.auth.type === AuthType.GH_CLI)
+        ) {
+          const authenticatedUrl = await this.prepareUrlWithAuth(
+            this.gitConfig.url,
+          );
+          await this.git.remote(["set-url", "origin", authenticatedUrl]);
         }
 
-        const pullResult = await this.git.pull('origin', this.gitConfig.branch || 'main');
+        const pullResult = await this.git.pull(
+          "origin",
+          this.gitConfig.branch || "main",
+        );
         return pullResult.summary.changes > 0;
       } catch (error) {
-        console.warn(`⚠️  Pull failed, using cached version: ${error instanceof Error ? error.message : String(error)}`);
+        console.warn(
+          `⚠️  Pull failed, using cached version: ${error instanceof Error ? error.message : String(error)}`,
+        );
         return false;
       }
     } else {
@@ -254,9 +290,10 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
       const cloneUrl = await this.prepareUrlWithAuth(this.gitConfig.url);
 
       await this.git.clone(cloneUrl, this.localPath, [
-        '--depth', '1', // Shallow clone for faster downloads
-        '--single-branch',
-        ...(this.gitConfig.branch ? ['--branch', this.gitConfig.branch] : [])
+        "--depth",
+        "1", // Shallow clone for faster downloads
+        "--single-branch",
+        ...(this.gitConfig.branch ? ["--branch", this.gitConfig.branch] : []),
       ]);
 
       return true;
@@ -272,7 +309,7 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
     }
 
     // Only modify HTTPS URLs for token/basic auth
-    if (!url.startsWith('https://')) return url;
+    if (!url.startsWith("https://")) return url;
 
     switch (this.auth.type) {
       case AuthType.GH_CLI:
@@ -280,26 +317,32 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
         const ghToken = await this.getGhCliToken();
         if (ghToken) {
           // For GitHub: https://token@github.com/...
-          return url.replace('https://', `https://${ghToken}@`);
+          return url.replace("https://", `https://${ghToken}@`);
         }
         break;
 
       case AuthType.TOKEN:
-        const token = this.auth.token ||
-          (this.auth.token_env_var ? process.env[this.auth.token_env_var] : undefined);
+        const token =
+          this.auth.token ||
+          (this.auth.token_env_var
+            ? process.env[this.auth.token_env_var]
+            : undefined);
         if (token) {
           // For GitHub/GitLab: https://token@github.com/...
-          return url.replace('https://', `https://${token}@`);
+          return url.replace("https://", `https://${token}@`);
         }
         break;
 
       case AuthType.BASIC:
         const username = this.auth.username;
-        const password = this.auth.password ||
-          (this.auth.password_env_var ? process.env[this.auth.password_env_var] : undefined);
+        const password =
+          this.auth.password ||
+          (this.auth.password_env_var
+            ? process.env[this.auth.password_env_var]
+            : undefined);
         if (username && password) {
           // https://username:password@gitlab.com/...
-          return url.replace('https://', `https://${username}:${password}@`);
+          return url.replace("https://", `https://${username}:${password}@`);
         }
         break;
     }
@@ -311,13 +354,13 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
    * Verify Azure CLI is installed on the system
    */
   private async verifyGhCliInstalled(): Promise<void> {
-    const { execSync } = await import('child_process');
+    const { execSync } = await import("child_process");
     try {
-      execSync('gh --version', { stdio: 'ignore' });
+      execSync("gh --version", { stdio: "ignore" });
     } catch {
       throw new Error(
-        'GitHub CLI not found. Install from https://cli.github.com/\n' +
-        'After installation, run: gh auth login'
+        "GitHub CLI not found. Install from https://cli.github.com/\n" +
+          "After installation, run: gh auth login",
       );
     }
   }
@@ -326,14 +369,14 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
    * Verify user is authenticated with GitHub CLI
    */
   private async verifyGhCliAuthenticated(): Promise<void> {
-    const { execSync } = await import('child_process');
+    const { execSync } = await import("child_process");
     try {
       // Check if user is authenticated by attempting to get auth status
-      execSync('gh auth status', { stdio: 'ignore' });
+      execSync("gh auth status", { stdio: "ignore" });
     } catch {
       throw new Error(
-        'Not logged in to GitHub CLI. Run: gh auth login\n' +
-        'For organization access, ensure your token has appropriate repo scopes'
+        "Not logged in to GitHub CLI. Run: gh auth login\n" +
+          "For organization access, ensure your token has appropriate repo scopes",
       );
     }
   }
@@ -342,31 +385,31 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
    * Get GitHub token from gh CLI
    */
   private async getGhCliToken(): Promise<string> {
-    const { execSync } = await import('child_process');
+    const { execSync } = await import("child_process");
     try {
       // Get token for github.com (or enterprise host if specified)
-      const output = execSync('gh auth token', { encoding: 'utf8' });
+      const output = execSync("gh auth token", { encoding: "utf8" });
       const token = output.trim();
       if (!token) {
-        throw new Error('gh CLI returned empty token');
+        throw new Error("gh CLI returned empty token");
       }
       return token;
     } catch (error) {
       throw new Error(
         `Failed to get GitHub CLI token: ${error instanceof Error ? error.message : String(error)}\n` +
-        'Ensure you are authenticated with: gh auth login'
+          "Ensure you are authenticated with: gh auth login",
       );
     }
   }
 
   private async verifyAzCliInstalled(): Promise<void> {
-    const { execSync } = await import('child_process');
+    const { execSync } = await import("child_process");
     try {
-      execSync('az --version', { stdio: 'ignore' });
+      execSync("az --version", { stdio: "ignore" });
     } catch {
       throw new Error(
-        'Azure CLI not found. Install from https://aka.ms/install-az-cli\n' +
-        'After installation, run: az login'
+        "Azure CLI not found. Install from https://aka.ms/install-az-cli\n" +
+          "After installation, run: az login",
       );
     }
   }
@@ -375,19 +418,19 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
    * Verify user is authenticated with Azure CLI
    */
   private async verifyAzCliAuthenticated(): Promise<void> {
-    const { execSync } = await import('child_process');
+    const { execSync } = await import("child_process");
     try {
-      execSync('az account show', { stdio: 'ignore' });
+      execSync("az account show", { stdio: "ignore" });
     } catch {
       throw new Error(
-        'Not logged in to Azure CLI. Run: az login\n' +
-        'For Azure DevOps, you may also need to run: az devops login'
+        "Not logged in to Azure CLI. Run: az login\n" +
+          "For Azure DevOps, you may also need to run: az devops login",
       );
     }
   }
 
   private async checkoutBranch(branch: string): Promise<void> {
-    if (!this.git) throw new Error('Git not initialized');
+    if (!this.git) throw new Error("Git not initialized");
 
     console.error(`🔄 Checking out branch: ${branch}`);
     await this.git.cwd(this.localPath);
@@ -400,7 +443,9 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
       try {
         await this.git.checkoutBranch(branch, `origin/${branch}`);
       } catch (remoteBranchError) {
-        throw new Error(`Failed to checkout branch ${branch}: ${error instanceof Error ? error.message : String(error)}`);
+        throw new Error(
+          `Failed to checkout branch ${branch}: ${error instanceof Error ? error.message : String(error)}`,
+        );
       }
     }
   }
@@ -410,8 +455,8 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
       await access(dirPath);
 
       // Load all three content types from standard subdirectories
-      await this.loadTopics();        // Loads from domains/
-      await this.loadSpecialists();   // Loads from specialists/
+      await this.loadTopics(); // Loads from domains/
+      await this.loadSpecialists(); // Loads from specialists/
       await this.loadWorkflows(); // Loads from workflows/
     } catch (error) {
       throw new Error(`Knowledge directory not found: ${dirPath}`);
@@ -426,8 +471,8 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
       ? join(this.localPath, this.gitConfig.subpath)
       : this.localPath;
 
-    const domainsPath = join(knowledgePath, 'domains');
-    const topicsPath = join(knowledgePath, 'topics');
+    const domainsPath = join(knowledgePath, "domains");
+    const topicsPath = join(knowledgePath, "topics");
 
     try {
       await access(domainsPath);
@@ -453,14 +498,14 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
       ? join(this.localPath, this.gitConfig.subpath)
       : this.localPath;
 
-    const specialistsPath = join(knowledgePath, 'specialists');
+    const specialistsPath = join(knowledgePath, "specialists");
 
     try {
       await access(specialistsPath);
       const entries = await readdir(specialistsPath);
 
       for (const entry of entries) {
-        if (entry.endsWith('.md')) {
+        if (entry.endsWith(".md")) {
           const filePath = join(specialistsPath, entry);
           try {
             const specialist = await this.loadSpecialist(filePath);
@@ -468,12 +513,17 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
               this.specialists.set(specialist.specialist_id, specialist);
             }
           } catch (error) {
-            console.error(`Failed to load specialist ${entry}:`, error instanceof Error ? error.message : String(error));
+            console.error(
+              `Failed to load specialist ${entry}:`,
+              error instanceof Error ? error.message : String(error),
+            );
           }
         }
       }
 
-      console.error(`🎭 Loaded ${this.specialists.size} specialists from ${this.name} layer`);
+      console.error(
+        `🎭 Loaded ${this.specialists.size} specialists from ${this.name} layer`,
+      );
     } catch (error) {
       // specialists/ directory doesn't exist - that's okay
     }
@@ -490,8 +540,8 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
       : this.localPath;
 
     // Prefer workflows/, fall back to methodologies/ for backward compatibility
-    const workflowsPath = join(knowledgePath, 'workflows');
-    const legacyPath = join(knowledgePath, 'methodologies');
+    const workflowsPath = join(knowledgePath, "workflows");
+    const legacyPath = join(knowledgePath, "methodologies");
 
     let activePath: string | null = null;
 
@@ -503,7 +553,9 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
       try {
         await access(legacyPath);
         activePath = legacyPath;
-        console.error(`⚠️  Using deprecated 'methodologies/' directory in ${this.name}. Please rename to 'workflows/'`);
+        console.error(
+          `⚠️  Using deprecated 'methodologies/' directory in ${this.name}. Please rename to 'workflows/'`,
+        );
       } catch {
         // Neither directory exists - that's okay
         return 0;
@@ -515,25 +567,30 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
     }
 
     // Load workflow files
-    let pattern = join(activePath, '*.yaml').replace(/\\/g, '/');
-    if (pattern.startsWith('/c/')) {
-      pattern = 'C:' + pattern.substring(2);
+    let pattern = join(activePath, "*.yaml").replace(/\\/g, "/");
+    if (pattern.startsWith("/c/")) {
+      pattern = "C:" + pattern.substring(2);
     }
 
     const workflowFiles = await glob(pattern);
-    console.error(`📋 Found ${workflowFiles.length} workflow files in git layer`);
+    console.error(
+      `📋 Found ${workflowFiles.length} workflow files in git layer`,
+    );
 
     let loadedCount = 0;
     for (const filePath of workflowFiles) {
       try {
         const workflow = await this.loadWorkflow(filePath);
         if (workflow) {
-          const workflowId = workflow.type || basename(filePath, '.yaml');
+          const workflowId = workflow.type || basename(filePath, ".yaml");
           this.workflows.set(workflowId, workflow);
           loadedCount++;
         }
       } catch (error) {
-        console.error(`Failed to load git workflow ${filePath}:`, error instanceof Error ? error.message : String(error));
+        console.error(
+          `Failed to load git workflow ${filePath}:`,
+          error instanceof Error ? error.message : String(error),
+        );
       }
     }
 
@@ -546,8 +603,10 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
    */
   private async loadWorkflow(filePath: string): Promise<any | null> {
     try {
-      const content = await readFile(filePath, 'utf-8');
-      const normalizedContent = content.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n');
+      const content = await readFile(filePath, "utf-8");
+      const normalizedContent = content
+        .replace(/^\uFEFF/, "")
+        .replace(/\r\n/g, "\n");
 
       // Parse YAML content
       const workflowData = yaml.parse(normalizedContent);
@@ -568,19 +627,25 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
   /**
    * Load a single specialist from a markdown file
    */
-  private async loadSpecialist(filePath: string): Promise<SpecialistDefinition | null> {
-    const content = await readFile(filePath, 'utf-8');
-    const normalizedContent = content.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n');
+  private async loadSpecialist(
+    filePath: string,
+  ): Promise<SpecialistDefinition | null> {
+    const content = await readFile(filePath, "utf-8");
+    const normalizedContent = content
+      .replace(/^\uFEFF/, "")
+      .replace(/\r\n/g, "\n");
 
     // Extract YAML frontmatter
-    const frontmatterMatch = normalizedContent.match(/^---\s*\n([\s\S]*?)\n---\s*\n([\s\S]*)$/);
+    const frontmatterMatch = normalizedContent.match(
+      /^---\s*\n([\s\S]*?)\n---\s*\n([\s\S]*)$/,
+    );
     if (!frontmatterMatch) {
       console.error(`⚠️ No frontmatter found in ${filePath}`);
       return null;
     }
 
     const [, frontmatterContent, markdownContent] = frontmatterMatch;
-    const frontmatterData = yaml.parse(frontmatterContent || '');
+    const frontmatterData = yaml.parse(frontmatterContent || "");
 
     // Validate required fields
     if (!frontmatterData.specialist_id || !frontmatterData.title) {
@@ -592,26 +657,29 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
     const specialist: SpecialistDefinition = {
       title: frontmatterData.title,
       specialist_id: frontmatterData.specialist_id,
-      emoji: frontmatterData.emoji || '🤖',
-      role: frontmatterData.role || 'Specialist',
-      team: frontmatterData.team || 'General',
+      emoji: frontmatterData.emoji || "🤖",
+      role: frontmatterData.role || "Specialist",
+      team: frontmatterData.team || "General",
       persona: {
         personality: frontmatterData.persona?.personality || [],
-        communication_style: frontmatterData.persona?.communication_style || '',
-        greeting: frontmatterData.persona?.greeting || `${frontmatterData.emoji || '🤖'} Hello!`
+        communication_style: frontmatterData.persona?.communication_style || "",
+        greeting:
+          frontmatterData.persona?.greeting ||
+          `${frontmatterData.emoji || "🤖"} Hello!`,
       },
       expertise: {
         primary: frontmatterData.expertise?.primary || [],
-        secondary: frontmatterData.expertise?.secondary || []
+        secondary: frontmatterData.expertise?.secondary || [],
       },
       domains: frontmatterData.domains || [],
       when_to_use: frontmatterData.when_to_use || [],
       collaboration: {
         natural_handoffs: frontmatterData.collaboration?.natural_handoffs || [],
-        team_consultations: frontmatterData.collaboration?.team_consultations || []
+        team_consultations:
+          frontmatterData.collaboration?.team_consultations || [],
       },
       related_specialists: frontmatterData.related_specialists || [],
-      content: markdownContent.trim()
+      content: markdownContent.trim(),
     };
 
     return specialist;
@@ -626,18 +694,24 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
       if (entry.isDirectory()) {
         // Recursively load from subdirectories
         await this.loadTopicsFromDirectory(fullPath);
-      } else if (entry.isFile() && entry.name.endsWith('.md')) {
+      } else if (entry.isFile() && entry.name.endsWith(".md")) {
         // Load markdown files as topics
         try {
-          const content = await readFile(fullPath, 'utf-8');
+          const content = await readFile(fullPath, "utf-8");
           const relativePath = this.getRelativePath(fullPath);
-          const topic = await this.loadAtomicTopic(fullPath, content, relativePath);
+          const topic = await this.loadAtomicTopic(
+            fullPath,
+            content,
+            relativePath,
+          );
 
           if (topic && this.validateTopic(topic)) {
             this.topics.set(topic.id, topic);
           }
         } catch (error) {
-          console.warn(`⚠️  Failed to load topic from ${fullPath}: ${error instanceof Error ? error.message : String(error)}`);
+          console.warn(
+            `⚠️  Failed to load topic from ${fullPath}: ${error instanceof Error ? error.message : String(error)}`,
+          );
         }
       }
     }
@@ -648,7 +722,7 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
       ? join(this.localPath, this.gitConfig.subpath)
       : this.localPath;
 
-    return absolutePath.replace(basePath + '/', '').replace(/\\/g, '/');
+    return absolutePath.replace(basePath + "/", "").replace(/\\/g, "/");
   }
 
   private async getCurrentCommitHash(): Promise<string | undefined> {
@@ -656,7 +730,7 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
 
     try {
       await this.git.cwd(this.localPath);
-      const log = await this.git.log(['--oneline', '-1']);
+      const log = await this.git.log(["--oneline", "-1"]);
       return log.latest?.hash;
     } catch {
       return undefined;
@@ -677,7 +751,7 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
     let hash = 0;
     for (let i = 0; i < url.length; i++) {
       const char = url.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
+      hash = (hash << 5) - hash + char;
       hash = hash & hash; // Convert to 32-bit integer
     }
     return Math.abs(hash).toString(16);
@@ -688,7 +762,9 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
 
     // Wait for any in-progress initialization to complete
     if (this.initializationPromise) {
-      console.error(`⏳ Waiting for current initialization to complete before refresh...`);
+      console.error(
+        `⏳ Waiting for current initialization to complete before refresh...`,
+      );
       await this.initializationPromise;
     }
 
@@ -711,15 +787,23 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
   /**
    * Load a single atomic topic from a markdown file
    */
-  private async loadAtomicTopic(filePath: string, content: string, relativePath: string): Promise<AtomicTopic | null> {
+  private async loadAtomicTopic(
+    filePath: string,
+    content: string,
+    relativePath: string,
+  ): Promise<AtomicTopic | null> {
     try {
       const stats = await stat(filePath);
 
       // Normalize line endings
-      const normalizedContent = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+      const normalizedContent = content
+        .replace(/\r\n/g, "\n")
+        .replace(/\r/g, "\n");
 
       // Extract YAML frontmatter
-      const frontmatterMatch = normalizedContent.match(/^---\s*\n([\s\S]*?)\n---\s*\n([\s\S]*)$/);
+      const frontmatterMatch = normalizedContent.match(
+        /^---\s*\n([\s\S]*?)\n---\s*\n([\s\S]*)$/,
+      );
       if (!frontmatterMatch) {
         return null;
       }
@@ -727,7 +811,7 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
       const [, frontmatterContent, markdownContent] = frontmatterMatch;
 
       // Parse and validate frontmatter
-      const frontmatterData = yaml.parse(frontmatterContent || '');
+      const frontmatterData = yaml.parse(frontmatterContent || "");
       const frontmatter = AtomicTopicFrontmatterSchema.parse(frontmatterData);
 
       // Generate topic ID from relative path
@@ -735,16 +819,17 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
 
       return {
         id: topicId,
-        title: frontmatter.title || topicId.replace(/-/g, ' '),
+        title: frontmatter.title || topicId.replace(/-/g, " "),
         filePath,
         frontmatter,
-        content: markdownContent?.trim() || '',
+        content: markdownContent?.trim() || "",
         wordCount: markdownContent?.split(/\s+/).length || 0,
-        lastModified: stats.mtime
+        lastModified: stats.mtime,
       };
-
     } catch (error) {
-      console.warn(`⚠️  Failed to parse topic from ${filePath}: ${error instanceof Error ? error.message : String(error)}`);
+      console.warn(
+        `⚠️  Failed to parse topic from ${filePath}: ${error instanceof Error ? error.message : String(error)}`,
+      );
       return null;
     }
   }
@@ -752,12 +837,12 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
   /**
    * Normalize topic ID from file path
    */
-  protected override normalizeTopicId(filePath: string, basePath?: string): string {
+  protected override normalizeTopicId(
+    filePath: string,
+    basePath?: string,
+  ): string {
     // For git layer, filePath is already relative
-    return filePath
-      .replace(/\.md$/, '')
-      .replace(/\\/g, '/')
-      .toLowerCase();
+    return filePath.replace(/\.md$/, "").replace(/\\/g, "/").toLowerCase();
   }
 
   /**
@@ -769,13 +854,13 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
 
   getSourceInfo() {
     return {
-      type: 'git' as const,
+      type: "git" as const,
       url: this.gitConfig.url,
       branch: this.gitConfig.branch,
       subpath: this.gitConfig.subpath,
       localPath: this.localPath,
       lastUpdated: this.lastUpdated,
-      hasAuth: !!this.auth
+      hasAuth: !!this.auth,
     };
   }
 }
