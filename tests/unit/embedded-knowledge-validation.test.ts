@@ -41,16 +41,14 @@ describe('Embedded Knowledge Validation', () => {
   });
 
   describe('Critical Files', () => {
-    it('should have workflow index', () => {
-      // Check both workflows/ and methodologies/ (backward compatibility)
-      const workflowsIndexPath = join(embeddedKnowledgePath, 'workflows/index.json');
-      const methodologiesIndexPath = join(embeddedKnowledgePath, 'methodologies/index.json');
+    it('should have workflow files', () => {
+      // Check for workflow YAML files
+      const workflowsDir = join(embeddedKnowledgePath, 'workflows');
+      expect(existsSync(workflowsDir), 'Missing workflows/ directory').toBe(true);
 
-      const indexPath = existsSync(workflowsIndexPath) ? workflowsIndexPath : methodologiesIndexPath;
-      expect(existsSync(indexPath), 'Missing workflows/index.json or methodologies/index.json').toBe(true);
-
-      const stat = statSync(indexPath);
-      expect(stat.size).toBeGreaterThan(100); // Should have meaningful content
+      // Check that there are actual workflow files
+      const workflowFiles = readdirSync(workflowsDir).filter(f => f.endsWith('.yaml'));
+      expect(workflowFiles.length, 'Should have at least one workflow YAML file').toBeGreaterThan(0);
     });
 
     it('should have domain catalog', () => {

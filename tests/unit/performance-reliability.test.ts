@@ -135,7 +135,7 @@ describe('Performance and Reliability Tests', () => {
       const requests = [
         handlers.get('find_bc_knowledge')({ query: 'test1' }),
         handlers.get('ask_bc_expert')({ question: 'test2' }),
-        handlers.get('start_bc_workflow')({ workflow_type: 'app_takeover' })
+        handlers.get('workflow_start')({ workflow_type: 'app_takeover' })
       ];
 
       const results = await Promise.all(requests);
@@ -284,7 +284,7 @@ describe('Performance and Reliability Tests', () => {
       });
 
       // This might fail gracefully
-      const workflowResult = await partialHandlers.get('start_bc_workflow')({
+      const workflowResult = await partialHandlers.get('workflow_start')({
         workflow_type: 'app_takeover'
       });
 

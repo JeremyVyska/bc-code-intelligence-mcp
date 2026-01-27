@@ -27,7 +27,7 @@ async function validateContracts(): Promise<ValidationResult[]> {
     codeAnalysisService: createMockCodeAnalysisService(),
     workflowService: createMockWorkflowService(),
     layerService: createMockLayerService(),
-    workflowSessionManagerV2: createMockWorkflowSessionManagerV2()
+    workflowSessionManager: createMockWorkflowSessionManager()
   };
   console.log('  ✅ All mock services created');
 
@@ -115,8 +115,8 @@ async function validateWorkflowTypes(enumValues: string[], validation: Validatio
     'add-ecosystem-features', 'document-bc-solution'
   ];
 
-  // Built-in types for v2 WorkflowSessionManagerV2
-  // Note: v2 also supports custom workflow types from company/project layers,
+  // Built-in types for WorkflowSessionManager (v2 workflow system)
+  // Note: The workflow system also supports custom workflow types from company/project layers,
   // which are registered at runtime and cannot be validated statically
   const v2BuiltInTypes = [
     'code-review', 'proposal-review', 'performance-audit', 'security-audit',
@@ -281,7 +281,7 @@ function createMockLayerService() {
   };
 }
 
-function createMockWorkflowSessionManagerV2() {
+function createMockWorkflowSessionManager() {
   const mockSession = {
     id: 'wf-test-session',
     workflow_type: 'code-review',

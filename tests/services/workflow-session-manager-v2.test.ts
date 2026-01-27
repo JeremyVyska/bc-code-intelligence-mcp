@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { WorkflowSessionManagerV2 } from '../../src/services/workflow-v2/workflow-session-manager.js';
+import { WorkflowSessionManager } from '../../src/services/workflow-v2/workflow-session-manager.js';
 import { WorkflowType, WorkflowSession, WorkflowOptions } from '../../src/types/workflow-v2-types.js';
 
 // Mock fs module
@@ -19,12 +19,12 @@ vi.mock('glob', () => ({
 }));
 
 describe('WorkflowSessionManagerV2', () => {
-  let manager: WorkflowSessionManagerV2;
+  let manager: WorkflowSessionManager;
   const testWorkspaceRoot = '/test/workspace';
 
   beforeEach(() => {
     vi.clearAllMocks();
-    manager = new WorkflowSessionManagerV2();
+    manager = new WorkflowSessionManager();
     manager.setWorkspaceRoot(testWorkspaceRoot);
 
     // Setup default mocks
@@ -443,7 +443,7 @@ describe('WorkflowSessionManagerV2', () => {
 
   describe('Error Handling', () => {
     it('should throw error if workspace root not set', async () => {
-      const newManager = new WorkflowSessionManagerV2();
+      const newManager = new WorkflowSessionManager();
 
       expect(() => {
         // Access private method indirectly

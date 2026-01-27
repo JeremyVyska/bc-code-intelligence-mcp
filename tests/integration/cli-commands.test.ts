@@ -352,10 +352,13 @@ describe("CLI Commands - Integration Tests", () => {
         expect(result.exitCode).toBe(0);
         
         // Should be parseable JSON
-        let parsed;
+        let parsed: any;
         expect(() => {
           parsed = JSON.parse(result.stdout);
         }).not.toThrow();
+
+        // Ensure parsed is defined
+        expect(parsed).toBeDefined();
 
         // Should have expected structure
         expect(parsed).toHaveProperty("specialist");

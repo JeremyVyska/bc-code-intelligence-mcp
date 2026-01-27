@@ -115,8 +115,8 @@ describe('MCP Tool Contract Validation', () => {
       expect(result).toBeDefined();
     });
 
-    it('should execute start_bc_workflow without errors', async () => {
-      const handler = handlers.get('start_bc_workflow');
+    it('should execute workflow_start without errors', async () => {
+      const handler = handlers.get('workflow_start');
       const result = await handler({
         workflow_type: 'app_takeover',
         context: 'test context'
@@ -127,7 +127,7 @@ describe('MCP Tool Contract Validation', () => {
 
   describe('Enum Validation', () => {
     it('should validate workflow_type enums match service capabilities', async () => {
-      const workflowTool = allTools.find(t => t.name === 'start_bc_workflow');
+      const workflowTool = allTools.find(t => t.name === 'workflow_start');
       const schema = workflowTool?.inputSchema as any;
       if (schema?.properties?.workflow_type?.enum) {
         const schemaEnums = schema.properties.workflow_type.enum;

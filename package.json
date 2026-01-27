@@ -15,6 +15,8 @@
   },
   "scripts": {
     "build": "tsc",
+    "build:clean": "npm run clean && npm run build",
+    "clean": "tsx scripts/clean.ts",
     "dev": "tsx src/index.ts",
     "start": "node dist/index.js",
     "test": "npm run test:all",
@@ -24,6 +26,8 @@
     "test:prompts": "vitest run --config vitest.config.ts tests/prompt-validation",
     "test:coverage": "vitest run --coverage",
     "test:all": "npm run test:contracts && npm run test:unit && npm run test:integration && npm run test:prompts",
+    "test:ci": "npm run build:clean && npm run test:all",
+    "precommit": "npm run build:clean && npm run test:all",
     "validate:contracts": "tsx scripts/validate-contracts.ts",
     "prepublishOnly": "npm run test:all && npm run build",
     "lint": "eslint src/**/*.ts",
@@ -67,6 +71,7 @@
     "@vitest/coverage-v8": "^3.2.4",
     "eslint": "^8.57.1",
     "prettier": "^3.1.1",
+    "rimraf": "^6.1.2",
     "tsx": "^4.7.0",
     "typescript": "^5.3.3",
     "vitest": "^3.2.4"

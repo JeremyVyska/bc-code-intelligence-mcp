@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { createWorkflowStartV2Handler } from '../../../src/tools/workflow_start_v2/handler.js';
+import { createWorkflowStartHandler } from '../../../src/tools/workflow_start/handler.js';
 import { createWorkflowNextHandler } from '../../../src/tools/workflow_next/handler.js';
 import { createWorkflowProgressHandler } from '../../../src/tools/workflow_progress/handler.js';
 import { createWorkflowStatusHandler } from '../../../src/tools/workflow_status/handler.js';
@@ -7,7 +7,7 @@ import { createWorkflowCompleteHandler } from '../../../src/tools/workflow_compl
 import { createWorkflowBatchHandler } from '../../../src/tools/workflow_batch/handler.js';
 import { WorkflowSession } from '../../../src/types/workflow-v2-types.js';
 
-// Mock WorkflowSessionManagerV2
+// Mock WorkflowSessionManager
 const mockSession: WorkflowSession = {
   id: 'wf-test-session',
   workflow_type: 'code-review',
@@ -76,7 +76,7 @@ const mockWorkflowSessionManager = {
 };
 
 const mockServices = {
-  workflowSessionManagerV2: mockWorkflowSessionManager
+  workflowSessionManager: mockWorkflowSessionManager
 };
 
 describe('Workflow Engine v2 Tools', () => {
@@ -85,9 +85,9 @@ describe('Workflow Engine v2 Tools', () => {
     mockWorkflowSessionManager.getSession.mockResolvedValue({ ...mockSession });
   });
 
-  describe('workflow_start_v2', () => {
+  describe('workflow_start', () => {
     it('should start a new workflow session', async () => {
-      const handler = createWorkflowStartV2Handler(mockServices);
+      const handler = createWorkflowStartHandler(mockServices);
 
       const result = await handler({
         workflow_type: 'code-review',
@@ -102,7 +102,7 @@ describe('Workflow Engine v2 Tools', () => {
     });
 
     it('should reject invalid workflow types', async () => {
-      const handler = createWorkflowStartV2Handler(mockServices);
+      const handler = createWorkflowStartHandler(mockServices);
 
       const result = await handler({
         workflow_type: 'invalid-type',
@@ -114,7 +114,7 @@ describe('Workflow Engine v2 Tools', () => {
     });
 
     it('should require source and target versions for bc-version-upgrade', async () => {
-      const handler = createWorkflowStartV2Handler(mockServices);
+      const handler = createWorkflowStartHandler(mockServices);
 
       const result = await handler({
         workflow_type: 'bc-version-upgrade',
@@ -126,7 +126,7 @@ describe('Workflow Engine v2 Tools', () => {
     });
 
     it('should accept bc-version-upgrade with required options', async () => {
-      const handler = createWorkflowStartV2Handler(mockServices);
+      const handler = createWorkflowStartHandler(mockServices);
 
       const result = await handler({
         workflow_type: 'bc-version-upgrade',
@@ -361,8 +361,8 @@ describe('Workflow Engine v2 Tools', () => {
   });
 
   describe('Tool Schemas Match Implementation', () => {
-    it('workflow_start_v2 accepts all defined workflow types', async () => {
-      const handler = createWorkflowStartV2Handler(mockServices);
+    it('workflow_start accepts all defined workflow types', async () => {
+      const handler = createWorkflowStartHandler(mockServices);
       const workflowTypes = [
         'code-review',
         'proposal-review',
@@ -389,3 +389,4 @@ describe('Workflow Engine v2 Tools', () => {
     });
   });
 });
+
