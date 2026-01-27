@@ -743,10 +743,10 @@ ${enhancedResult.routingOptions.map((option) => `- ${option.replace("🎯 Start 
       legacyConfig,
       this.layerService,
     );
-    
+
     // V2: Create RelevanceIndexService for knowledge-driven detection
     this.relevanceIndexService = new RelevanceIndexService(this.layerService);
-    
+
     // Start services initialization in background (they'll wait for layers internally if needed)
     const servicesInitPromise = Promise.all([
       this.knowledgeService.initialize(),
@@ -1148,7 +1148,6 @@ ${enhancedResult.routingOptions.map((option) => `- ${option.replace("🎯 Start 
    */
   private async performBackgroundInitialization(): Promise<void> {
     try {
-
       // Verify embedded knowledge path BEFORE any service initialization
       const __filename = fileURLToPath(import.meta.url);
       const __dirname = dirname(__filename);
