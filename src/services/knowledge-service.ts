@@ -47,27 +47,15 @@ export class KnowledgeService {
     console.error('🔄 Initializing BC Knowledge Service with Layer System...');
 
     try {
-      // Initialize the layer service (loads embedded + project layers)
-      const layerResults = await this.layerService.initialize();
+      // Layer service should already be initialized by server before creating services
+      // Verify by checking if topics are available
+      const allTopicIds = this.layerService.getAllTopicIds();
+      if (allTopicIds.length === 0) {
+        throw new Error('LayerService has no topics - must be initialized first');
+      }
 
       this.initialized = true;
-
-      // Log initialization results - handle Map instead of array
-      const layerResultsArray = Array.from(layerResults.entries());
-      const successfulLayers = layerResultsArray.filter(([_, r]) => r.success);
-      const totalTopics = successfulLayers.reduce((sum, [_, r]) => sum + (r.topics_loaded || 0), 0);
-
-      console.error(`✅ Knowledge Service initialized with ${successfulLayers.length}/${layerResultsArray.length} layers and ${totalTopics} total topics`);
-
-      // Log layer details
-      for (const [layerName, result] of layerResultsArray) {
-        if (result.success) {
-          const specialistCount = result.content_counts?.specialists || 0;
-          console.error(`  📚 ${layerName}: ${result.topics_loaded || 0} topics, ${specialistCount} specialists (${result.load_time_ms || 0}ms)`);
-        } else {
-          console.error(`  ❌ ${layerName}: Failed - ${result.error || 'Unknown error'}`);
-        }
-      }
+      console.error(`✅ Knowledge Service initialized with ${allTopicIds.length} total topics`);
 
     } catch (error) {
       console.error('❌ Failed to initialize Knowledge Service:', error);

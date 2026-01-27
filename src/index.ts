@@ -82,6 +82,7 @@ class BCCodeIntelligenceServer {
   private toolHandlers!: Map<string, (args: any) => Promise<any>>;
   private debugToolHandlers!: Map<string, (args: any) => Promise<any>>;
   private servicesInitialized = false;
+  private initializationPromise: Promise<void> | null = null;
 
   private getPackageVersion(): string {
     try {
@@ -184,36 +185,11 @@ class BCCodeIntelligenceServer {
             content: [
               {
                 type: "text",
-                text: `⚠️ **Workspace Not Configured**
+                text: `⚠️ **Server Not Yet Initialized**
 
-The BC Code Intelligence server needs workspace information to load project-specific configuration and knowledge layers.
+The server will automatically initialize when you call set_workspace_info with your workspace path.
 
-**Option 1: Set workspace info** (recommended for project-specific layers and MCP ecosystem awareness)
-\`\`\`
-set_workspace_info({
-  workspace_root: "C:/your/project/path",
-  available_mcps: []  // REQUIRED: Examine your available tools and infer MCP servers (see tool description)
-})
-\`\`\`
-
-**How to populate available_mcps:**
-Check which tools you have available and add the corresponding MCP server IDs:
-- Have \`search_telemetry_traces\`? Add "bc-telemetry-buddy"
-- Have \`reserve_object_ids\`? Add "al-objid-mcp-server"
-- Have \`analyze_dependencies\`? Add "al-dependency-mcp-server"
-- Have \`get_lsp_diagnostics\`? Add "serena-mcp"
-- Have \`create_work_item\`? Add "azure-devops-mcp"
-- Have \`track_time_entry\`? Add "clockify-mcp"
-- Have \`translate_xliff\`? Add "nab-al-tools-mcp"
-
-**Option 2: Use user-level config** (works without workspace)
-Place a configuration file at:
-- Windows: \`%USERPROFILE%\\.bckb\\config.yml\`
-- Linux/Mac: \`~/.bckb/config.yml\`
-
-Use absolute paths in the config for git/local layers.
-
-Currently only embedded knowledge is loaded. Call \`set_workspace_info\` to enable project layers and MCP ecosystem awareness.`,
+For CLI usage, this should happen automatically. If you see this message, there may be an initialization error.`,
               },
             ],
           };
@@ -734,11 +710,10 @@ ${enhancedResult.routingOptions.map((option) => `- ${option.replace("🎯 Start 
       }
     }
 
-    // START LAYER INITIALIZATION IN BACKGROUND (non-blocking for MCP handshake)
-    // This prevents slow knowledge loading from blocking the MCP transport connection
-    const layerInitPromise = this.layerService.initialize();
+    // START LAYER INITIALIZATION (MUST complete before services)
+    await this.layerService.initialize();
 
-    // Now create KnowledgeService with the layerService (initialization will complete async)
+    // Now create services with fully initialized layerService
     this.knowledgeService = new KnowledgeService(
       legacyConfig,
       this.layerService,
@@ -747,15 +722,11 @@ ${enhancedResult.routingOptions.map((option) => `- ${option.replace("🎯 Start 
     // V2: Create RelevanceIndexService for knowledge-driven detection
     this.relevanceIndexService = new RelevanceIndexService(this.layerService);
 
-    // Start services initialization in background (they'll wait for layers internally if needed)
-    const servicesInitPromise = Promise.all([
+    // Initialize services (they'll use the already-initialized layer service)
+    await Promise.all([
       this.knowledgeService.initialize(),
       this.relevanceIndexService.initialize(),
     ]);
-
-    // Wait for layer initialization to complete before logging stats
-    await layerInitPromise;
-    await servicesInitPromise;
 
     // Pass relevanceIndexService to enable V2 detection
     this.codeAnalysisService = new CodeAnalysisService(
@@ -1121,18 +1092,13 @@ ${enhancedResult.routingOptions.map((option) => `- ${option.replace("🎯 Start 
       await this.server.connect(transport);
       console.error("✅ MCP transport connected - handshake complete");
 
-      // Now perform heavy initialization in background (non-blocking)
-      console.error(
-        "📦 Starting service initialization in background (non-blocking)...",
-      );
-
-      // Perform initialization asynchronously without blocking
-      this.performBackgroundInitialization().catch((error) => {
-        console.error("❌ Background initialization failed:", error);
-      });
+      // DO NOT initialize services here - initialization happens lazily:
+      // 1. If client calls set_workspace_info, that triggers initialization
+      // 2. If client calls a tool directly, the tool waits and triggers initialization
+      console.error("💡 Server ready. Services will initialize on first request or set_workspace_info call.");
 
       // Server is ready to accept requests immediately
-      // Tools will check servicesInitialized flag and wait if needed
+      // Tools will trigger initialization on first use if needed
     } catch (error) {
       console.error("💥 Fatal error during server startup:", error);
       console.error(
@@ -1280,10 +1246,10 @@ ${enhancedResult.routingOptions.map((option) => `- ${option.replace("🎯 Start 
       this.layerService,
     );
 
-    // Note: Services and tools are initialized, but servicesInitialized = false
-    // This prevents tools from being called until workspace is set
+    // Note: Services and tools are initialized - mark as ready
+    this.servicesInitialized = true;
     console.error(
-      "✅ Embedded knowledge loaded. Workspace-specific services pending set_workspace_info.",
+      "✅ Embedded knowledge loaded and ready for queries.",
     );
   }
 
@@ -1323,6 +1289,12 @@ ${enhancedResult.routingOptions.map((option) => `- ${option.replace("🎯 Start 
     availableMcps: string[] = [],
   ): Promise<{ success: boolean; message: string; reloaded: boolean }> {
     try {
+      // Cancel any in-progress initialization - we're doing a fresh one now
+      if (this.initializationPromise) {
+        console.error("⚠️ Cancelling stale initialization...");
+        this.initializationPromise = null;
+      }
+
       // Normalize and validate path
       const { resolve } = await import("path");
       const { existsSync } = await import("fs");
@@ -1490,7 +1462,10 @@ process.on("unhandledRejection", (reason, promise) => {
   if (reason instanceof Error) {
     console.error("Stack:", reason.stack);
   }
-  process.exit(1);
+  // Don't exit in test environment - let test framework handle it
+  if (process.env.VITEST !== "true" && process.env.NODE_ENV !== "test") {
+    process.exit(1);
+  }
 });
 
 // Catch uncaught exceptions
@@ -1498,7 +1473,10 @@ process.on("uncaughtException", (error) => {
   console.error("💥 Uncaught Exception:");
   console.error("Error:", error);
   console.error("Stack:", error.stack);
-  process.exit(1);
+  // Don't exit in test environment - let test framework handle it
+  if (process.env.VITEST !== "true" && process.env.NODE_ENV !== "test") {
+    process.exit(1);
+  }
 });
 
 // Run server if this is the main module

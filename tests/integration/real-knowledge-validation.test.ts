@@ -52,7 +52,8 @@ describe('Real Knowledge Validation - Issue #16', () => {
     discoveryService = new SpecialistDiscoveryService(layerService);
     await discoveryService.initialize();
     
-    knowledgeService = new KnowledgeService(config);
+    // Pass the already-initialized layerService to KnowledgeService
+    knowledgeService = new KnowledgeService(config, layerService);
     await knowledgeService.initialize();
   });
 

@@ -86,22 +86,31 @@ describe('KnowledgeService', () => {
 
   describe('Initialization', () => {
     it('should initialize successfully', async () => {
+      // Mock layer service as already initialized with topics
+      mockLayerService.getAllTopicIds.mockReturnValue(['topic1', 'topic2']);
+      
       await knowledgeService.initialize();
       
-      expect(mockLayerService.initialize).toHaveBeenCalled();
+      // Should check for topics from layer service (verifying it's initialized)
+      expect(mockLayerService.getAllTopicIds).toHaveBeenCalled();
     });
 
     it('should only initialize once', async () => {
+      // Mock layer service as already initialized with topics
+      mockLayerService.getAllTopicIds.mockReturnValue(['topic1', 'topic2']);
+      
       await knowledgeService.initialize();
       await knowledgeService.initialize();
       
-      expect(mockLayerService.initialize).toHaveBeenCalledTimes(1);
+      // Second call should return early, so getAllTopicIds only called once
+      expect(mockLayerService.getAllTopicIds).toHaveBeenCalledTimes(1);
     });
 
     it('should handle initialization errors gracefully', async () => {
-      mockLayerService.initialize.mockRejectedValue(new Error('Layer init failed'));
+      // Mock layer service as NOT initialized (no topics)
+      mockLayerService.getAllTopicIds.mockReturnValue([]);
       
-      await expect(knowledgeService.initialize()).rejects.toThrow('Layer init failed');
+      await expect(knowledgeService.initialize()).rejects.toThrow('LayerService has no topics');
     });
   });
 
