@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.3] - 2026-01-27
+
+### 🐛 Bug Fixes
+
+**CLI: Fix JSON parse error on startup (Issue #33)**
+
+- **FIXED** CLI crashing with "Unexpected token" JSON parse error during initialization
+- Auto-initialize workspace during SDK `connect()` to prevent servicesInitialized intercept
+- Fix SDK tool names: use `ask_bc_expert`/`list_specialists` instead of non-existent `discover_specialists`
+- Fix parameter name: `preferred_specialist` instead of `specialist_id`
+- Parse `autonomous_action_plan` response format correctly
+- Add 7 comprehensive regression tests preventing JSON parse errors
+- All 23 CLI integration tests passing including Issue #33 regression tests
+
+**CI: Update build verification to check existing artifacts**
+
+- Fixed GitHub Actions build verification checking for old removed files
+- Now checks `dist/cli.js` and `dist/tools/handlers.js` instead of removed files
+
+### ⚡ Performance
+
+**Async Service Initialization (Issue #31)**
+
+- **IMPROVED** MCP transport handshake now completes in <1s (was timing out)
+- Move heavy layer/knowledge initialization to background after MCP handshake
+- Server accepts requests immediately; tools wait for initialization if needed
+- Prevents Windsurf/Claude Desktop timeout issues during startup
+- Background initialization processes 1000+ knowledge files without blocking
+
+### 📦 Content Updates
+
+**Embedded Knowledge: BC26→BC27 Migration Content**
+
+- Updated embedded-knowledge submodule with BC26→BC27 breaking changes
+- New specialists: Lena-Pipe (pipelines), Victor-Versioning (upgrades)
+- Additional workflows: AppSource submission, best practices review, UX optimization
+
 ## [1.7.2] - 2026-01-26
 
 ### 🐛 Bug Fixes
