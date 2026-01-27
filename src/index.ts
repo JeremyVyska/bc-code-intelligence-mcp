@@ -734,18 +734,28 @@ ${enhancedResult.routingOptions.map((option) => `- ${option.replace("🎯 Start 
       }
     }
 
-    await this.layerService.initialize();
+    // START LAYER INITIALIZATION IN BACKGROUND (non-blocking for MCP handshake)
+    // This prevents slow knowledge loading from blocking the MCP transport connection
+    const layerInitPromise = this.layerService.initialize();
 
-    // Now create KnowledgeService with the initialized layerService
+    // Now create KnowledgeService with the layerService (initialization will complete async)
     this.knowledgeService = new KnowledgeService(
       legacyConfig,
       this.layerService,
     );
-    await this.knowledgeService.initialize();
-
+    
     // V2: Create RelevanceIndexService for knowledge-driven detection
     this.relevanceIndexService = new RelevanceIndexService(this.layerService);
-    await this.relevanceIndexService.initialize();
+    
+    // Start services initialization in background (they'll wait for layers internally if needed)
+    const servicesInitPromise = Promise.all([
+      this.knowledgeService.initialize(),
+      this.relevanceIndexService.initialize(),
+    ]);
+
+    // Wait for layer initialization to complete before logging stats
+    await layerInitPromise;
+    await servicesInitPromise;
 
     // Pass relevanceIndexService to enable V2 detection
     this.codeAnalysisService = new CodeAnalysisService(
@@ -1111,10 +1121,33 @@ ${enhancedResult.routingOptions.map((option) => `- ${option.replace("🎯 Start 
       await this.server.connect(transport);
       console.error("✅ MCP transport connected - handshake complete");
 
-      // Now perform heavy initialization in background
+      // Now perform heavy initialization in background (non-blocking)
       console.error(
-        "📦 Starting service initialization (deferred after handshake)...",
+        "📦 Starting service initialization in background (non-blocking)...",
       );
+
+      // Perform initialization asynchronously without blocking
+      this.performBackgroundInitialization().catch((error) => {
+        console.error("❌ Background initialization failed:", error);
+      });
+
+      // Server is ready to accept requests immediately
+      // Tools will check servicesInitialized flag and wait if needed
+    } catch (error) {
+      console.error("💥 Fatal error during server startup:", error);
+      console.error(
+        "Error stack:",
+        error instanceof Error ? error.stack : "No stack trace",
+      );
+      process.exit(1);
+    }
+  }
+
+  /**
+   * Perform heavy initialization in background after MCP handshake
+   */
+  private async performBackgroundInitialization(): Promise<void> {
+    try {
 
       // Verify embedded knowledge path BEFORE any service initialization
       const __filename = fileURLToPath(import.meta.url);
@@ -1186,12 +1219,8 @@ ${enhancedResult.routingOptions.map((option) => `- ${option.replace("🎯 Start 
         `💡 To enable project-specific layers, call set_workspace_info with your project path`,
       );
     } catch (error) {
-      console.error("💥 Fatal error during server startup:", error);
-      console.error(
-        "Error stack:",
-        error instanceof Error ? error.stack : "No stack trace",
-      );
-      process.exit(1);
+      console.error("❌ Initialization error:", error);
+      throw error;
     }
   }
 
