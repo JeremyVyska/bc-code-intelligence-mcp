@@ -4,23 +4,23 @@
  * Cross-platform alternative to shell commands
  */
 
-import { rmSync } from 'fs';
-import { resolve } from 'path';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
+import { rmSync } from "fs";
+import { resolve } from "path";
+import { fileURLToPath } from "url";
+import { dirname } from "path";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const root = resolve(__dirname, '..');
+const root = resolve(__dirname, "..");
 
 const pathsToClean = [
-  'dist',
-  'coverage',
-  '.bckb-cache',
-  'tsconfig.tsbuildinfo'
+  "dist",
+  "coverage",
+  ".bckb-cache",
+  "tsconfig.tsbuildinfo",
 ];
 
-console.log('🧹 Cleaning build artifacts...');
+console.log("🧹 Cleaning build artifacts...");
 
 for (const path of pathsToClean) {
   const fullPath = resolve(root, path);
@@ -29,10 +29,10 @@ for (const path of pathsToClean) {
     console.log(`  ✅ Removed: ${path}`);
   } catch (err) {
     // Ignore if path doesn't exist
-    if (err.code !== 'ENOENT') {
+    if (err.code !== "ENOENT") {
       console.log(`  ⚠️  Could not remove: ${path}`);
     }
   }
 }
 
-console.log('✨ Clean complete!');
+console.log("✨ Clean complete!");
