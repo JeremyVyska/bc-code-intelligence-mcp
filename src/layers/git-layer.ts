@@ -3,13 +3,23 @@
  * Supports authentication, branch selection, and caching
  *
  * AUTHENTICATION STRATEGY:
- * - TOKEN/BASIC: Credentials embedded directly in git URLs (https://token@github.com/...)
- *   - Avoids git credential helper issues that caused repeated auth prompts
- *   - Remote URL updated before each pull to ensure consistent authentication
+ * - GH_CLI: Uses GitHub CLI's credential helper (gh auth git-credential)
+ *   - Delegates to gh CLI for token management
+ *   - Tokens stored securely in OS credential store by gh CLI
+ *   - Zero custom code - git calls gh CLI directly
+ * - AZ_CLI: Uses Git Credential Manager (built-in Azure CLI integration)
+ *   - Delegates to GCM which calls Azure CLI for tokens
+ *   - Tokens stored securely in OS credential store by Azure CLI
+ *   - Zero custom code - GCM handles everything
+ * - TOKEN/BASIC: Uses inline git credential helper
+ *   - Credentials from config/env vars passed via credential helper protocol
+ *   - No files written to disk - helper runs inline
  * - SSH: Uses SSH keys via GIT_SSH_COMMAND environment variable
- * - AZURE_CLI: Delegates to Git Credential Manager (no URL modification)
  *
- * See docs/GIT-AUTH-FIX.md for detailed explanation of authentication fix
+ * SECURITY NOTES:
+ * - Tokens are NEVER written to .git/config or other persistent files
+ * - CLI auth types (GH_CLI, AZ_CLI) delegate to native credential managers
+ * - TOKEN/BASIC use in-memory credential helpers only
  */
 
 import { access, mkdir, stat, readdir, readFile } from "fs/promises";
@@ -177,8 +187,10 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
         // GitHub CLI authentication - verify gh CLI is installed and user is authenticated
         await this.verifyGhCliInstalled();
         await this.verifyGhCliAuthenticated();
-        console.error("🔑 Using GitHub CLI authentication (gh auth token)");
-        // No URL modification needed - we'll fetch token from gh CLI for each operation
+        console.error(
+          "🔑 Using GitHub CLI authentication (gh auth git-credential)",
+        );
+        // Git will call gh CLI's credential helper directly - no token fetching needed
         break;
 
       case AuthType.AZ_CLI:
@@ -259,23 +271,13 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
       await this.git.cwd(this.localPath);
 
       try {
-        // For authenticated pulls, we need to update the remote URL with auth
-        if (
-          this.auth &&
-          (this.auth.type === AuthType.TOKEN ||
-            this.auth.type === AuthType.BASIC ||
-            this.auth.type === AuthType.GH_CLI)
-        ) {
-          const authenticatedUrl = await this.prepareUrlWithAuth(
-            this.gitConfig.url,
-          );
-          await this.git.remote(["set-url", "origin", authenticatedUrl]);
-        }
+        // For authenticated pulls, configure git environment with credentials
+        // This avoids writing tokens to .git/config
+        const gitEnv = await this.prepareGitEnvironment();
 
-        const pullResult = await this.git.pull(
-          "origin",
-          this.gitConfig.branch || "main",
-        );
+        const pullResult = await this.git
+          .env(gitEnv)
+          .pull("origin", this.gitConfig.branch || "main");
         return pullResult.summary.changes > 0;
       } catch (error) {
         console.warn(
@@ -287,9 +289,12 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
       // Repository doesn't exist, clone it
       console.error(`📦 Cloning repository ${this.gitConfig.url}...`);
 
-      const cloneUrl = await this.prepareUrlWithAuth(this.gitConfig.url);
+      // For authenticated clones, configure git environment with credentials
+      // This avoids writing tokens to .git/config
+      const gitEnv = await this.prepareGitEnvironment();
+      const cloneUrl = this.gitConfig.url; // Use original URL, auth via environment
 
-      await this.git.clone(cloneUrl, this.localPath, [
+      await this.git.env(gitEnv).clone(cloneUrl, this.localPath, [
         "--depth",
         "1", // Shallow clone for faster downloads
         "--single-branch",
@@ -300,58 +305,92 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
     }
   }
 
-  private async prepareUrlWithAuth(url: string): Promise<string> {
-    if (!this.auth) return url;
+  /**
+   * Prepare secure git environment with credentials
+   * Uses native credential helpers for CLI auth types
+   * Uses inline credential helper for TOKEN/BASIC to avoid writing to disk
+   */
+  private async prepareGitEnvironment(): Promise<Record<string, string>> {
+    const env: Record<string, string> = { ...process.env };
 
-    // Azure CLI and GH CLI handle authentication via credential managers/token fetch - don't modify URL initially
-    if (this.auth.type === AuthType.AZ_CLI) {
-      return url;
+    if (!this.auth) {
+      return env;
     }
 
-    // Only modify HTTPS URLs for token/basic auth
-    if (!url.startsWith("https://")) return url;
-
     switch (this.auth.type) {
-      case AuthType.GH_CLI:
-        // Fetch token from gh CLI dynamically
-        const ghToken = await this.getGhCliToken();
-        if (ghToken) {
-          // For GitHub: https://token@github.com/...
-          return url.replace("https://", `https://${ghToken}@`);
-        }
+      case AuthType.GH_CLI: {
+        // Use GitHub CLI's native credential helper (like AZ_CLI uses GCM)
+        // This delegates token management to gh CLI completely
+        env["GIT_CONFIG_COUNT"] = "1";
+        env["GIT_CONFIG_KEY_0"] = "credential.helper";
+        env["GIT_CONFIG_VALUE_0"] = "!gh auth git-credential";
+        env["GIT_TERMINAL_PROMPT"] = "0";
         break;
+      }
 
-      case AuthType.TOKEN:
+      case AuthType.TOKEN: {
         const token =
           this.auth.token ||
           (this.auth.token_env_var
             ? process.env[this.auth.token_env_var]
             : undefined);
+
         if (token) {
-          // For GitHub/GitLab: https://token@github.com/...
-          return url.replace("https://", `https://${token}@`);
+          // Use inline credential helper that reads from environment
+          env["_GIT_TOKEN"] = token;
+          env["GIT_CONFIG_COUNT"] = "1";
+          env["GIT_CONFIG_KEY_0"] = "credential.helper";
+          // Inline helper that provides token from environment
+          env["GIT_CONFIG_VALUE_0"] =
+            `!f() { echo "username=x-access-token"; echo "password=$_GIT_TOKEN"; }; f`;
+          env["GIT_TERMINAL_PROMPT"] = "0";
         }
         break;
+      }
 
-      case AuthType.BASIC:
+      case AuthType.BASIC: {
         const username = this.auth.username;
         const password =
           this.auth.password ||
           (this.auth.password_env_var
             ? process.env[this.auth.password_env_var]
             : undefined);
+
         if (username && password) {
-          // https://username:password@gitlab.com/...
-          return url.replace("https://", `https://${username}:${password}@`);
+          // Use inline credential helper that reads from environment
+          env["_GIT_USERNAME"] = username;
+          env["_GIT_PASSWORD"] = password;
+          env["GIT_CONFIG_COUNT"] = "1";
+          env["GIT_CONFIG_KEY_0"] = "credential.helper";
+          // Inline helper that provides credentials from environment
+          env["GIT_CONFIG_VALUE_0"] =
+            `!f() { echo "username=$_GIT_USERNAME"; echo "password=$_GIT_PASSWORD"; }; f`;
+          env["GIT_TERMINAL_PROMPT"] = "0";
         }
         break;
+      }
+
+      case AuthType.SSH_KEY: {
+        // SSH authentication via GIT_SSH_COMMAND
+        if (this.auth.key_path) {
+          env["GIT_SSH_COMMAND"] =
+            `ssh -i ${this.auth.key_path} -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no`;
+        }
+        break;
+      }
+
+      case AuthType.AZ_CLI: {
+        // Azure CLI uses Git Credential Manager automatically
+        // No environment configuration needed - GCM handles it
+        break;
+      }
     }
 
-    return url;
+    return env;
   }
 
   /**
-   * Verify Azure CLI is installed on the system
+   * Verify GitHub CLI is installed on the system
    */
   private async verifyGhCliInstalled(): Promise<void> {
     const { execSync } = await import("child_process");
@@ -377,27 +416,6 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
       throw new Error(
         "Not logged in to GitHub CLI. Run: gh auth login\n" +
           "For organization access, ensure your token has appropriate repo scopes",
-      );
-    }
-  }
-
-  /**
-   * Get GitHub token from gh CLI
-   */
-  private async getGhCliToken(): Promise<string> {
-    const { execSync } = await import("child_process");
-    try {
-      // Get token for github.com (or enterprise host if specified)
-      const output = execSync("gh auth token", { encoding: "utf8" });
-      const token = output.trim();
-      if (!token) {
-        throw new Error("gh CLI returned empty token");
-      }
-      return token;
-    } catch (error) {
-      throw new Error(
-        `Failed to get GitHub CLI token: ${error instanceof Error ? error.message : String(error)}\n` +
-          "Ensure you are authenticated with: gh auth login",
       );
     }
   }
