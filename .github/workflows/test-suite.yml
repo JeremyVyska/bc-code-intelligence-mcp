@@ -180,9 +180,9 @@ jobs:
       - name: Verify build artifacts
         run: |
           test -f dist/index.js
-          test -f dist/tools/core-tools.js
+          test -f dist/cli.js
           test -f dist/tools/index.js
-          test -f dist/streamlined-handlers.js
+          test -f dist/tools/handlers.js
 
       - name: Test built server startup
         run: timeout 10 node dist/index.js || true
