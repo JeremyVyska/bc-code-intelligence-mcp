@@ -84,6 +84,16 @@ export class BCCodeIntelClient {
 
     // Connect
     await this.client.connect(this.transport);
+
+    // Auto-initialize workspace info to prevent servicesInitialized intercept
+    // Use current working directory as workspace root for CLI mode
+    await this.client.callTool({
+      name: "set_workspace_info",
+      arguments: {
+        workspace_root: process.cwd(),
+        available_mcps: [], // CLI mode doesn't need MCP ecosystem awareness
+      },
+    });
   }
 
   /**
@@ -129,6 +139,23 @@ export class BCCodeIntelClient {
     const resultText = response.content[0]?.text || "{}";
     const result = JSON.parse(resultText);
 
+    // Handle autonomous_action_plan response format
+    if (result.response_type === "autonomous_action_plan") {
+      return {
+        specialist: {
+          id: result.specialist.id || "unknown",
+          name: result.specialist.name || "Unknown Specialist",
+          role: "",
+          emoji: "🤖",
+          expertise: result.specialist.expertise || [],
+        },
+        response: result.action_plan?.primary_action || result.action_plan?.steps?.join("\\n") || "",
+        recommended_topics: result.recommended_topics || [],
+        follow_up_suggestions: result.action_plan?.alternatives || [],
+      };
+    }
+
+    // Fallback to legacy format
     return {
       specialist: {
         id: result.specialist_used || "unknown",
@@ -151,10 +178,12 @@ export class BCCodeIntelClient {
       throw new Error("Client not connected. Call connect() first.");
     }
 
+    // Use ask_bc_expert with autonomous mode to get specialist suggestion
     const response = await this.client.callTool({
-      name: "discover_specialists",
+      name: "ask_bc_expert",
       arguments: {
-        query: question,
+        question,
+        autonomous_mode: true,
       },
     });
 
@@ -165,24 +194,17 @@ export class BCCodeIntelClient {
     const resultText = response.content[0]?.text || "{}";
     const result = JSON.parse(resultText);
 
-    if (!result.specialists || result.specialists.length === 0) {
-      throw new Error("No specialists found for this question");
-    }
-
-    const topSpecialist = result.specialists[0];
-    const alternatives = result.specialists.slice(1, 4).map((s: any) => s.name);
-
     return {
       specialist: {
-        id: topSpecialist.id,
-        name: topSpecialist.name,
-        role: topSpecialist.role,
-        emoji: topSpecialist.emoji || "🤖",
-        expertise: topSpecialist.expertise || [],
-        specializations: topSpecialist.specializations || [],
+        id: result.specialist_used || "unknown",
+        name: result.specialist_name || "Unknown Specialist",
+        role: result.specialist_role || "",
+        emoji: result.specialist_emoji || "🤖",
+        expertise: result.specialist_expertise || [],
+        specializations: result.specialist_specializations || [],
       },
-      confidence: topSpecialist.relevance_score,
-      alternatives: alternatives.length > 0 ? alternatives : undefined,
+      confidence: result.routing_confidence,
+      alternatives: result.alternative_specialists?.map((s: any) => s.name),
     };
   }
 
@@ -202,7 +224,7 @@ export class BCCodeIntelClient {
       name: "ask_bc_expert",
       arguments: {
         question,
-        specialist_id: specialistId,
+        preferred_specialist: specialistId,
         context: options.context || "",
         bc_version: options.bcVersion,
         autonomous_mode: true,
@@ -216,6 +238,23 @@ export class BCCodeIntelClient {
     const resultText = response.content[0]?.text || "{}";
     const result = JSON.parse(resultText);
 
+    // Handle autonomous_action_plan response format
+    if (result.response_type === "autonomous_action_plan") {
+      return {
+        specialist: {
+          id: result.specialist.id || specialistId,
+          name: result.specialist.name || "Unknown Specialist",
+          role: "",
+          emoji: "🤖",
+          expertise: result.specialist.expertise || [],
+        },
+        response: result.action_plan?.primary_action || result.action_plan?.steps?.join("\\n") || "",
+        recommended_topics: result.recommended_topics || [],
+        follow_up_suggestions: result.action_plan?.alternatives || [],
+      };
+    }
+
+    // Fallback to legacy format
     return {
       specialist: {
         id: result.specialist_used || specialistId,
@@ -232,6 +271,7 @@ export class BCCodeIntelClient {
 
   /**
    * Discover all available specialists
+   * Note: Returns simplified info. Use list_specialists tool directly for full details.
    */
   async discoverSpecialists(query?: string): Promise<SpecialistInfo[]> {
     if (!this.client) {
@@ -239,9 +279,9 @@ export class BCCodeIntelClient {
     }
 
     const response = await this.client.callTool({
-      name: "discover_specialists",
+      name: "list_specialists",
       arguments: {
-        query: query || "*", // Use wildcard to get all specialists
+        expertise: query, // Filter by expertise if provided
       },
     });
 
@@ -249,20 +289,25 @@ export class BCCodeIntelClient {
       throw new Error(response.content[0]?.text || "Unknown error");
     }
 
-    const resultText = response.content[0]?.text || "{}";
-    const result = JSON.parse(resultText);
-
-    if (!result.specialists) {
-      return [];
+    // list_specialists returns markdown, so we parse specialist IDs from the text
+    const markdownText = response.content[0]?.text || "";
+    const specialists: SpecialistInfo[] = [];
+    
+    // Extract specialist info from markdown using regex
+    // Format: **Title** (`specialist-id`)
+    const regex = /\*\*(.+?)\*\*\s*\(`([^`]+)`\)/g;
+    let match;
+    
+    while ((match = regex.exec(markdownText)) !== null) {
+      specialists.push({
+        id: match[2],
+        name: match[1],
+        role: "", // Not available in list format
+        emoji: "🤖",
+        expertise: [],
+      });
     }
 
-    return result.specialists.map((s: any) => ({
-      id: s.id,
-      name: s.name,
-      role: s.role,
-      emoji: s.emoji || "🤖",
-      expertise: s.expertise || [],
-      specializations: s.specializations || [],
-    }));
+    return specialists;
   }
 }

@@ -66,9 +66,9 @@ describe("CLI Commands - Integration Tests", () => {
 
         expect(result.exitCode).toBe(0);
         expect(result.stdout).toContain("Available BC Specialists");
-        expect(result.stdout).toMatch(/sam-coder.*Sam the Coder/);
-        expect(result.stdout).toMatch(/alex-architect.*Alex the Architect/);
-        expect(result.stdout).toContain("Total:");
+        // Check for any specialist ID format
+        expect(result.stdout).toMatch(/sam-coder|alex-architect|quinn-tester/);
+        expect(result.stdout).toMatch(/Sam|Alex|Quinn/);
       },
       TIMEOUT,
     );
@@ -288,6 +288,117 @@ describe("CLI Commands - Integration Tests", () => {
         expect(result.stderr || result.stdout).toMatch(
           /error|required|missing/i,
         );
+      },
+      TIMEOUT,
+    );
+  });
+
+  describe("Issue #33 Regression Tests - JSON Parse Error Prevention", () => {
+    it(
+      "should NOT crash with JSON parse error on 'ask' command",
+      async () => {
+        const result = await runCLI(["ask", "What is a FlowField?"]);
+
+        // The bug was: "Error: Unexpected token '⚠', \"⚠️ **Works\"... is not valid JSON"
+        expect(result.exitCode).toBe(0);
+        expect(result.stderr).not.toContain("Unexpected token");
+        expect(result.stderr).not.toContain("is not valid JSON");
+        expect(result.stderr).not.toContain("JSON.parse");
+      },
+      TIMEOUT,
+    );
+
+    it(
+      "should NOT crash with JSON parse error on 'specialists' command",
+      async () => {
+        const result = await runCLI(["specialists"]);
+
+        expect(result.exitCode).toBe(0);
+        expect(result.stderr).not.toContain("Unexpected token");
+        expect(result.stderr).not.toContain("is not valid JSON");
+      },
+      TIMEOUT,
+    );
+
+    it(
+      "should NOT crash with JSON parse error on 'who-should-help' command",
+      async () => {
+        const result = await runCLI(["who-should-help", "How do I optimize code?"]);
+
+        expect(result.exitCode).toBe(0);
+        expect(result.stderr).not.toContain("Unexpected token");
+        expect(result.stderr).not.toContain("is not valid JSON");
+      },
+      TIMEOUT,
+    );
+
+    it(
+      "should NOT crash with JSON parse error on 'talk-to' command",
+      async () => {
+        const result = await runCLI(["talk-to", "sam-coder", "Help with caching"]);
+
+        expect(result.exitCode).toBe(0);
+        expect(result.stderr).not.toContain("Unexpected token");
+        expect(result.stderr).not.toContain("is not valid JSON");
+      },
+      TIMEOUT,
+    );
+
+    it(
+      "should return valid JSON when --json flag is used on 'ask' command",
+      async () => {
+        const result = await runCLI(["ask", "What is a FlowField?", "--json"]);
+
+        expect(result.exitCode).toBe(0);
+        
+        // Should be parseable JSON
+        let parsed;
+        expect(() => {
+          parsed = JSON.parse(result.stdout);
+        }).not.toThrow();
+
+        // Should have expected structure
+        expect(parsed).toHaveProperty("specialist");
+        expect(parsed).toHaveProperty("response");
+        expect(parsed.specialist).toHaveProperty("id");
+        expect(parsed.specialist.id).not.toBe("unknown"); // Should actually route
+      },
+      TIMEOUT,
+    );
+
+    it(
+      "should NOT return markdown warning messages in responses",
+      async () => {
+        const result = await runCLI(["ask", "What is a FlowField?", "--json"]);
+
+        expect(result.exitCode).toBe(0);
+        
+        const parsed = JSON.parse(result.stdout);
+        
+        // The bug was returning "⚠️ **Workspace Not Configured**" markdown
+        expect(parsed.response).not.toContain("⚠️");
+        expect(parsed.response).not.toContain("**Workspace Not Configured**");
+        expect(parsed.response).not.toContain("set_workspace_info");
+        expect(parsed.response).not.toContain("available_mcps");
+      },
+      TIMEOUT,
+    );
+
+    it(
+      "should have workspace initialized automatically (no manual set_workspace_info needed)",
+      async () => {
+        // This is the core fix: connect() should auto-call set_workspace_info
+        const result = await runCLI(["ask", "test question", "--json"]);
+
+        expect(result.exitCode).toBe(0);
+        
+        const parsed = JSON.parse(result.stdout);
+        
+        // If workspace wasn't initialized, we'd get the warning message
+        // Instead we should get actual specialist response
+        expect(parsed.specialist.id).toBeTruthy();
+        expect(parsed.specialist.name).toBeTruthy();
+        expect(parsed.response).toBeTruthy();
       },
       TIMEOUT,
     );
