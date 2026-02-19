@@ -3,11 +3,11 @@
  * Supports multiple configuration sources with precedence order
  */
 
-import { readFile, access, constants } from 'fs/promises';
-import { join, resolve, dirname } from 'path';
-import { homedir } from 'os';
-import { parse as parseYAML } from 'yaml';
-import { fileURLToPath } from 'url';
+import { readFile, access, constants } from "fs/promises";
+import { join, resolve, dirname } from "path";
+import { homedir } from "os";
+import { parse as parseYAML } from "yaml";
+import { fileURLToPath } from "url";
 
 import {
   BCCodeIntelConfiguration,
@@ -20,8 +20,8 @@ import {
   LayerConfiguration,
   AuthConfiguration,
   LayerSourceType,
-  AuthType
-} from '../types/config-types.js';
+  AuthType,
+} from "../types/config-types.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -30,82 +30,103 @@ export class ConfigurationLoader {
   // User-level configuration paths (home directory, system-wide)
   // Chris Config recommends: ~/.bc-code-intel/config.json or config.yaml
   private readonly USER_CONFIG_PATHS = [
-    join(homedir(), '.bc-code-intel/config.json'),      // RECOMMENDED
-    join(homedir(), '.bc-code-intel/config.yaml'),
-    join(homedir(), '.bc-code-intel/config.yml'),
-    join(homedir(), '.bckb/config.json'),               // Legacy (deprecated)
-    join(homedir(), '.bckb/config.yaml'),
-    join(homedir(), '.bckb/config.yml'),
-    ...(process.platform === 'win32'
-      ? [join(process.env['ProgramData'] || 'C:\\ProgramData', 'bc-code-intel', 'config.json')]
-      : ['/etc/bc-code-intel/config.json', '/usr/local/etc/bc-code-intel/config.json']
-    )
+    join(homedir(), ".bc-code-intel/config.json"), // RECOMMENDED
+    join(homedir(), ".bc-code-intel/config.yaml"),
+    join(homedir(), ".bc-code-intel/config.yml"),
+    join(homedir(), ".bckb/config.json"), // Legacy (deprecated)
+    join(homedir(), ".bckb/config.yaml"),
+    join(homedir(), ".bckb/config.yml"),
+    ...(process.platform === "win32"
+      ? [
+          join(
+            process.env["ProgramData"] || "C:\\ProgramData",
+            "bc-code-intel",
+            "config.json",
+          ),
+        ]
+      : [
+          "/etc/bc-code-intel/config.json",
+          "/usr/local/etc/bc-code-intel/config.json",
+        ]),
   ];
 
   // Project-level configuration paths (workspace root, relative)
   // Chris Config recommends: bc-code-intel-config.json or bc-code-intel-config.yaml in project root
   private readonly PROJECT_CONFIG_PATHS = [
-    'bc-code-intel-config.json',                        // RECOMMENDED
-    'bc-code-intel-config.yaml',
-    'bc-code-intel-config.yml',
-    'bckb-config.json',                                 // Legacy (deprecated)
-    'bckb-config.yaml',
-    'bckb-config.yml',
-    '.bc-code-intel/config.json',
-    '.bc-code-intel/config.yaml',
-    '.bc-code-intel/config.yml',
-    '.bckb/config.json',
-    '.bckb/config.yaml',
-    '.bckb/config.yml'
+    "bc-code-intel-config.json", // RECOMMENDED
+    "bc-code-intel-config.yaml",
+    "bc-code-intel-config.yml",
+    "bckb-config.json", // Legacy (deprecated)
+    "bckb-config.yaml",
+    "bckb-config.yml",
+    ".bc-code-intel/config.json",
+    ".bc-code-intel/config.yaml",
+    ".bc-code-intel/config.yml",
+    ".bckb/config.json",
+    ".bckb/config.yaml",
+    ".bckb/config.yml",
   ];
 
-  async loadConfiguration(workspaceRoot?: string): Promise<ConfigurationLoadResult> {
+  async loadConfiguration(
+    workspaceRoot?: string,
+  ): Promise<ConfigurationLoadResult> {
     const sources: ConfigurationSource[] = [];
     const warnings: ConfigurationWarning[] = [];
     const validationErrors: ValidationError[] = [];
     let envOverridesApplied = false;
     let loadedFilePath: string | undefined;
-    let loadedFileFormat: 'json' | 'yaml' | undefined;
+    let loadedFileFormat: "json" | "yaml" | undefined;
     let loadedFromEnvVarName: string | undefined;
 
     try {
       // 1. Start with default configuration
       let config = this.deepClone(DEFAULT_BC_CODE_INTEL_CONFIG);
       sources.push({
-        type: 'default',
-        priority: 0
+        type: "default",
+        priority: 0,
       });
       // Resolve relative paths in default config to absolute paths
-      config.layers.forEach(layer => {
-        if (layer.source.type === 'embedded' && layer.source.path === 'embedded-knowledge') {
+      config.layers.forEach((layer) => {
+        if (
+          layer.source.type === "embedded" &&
+          layer.source.path === "embedded-knowledge"
+        ) {
           const __filename = fileURLToPath(import.meta.url);
           const __dirname = dirname(__filename);
-          layer.source.path = join(__dirname, '../../embedded-knowledge');
+          layer.source.path = join(__dirname, "../../embedded-knowledge");
         }
       });
 
       // 2. Load from environment variable specified config file
       // Support both legacy and new env var names
-      const customConfigPath = process.env['BCKB_CONFIG_PATH'] || process.env['BC_CODE_INTEL_CONFIG_PATH'];
-      loadedFromEnvVarName = process.env['BCKB_CONFIG_PATH'] ? 'BCKB_CONFIG_PATH' : (process.env['BC_CODE_INTEL_CONFIG_PATH'] ? 'BC_CODE_INTEL_CONFIG_PATH' : undefined);
+      const customConfigPath =
+        process.env["BCKB_CONFIG_PATH"] ||
+        process.env["BC_CODE_INTEL_CONFIG_PATH"];
+      loadedFromEnvVarName = process.env["BCKB_CONFIG_PATH"]
+        ? "BCKB_CONFIG_PATH"
+        : process.env["BC_CODE_INTEL_CONFIG_PATH"]
+          ? "BC_CODE_INTEL_CONFIG_PATH"
+          : undefined;
       if (customConfigPath) {
         const customConfig = await this.loadFromFile(customConfigPath);
         if (customConfig.success && customConfig.config) {
           config = this.mergeConfigurations(config, customConfig.config);
           sources.push({
-            type: 'file',
+            type: "file",
             path: customConfigPath,
             format: this.getFileFormat(customConfigPath),
-            priority: 50
+            priority: 50,
           });
           loadedFilePath = customConfigPath;
           loadedFileFormat = this.getFileFormat(customConfigPath);
-          console.error(`[config] Loaded configuration from ${loadedFromEnvVarName}: ${customConfigPath}`);
+          console.error(
+            `[config] Loaded configuration from ${loadedFromEnvVarName}: ${customConfigPath}`,
+          );
         } else {
           validationErrors.push({
-            field: 'BCKB_CONFIG_PATH',
+            field: "BCKB_CONFIG_PATH",
             message: `Failed to load configuration from ${customConfigPath}: ${customConfig.error}`,
-            source: 'environment'
+            source: "environment",
           });
         }
       }
@@ -118,7 +139,9 @@ export class ConfigurationLoader {
         if (!loadedFilePath && userConfig.sources.length > 0) {
           loadedFilePath = userConfig.sources[0].path;
           loadedFileFormat = userConfig.sources[0].format;
-          console.error(`[config] Loaded user configuration: ${loadedFilePath} (${loadedFileFormat})`);
+          console.error(
+            `[config] Loaded user configuration: ${loadedFilePath} (${loadedFileFormat})`,
+          );
         }
       }
       warnings.push(...userConfig.warnings);
@@ -132,8 +155,12 @@ export class ConfigurationLoader {
           if (projectConfig.sources.length > 0) {
             const projectFilePath = projectConfig.sources[0].path;
             const projectFileFormat = projectConfig.sources[0].format;
-            console.error(`[config] Loaded project configuration: ${projectFilePath} (${projectFileFormat})`);
-            console.error(`[config] Merged user + project configs. Active layers: ${config.layers.map(l => `${l.name}(p${l.priority})`).join(', ')}`);
+            console.error(
+              `[config] Loaded project configuration: ${projectFilePath} (${projectFileFormat})`,
+            );
+            console.error(
+              `[config] Merged user + project configs. Active layers: ${config.layers.map((l) => `${l.name}(p${l.priority})`).join(", ")}`,
+            );
           }
         }
         warnings.push(...projectConfig.warnings);
@@ -144,8 +171,8 @@ export class ConfigurationLoader {
       if (envConfig.config) {
         config = this.applyEnvironmentOverrides(config, envConfig.config);
         sources.push({
-          type: 'environment',
-          priority: 100
+          type: "environment",
+          priority: 100,
         });
         envOverridesApplied = true;
         console.error(`[config] Applied environment overrides`);
@@ -158,29 +185,31 @@ export class ConfigurationLoader {
       warnings.push(...validation.warnings);
 
       // Emit summary if no file-based configuration was found
-      const hasFileSource = sources.some(s => s.type === 'file');
+      const hasFileSource = sources.some((s) => s.type === "file");
       if (!hasFileSource) {
-        console.error(`[config] No configuration file found; using defaults${envOverridesApplied ? ' + environment overrides' : ''}.`);
+        console.error(
+          `[config] No configuration file found; using defaults${envOverridesApplied ? " + environment overrides" : ""}.`,
+        );
       }
 
       return {
         config,
         sources: sources.sort((a, b) => a.priority - b.priority),
         warnings,
-        validation_errors: validationErrors
+        validation_errors: validationErrors,
       };
     } catch (error) {
       validationErrors.push({
-        field: 'configuration',
+        field: "configuration",
         message: `Configuration loading failed: ${error instanceof Error ? error.message : String(error)}`,
-        source: 'loader'
+        source: "loader",
       });
 
       return {
         config: DEFAULT_BC_CODE_INTEL_CONFIG,
         sources,
         warnings,
-        validation_errors: validationErrors
+        validation_errors: validationErrors,
       };
     }
   }
@@ -202,30 +231,31 @@ export class ConfigurationLoader {
 
       if (result.success) {
         config = result.config;
-        const isLegacy = configPath.includes('bckb');
+        const isLegacy = configPath.includes("bckb");
         sources.push({
-          type: 'file',
+          type: "file",
           path: resolve(configPath),
           format: this.getFileFormat(configPath),
-          priority: 10
+          priority: 10,
         });
 
         if (isLegacy) {
           warnings.push({
-            type: 'deprecated',
+            type: "deprecated",
             message: `Using legacy config path: ${configPath}`,
-            suggestion: 'Consider moving to ~/.bc-code-intel/config.json or config.yaml'
+            suggestion:
+              "Consider moving to ~/.bc-code-intel/config.json or config.yaml",
           });
         }
 
         break; // Use first found config file
-      } else if (result.error && !result.error.includes('ENOENT')) {
+      } else if (result.error && !result.error.includes("ENOENT")) {
         // File exists but couldn't be loaded
         warnings.push({
-          type: 'invalid_value',
+          type: "invalid_value",
           message: `Failed to load user configuration from ${configPath}: ${result.error}`,
           source: configPath,
-          suggestion: 'Check file format and permissions'
+          suggestion: "Check file format and permissions",
         });
       }
     }
@@ -251,30 +281,31 @@ export class ConfigurationLoader {
 
       if (result.success) {
         config = result.config;
-        const isLegacy = configPath.includes('bckb');
+        const isLegacy = configPath.includes("bckb");
         sources.push({
-          type: 'file',
+          type: "file",
           path: resolve(configPath),
           format: this.getFileFormat(configPath),
-          priority: 20
+          priority: 20,
         });
 
         if (isLegacy) {
           warnings.push({
-            type: 'deprecated',
+            type: "deprecated",
             message: `Using legacy config filename: ${relativeConfigPath}`,
-            suggestion: 'Consider renaming to bc-code-intel-config.json or bc-code-intel-config.yaml'
+            suggestion:
+              "Consider renaming to bc-code-intel-config.json or bc-code-intel-config.yaml",
           });
         }
 
         break; // Use first found config file
-      } else if (result.error && !result.error.includes('ENOENT')) {
+      } else if (result.error && !result.error.includes("ENOENT")) {
         // File exists but couldn't be loaded
         warnings.push({
-          type: 'invalid_value',
+          type: "invalid_value",
           message: `Failed to load project configuration from ${configPath}: ${result.error}`,
           source: configPath,
-          suggestion: 'Check file format and permissions'
+          suggestion: "Check file format and permissions",
         });
       }
     }
@@ -289,12 +320,12 @@ export class ConfigurationLoader {
   }> {
     try {
       await access(filePath, constants.R_OK);
-      const content = await readFile(filePath, 'utf-8');
+      const content = await readFile(filePath, "utf-8");
 
       let parsed: any;
       const format = this.getFileFormat(filePath);
 
-      if (format === 'yaml') {
+      if (format === "yaml") {
         parsed = parseYAML(content);
       } else {
         parsed = JSON.parse(content);
@@ -302,12 +333,12 @@ export class ConfigurationLoader {
 
       return {
         success: true,
-        config: parsed as Partial<BCCodeIntelConfiguration>
+        config: parsed as Partial<BCCodeIntelConfiguration>,
       };
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       };
     }
   }
@@ -323,56 +354,131 @@ export class ConfigurationLoader {
     for (const [envVar, configPath] of Object.entries(ENV_VAR_MAPPINGS)) {
       const value = process.env[envVar];
       if (value !== undefined) {
-        this.setNestedValue(overrides, configPath, this.parseEnvironmentValue(value));
+        this.setNestedValue(
+          overrides,
+          configPath,
+          this.parseEnvironmentValue(value),
+        );
       }
     }
 
-    // Handle special case for quick git layer setup
-    const gitUrl = process.env['BCKB_COMPANY_KNOWLEDGE_URL'];
-    const gitToken = process.env['BCKB_COMPANY_KNOWLEDGE_TOKEN'];
-    const gitBranch = process.env['BCKB_COMPANY_KNOWLEDGE_BRANCH'];
+    // Handle company layer from environment (supports both new and legacy vars)
+    const gitUrl =
+      process.env["BC_CODE_INTEL_COMPANY_KNOWLEDGE_URL"] ||
+      process.env["BCKB_COMPANY_KNOWLEDGE_URL"];
+    const gitToken =
+      process.env["BC_CODE_INTEL_COMPANY_KNOWLEDGE_TOKEN"] ||
+      process.env["BCKB_COMPANY_KNOWLEDGE_TOKEN"];
+    const gitBranch =
+      process.env["BC_CODE_INTEL_COMPANY_KNOWLEDGE_BRANCH"] ||
+      process.env["BCKB_COMPANY_KNOWLEDGE_BRANCH"] ||
+      "main";
+    const gitAuthType =
+      process.env["BC_CODE_INTEL_COMPANY_KNOWLEDGE_AUTH_TYPE"];
 
     if (gitUrl) {
       const companyLayer: LayerConfiguration = {
-        name: 'company',
-        priority: 20,
+        name: "company-standards",
+        priority: 25,
         source: {
           type: LayerSourceType.GIT,
           url: gitUrl,
-          branch: gitBranch || 'main'
+          branch: gitBranch,
         },
-        enabled: true
+        enabled: true,
       };
 
+      // Handle authentication
       if (gitToken) {
         companyLayer.auth = {
           type: AuthType.TOKEN,
-          token: gitToken
+          token: gitToken,
+        };
+      } else if (gitAuthType === "az_cli") {
+        companyLayer.auth = {
+          type: AuthType.AZ_CLI,
+        };
+      } else if (gitAuthType === "gh_cli") {
+        companyLayer.auth = {
+          type: AuthType.GH_CLI,
+        };
+      } else if (gitAuthType === "ssh") {
+        companyLayer.auth = {
+          type: AuthType.SSH_KEY,
         };
       }
 
-      if (!overrides['layers']) {
-        overrides['layers'] = [];
+      if (!overrides["layers"]) {
+        overrides["layers"] = [];
       }
-      overrides['layers'].push(companyLayer);
+      overrides["layers"].push(companyLayer);
 
-      warnings.push({
-        type: 'deprecated',
-        message: 'Using legacy environment variable BCKB_COMPANY_KNOWLEDGE_URL',
-        suggestion: 'Consider using a configuration file for better control'
-      });
+      // Only warn if using legacy vars
+      if (process.env["BCKB_COMPANY_KNOWLEDGE_URL"]) {
+        warnings.push({
+          type: "deprecated",
+          message:
+            "Using legacy environment variable BCKB_COMPANY_KNOWLEDGE_URL",
+          suggestion: "Update to BC_CODE_INTEL_COMPANY_KNOWLEDGE_URL",
+        });
+      }
+    }
+
+    // Handle team layer from environment
+    const teamUrl = process.env["BC_CODE_INTEL_TEAM_KNOWLEDGE_URL"];
+    const teamToken = process.env["BC_CODE_INTEL_TEAM_KNOWLEDGE_TOKEN"];
+    const teamBranch =
+      process.env["BC_CODE_INTEL_TEAM_KNOWLEDGE_BRANCH"] || "main";
+    const teamAuthType = process.env["BC_CODE_INTEL_TEAM_KNOWLEDGE_AUTH_TYPE"];
+
+    if (teamUrl) {
+      const teamLayer: LayerConfiguration = {
+        name: "team",
+        priority: 50,
+        source: {
+          type: LayerSourceType.GIT,
+          url: teamUrl,
+          branch: teamBranch,
+        },
+        enabled: true,
+      };
+
+      // Handle authentication
+      if (teamToken) {
+        teamLayer.auth = {
+          type: AuthType.TOKEN,
+          token: teamToken,
+        };
+      } else if (teamAuthType === "az_cli") {
+        teamLayer.auth = {
+          type: AuthType.AZ_CLI,
+        };
+      } else if (teamAuthType === "gh_cli") {
+        teamLayer.auth = {
+          type: AuthType.GH_CLI,
+        };
+      } else if (teamAuthType === "ssh") {
+        teamLayer.auth = {
+          type: AuthType.SSH_KEY,
+        };
+      }
+
+      if (!overrides["layers"]) {
+        overrides["layers"] = [];
+      }
+      overrides["layers"].push(teamLayer);
     }
 
     return {
       config: Object.keys(overrides).length > 0 ? overrides : undefined,
-      warnings
+      warnings,
     };
   }
 
   private parseEnvironmentValue(value: string): any {
     // Try to parse as boolean
-    if (value.toLowerCase() === 'true') return true;
-    if (value.toLowerCase() === 'false') return false;
+    if (value.toLowerCase() === "true") return true;
+    if (value.toLowerCase() === "false") return false;
 
     // Try to parse as number
     const num = Number(value);
@@ -383,7 +489,7 @@ export class ConfigurationLoader {
   }
 
   private setNestedValue(obj: any, path: string, value: any): void {
-    const parts = path.split('.');
+    const parts = path.split(".");
     let current = obj;
 
     for (let i = 0; i < parts.length - 1; i++) {
@@ -424,7 +530,7 @@ export class ConfigurationLoader {
 
   private mergeConfigurations(
     base: BCCodeIntelConfiguration,
-    override: Partial<BCCodeIntelConfiguration>
+    override: Partial<BCCodeIntelConfiguration>,
   ): BCCodeIntelConfiguration {
     const result = this.deepClone(base);
 
@@ -433,17 +539,19 @@ export class ConfigurationLoader {
       const layerMap = new Map<number, LayerConfiguration>();
 
       // Add base layers indexed by priority
-      result.layers.forEach(layer => {
+      result.layers.forEach((layer) => {
         layerMap.set(layer.priority, layer);
       });
 
       // Override/add with new layers (same priority = override wins)
-      override.layers.forEach(layer => {
+      override.layers.forEach((layer) => {
         layerMap.set(layer.priority, layer); // Later source wins at same priority
       });
 
       // Sort by priority (ascending - lower priority number = higher precedence)
-      result.layers = Array.from(layerMap.values()).sort((a, b) => a.priority - b.priority);
+      result.layers = Array.from(layerMap.values()).sort(
+        (a, b) => a.priority - b.priority,
+      );
     }
 
     // Merge other properties (override wins)
@@ -471,7 +579,7 @@ export class ConfigurationLoader {
 
   private applyEnvironmentOverrides(
     config: BCCodeIntelConfiguration,
-    overrides: Partial<BCCodeIntelConfiguration>
+    overrides: Partial<BCCodeIntelConfiguration>,
   ): BCCodeIntelConfiguration {
     return this.mergeConfigurations(config, overrides);
   }
@@ -486,8 +594,8 @@ export class ConfigurationLoader {
     // Validate layers
     if (!config.layers || config.layers.length === 0) {
       errors.push({
-        field: 'layers',
-        message: 'At least one layer must be configured'
+        field: "layers",
+        message: "At least one layer must be configured",
       });
     } else {
       // Check for duplicate layer names
@@ -497,7 +605,7 @@ export class ConfigurationLoader {
           errors.push({
             field: `layers[${index}].name`,
             message: `Duplicate layer name: ${layer.name}`,
-            value: layer.name
+            value: layer.name,
           });
         }
         names.add(layer.name);
@@ -506,36 +614,36 @@ export class ConfigurationLoader {
         if (!layer.source.type) {
           errors.push({
             field: `layers[${index}].source.type`,
-            message: 'Layer source type is required'
+            message: "Layer source type is required",
           });
         }
 
         // Validate git sources
         if (layer.source.type === LayerSourceType.GIT) {
-          if (!('url' in layer.source) || !layer.source.url) {
+          if (!("url" in layer.source) || !layer.source.url) {
             errors.push({
               field: `layers[${index}].source.url`,
-              message: 'Git layer source requires URL'
+              message: "Git layer source requires URL",
             });
           }
         }
 
         // Validate local sources
         if (layer.source.type === LayerSourceType.LOCAL) {
-          if (!('path' in layer.source) || !layer.source.path) {
+          if (!("path" in layer.source) || !layer.source.path) {
             errors.push({
               field: `layers[${index}].source.path`,
-              message: 'Local layer source requires path'
+              message: "Local layer source requires path",
             });
           }
         }
 
         // Check for security issues
-        if (layer.auth?.token && !layer.auth.token.startsWith('$')) {
+        if (layer.auth?.token && !layer.auth.token.startsWith("$")) {
           warnings.push({
-            type: 'security',
+            type: "security",
             message: `Layer ${layer.name} has hardcoded token`,
-            suggestion: 'Use environment variable or token_env_var instead'
+            suggestion: "Use environment variable or token_env_var instead",
           });
         }
       });
@@ -544,33 +652,34 @@ export class ConfigurationLoader {
     // Validate cache settings
     if (config.cache.max_size_mb < 10) {
       warnings.push({
-        type: 'invalid_value',
-        message: 'Cache size is very low, may impact performance',
-        suggestion: 'Consider increasing cache.max_size_mb to at least 50MB'
+        type: "invalid_value",
+        message: "Cache size is very low, may impact performance",
+        suggestion: "Consider increasing cache.max_size_mb to at least 50MB",
       });
     }
 
     // Validate performance settings
     if (config.performance.max_concurrent_loads > 20) {
       warnings.push({
-        type: 'invalid_value',
-        message: 'High concurrent load limit may cause resource exhaustion',
-        suggestion: 'Consider reducing performance.max_concurrent_loads'
+        type: "invalid_value",
+        message: "High concurrent load limit may cause resource exhaustion",
+        suggestion: "Consider reducing performance.max_concurrent_loads",
       });
     }
 
     return { errors, warnings };
   }
 
-  private getFileFormat(filePath: string): 'json' | 'yaml' {
-    return filePath.endsWith('.json') ? 'json' : 'yaml';
+  private getFileFormat(filePath: string): "json" | "yaml" {
+    return filePath.endsWith(".json") ? "json" : "yaml";
   }
 
   private deepClone<T>(obj: T): T {
-    if (obj === null || typeof obj !== 'object') return obj;
+    if (obj === null || typeof obj !== "object") return obj;
     if (obj instanceof Date) return new Date(obj.getTime()) as any;
-    if (obj instanceof Array) return obj.map(item => this.deepClone(item)) as any;
-    if (typeof obj === 'object') {
+    if (obj instanceof Array)
+      return obj.map((item) => this.deepClone(item)) as any;
+    if (typeof obj === "object") {
       const cloned = {} as any;
       for (const key in obj) {
         if (obj.hasOwnProperty(key)) {

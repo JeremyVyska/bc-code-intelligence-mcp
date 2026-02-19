@@ -277,10 +277,17 @@ export const ENV_VAR_MAPPINGS = {
   // Project overrides absolute path
   BC_CODE_INTEL_PROJECT_OVERRIDES_PATH: "layers[project].source.path",
 
-  // Quick git layer setup
+  // Company layer setup (used by VS Code extension)
   BC_CODE_INTEL_COMPANY_KNOWLEDGE_URL: "layers[company].source.url",
   BC_CODE_INTEL_COMPANY_KNOWLEDGE_TOKEN: "layers[company].auth.token",
   BC_CODE_INTEL_COMPANY_KNOWLEDGE_BRANCH: "layers[company].source.branch",
+  BC_CODE_INTEL_COMPANY_KNOWLEDGE_AUTH_TYPE: "layers[company].auth.type",
+
+  // Team layer setup (used by VS Code extension)
+  BC_CODE_INTEL_TEAM_KNOWLEDGE_URL: "layers[team].source.url",
+  BC_CODE_INTEL_TEAM_KNOWLEDGE_TOKEN: "layers[team].auth.token",
+  BC_CODE_INTEL_TEAM_KNOWLEDGE_BRANCH: "layers[team].source.branch",
+  BC_CODE_INTEL_TEAM_KNOWLEDGE_AUTH_TYPE: "layers[team].auth.type",
 } as const;
 
 export type ConfigurationPath =

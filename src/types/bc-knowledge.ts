@@ -166,6 +166,8 @@ export interface AtomicTopic {
     filePath: string;
     content: string;
   };
+  sourceLayer?: string; // Layer name this topic comes from (e.g., "company-standards", "project")
+  layerPriority?: number; // Layer priority number - higher = more important (project=100, team=50, company=25, embedded=0)
 }
 
 // Tag Index Entry
@@ -339,6 +341,15 @@ export interface CodeAnalysisResult {
     related_topics: string[];
   }>;
   suggested_topics: TopicSearchResult[];
+  company_standards_violations?: Array<{
+    topic_id: string;
+    title: string;
+    severity: string;
+    matches: number;
+    description: string;
+    layer: string;
+    layer_priority: number;
+  }>;
 }
 
 export interface OptimizationWorkflowParams {
