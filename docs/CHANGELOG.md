@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.5] - 2026-03-02
+
+### 🐛 Bug Fixes
+
+**Snapshot Service: Fix ESM compatibility issue**
+
+- **FIXED** `extract_bc_snapshot` tool crashing with "require is not defined" error
+- Replaced `require('fs')` with proper ESM import of `createWriteStream`
+- Added comprehensive snapshot service test suite (17 tests)
+- Tests use real 7MB demo snapshot for validation
+- Coverage: extraction, metadata parsing, AL file decoding, cleanup, performance
+
 ## [1.7.4] - 2026-03-02
 
 ### ✨ Features

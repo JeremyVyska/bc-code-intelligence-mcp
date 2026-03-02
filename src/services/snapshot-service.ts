@@ -6,7 +6,7 @@
  */
 
 import fs from 'fs/promises';
-import { createReadStream } from 'fs';
+import { createReadStream, createWriteStream } from 'fs';
 import path from 'path';
 import os from 'os';
 import { pipeline } from 'stream/promises';
@@ -147,7 +147,7 @@ export class SnapshotService {
           } else {
             // Ensure directory exists
             await fs.mkdir(path.dirname(fullPath), { recursive: true });
-            entry.pipe(require('fs').createWriteStream(fullPath));
+            entry.pipe(createWriteStream(fullPath));
           }
         })
         .on('close', resolve)
