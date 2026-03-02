@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.4] - 2026-03-02
+
+### ✨ Features
+
+**Enhanced Documentation Generation Capabilities**
+
+- **Taylor**: Visual documentation with Mermaid diagrams (sequence, ERD, flowchart)
+- **Dean**: Snapshot UI interaction analysis extracting user workflows from debug traces
+- **Taylor**: User guide generation from snapshot analysis (Dean→Uma→Taylor workflow)
+- **Taylor**: User guide generation from Page Scripting YAML recordings
+- **Quinn**: Page Scripting YAML generation from code/requirements (test-driven documentation)
+- **Dean**: Debugging narrative documentation from snapshot traces
+
+### 📦 Content Updates
+
+**Embedded Knowledge: Documentation & Diagramming**
+
+- New knowledge articles (8 total):
+  - `mermaid-diagram-documentation.md` - Visual documentation patterns
+  - `snapshot-ui-interaction-analysis.md` - Extract workflows from snapshots
+  - `user-guide-from-snapshot.md` - Generate guides from snapshot analysis
+  - `snapshot-driven-documentation-workflow.md` - Dean→Uma→Taylor collaboration
+  - `snapshot-narrative-documentation.md` - Debugging story templates
+  - `user-guide-from-page-scripting.md` - Generate guides from YAML
+  - `page-scripting-generation.md` - Generate test YAML from code
+  - Sample user guide from actual Recording.yml demonstration
+- Enhanced specialist profiles: Taylor, Dean, Uma, Quinn with new collaboration patterns
+- Established three documentation workflows: Debugging narratives, User guides, Test-driven docs
+
+**Thanks**: @ajkauffmann for the inspiration to add more documentation and diagramming capabilities!
+
 ## [1.7.3] - 2026-01-27
 
 ### 🐛 Bug Fixes
