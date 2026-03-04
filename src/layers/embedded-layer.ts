@@ -221,8 +221,8 @@ Expected structure: (domains/ or topics/), specialists/, workflows/ directories 
           if (topic && this.validateTopic(topic)) {
             this.topics.set(topic.id, topic);
             loadedCount++;
-          } else {
-            console.error(`Invalid topic structure in ${filePath}`);
+          } else if (topic) {
+            console.warn(`Invalid topic structure in ${filePath}: missing required fields (id=${!!topic.id}, title=${!!topic.frontmatter?.title}, domain=${!!topic.frontmatter?.domain}, content=${!!topic.content})`);
           }
         } catch (error) {
           console.error(
@@ -298,8 +298,9 @@ Expected structure: (domains/ or topics/), specialists/, workflows/ directories 
     const content = await readFile(filePath, "utf-8");
     const stats = await stat(filePath);
 
-    // Normalize line endings
+    // Normalize line endings and strip BOM
     const normalizedContent = content
+      .replace(/^\uFEFF/, "") // Remove UTF-8 BOM if present
       .replace(/\r\n/g, "\n")
       .replace(/\r/g, "\n");
 
@@ -315,10 +316,22 @@ Expected structure: (domains/ or topics/), specialists/, workflows/ directories 
 
     // Parse and validate frontmatter
     const frontmatterData = yaml.parse(frontmatterContent || "");
-    const frontmatter = AtomicTopicFrontmatterSchema.parse(frontmatterData);
+    const parseResult = AtomicTopicFrontmatterSchema.safeParse(frontmatterData);
+    
+    if (!parseResult.success) {
+      console.warn(`Invalid frontmatter in ${filePath}:`, parseResult.error.format());
+      return null;
+    }
+    
+    const frontmatter = parseResult.data;
 
     // Generate topic ID from file path
     const topicId = this.normalizeTopicId(filePath, this.embeddedPath);
+    
+    if (!topicId || topicId.trim() === '') {
+      console.warn(`Generated empty topic ID for ${filePath} (embeddedPath: ${this.embeddedPath})`);
+      return null;
+    }
 
     // Load companion sample file if exists
     let samples: { filePath: string; content: string } | undefined;
