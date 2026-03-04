@@ -341,15 +341,6 @@ export interface CodeAnalysisResult {
     related_topics: string[];
   }>;
   suggested_topics: TopicSearchResult[];
-  company_standards_violations?: Array<{
-    topic_id: string;
-    title: string;
-    severity: string;
-    matches: number;
-    description: string;
-    layer: string;
-    layer_priority: number;
-  }>;
 }
 
 export interface OptimizationWorkflowParams {

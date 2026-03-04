@@ -769,7 +769,6 @@ export class CodeAnalysisService {
       patterns_detected: [],
       optimization_opportunities: [],
       suggested_topics: [],
-      company_standards_violations: [], // NEW: Explicit section for company/project standards
     };
 
     // PRIORITY 1: Detect custom patterns from company/project/team layers first
@@ -779,14 +778,19 @@ export class CodeAnalysisService {
     // Add custom pattern violations to results
     for (const detection of customDetections) {
       result.patterns_detected.push(detection.topicId);
-      result.company_standards_violations!.push({
-        topic_id: detection.topicId,
-        title: detection.title,
-        severity: detection.severity,
-        matches: detection.matches,
+      
+      // Map company/project standards to semantic types based on severity
+      const issueType: "anti-pattern" | "warning" = 
+        detection.severity === "critical" || detection.severity === "high" 
+          ? "anti-pattern" 
+          : "warning";
+      
+      result.issues.push({
+        type: issueType,
+        severity: detection.severity as "critical" | "high" | "medium" | "low",
         description: detection.description,
-        layer: detection.layer,
-        layer_priority: detection.layerPriority,
+        suggestion: `Fix ${detection.matches} violation(s) - see topic ${detection.topicId}`,
+        related_topics: [detection.topicId],
       });
     }
 
