@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.6] - 2026-03-05
+
+### 🐛 Bug Fixes
+
+**Victor Versioning: Reduced noise in specialist recommendations**
+
+- **FIXED** Issue #37: Victor files appearing in every specialist query result
+- Improved relevance scoring to prevent Victor content from dominating search results
+- Victor now only appears when version migration topics are genuinely relevant
+
+**Code Analysis: Company layer pattern detection**
+
+- **FIXED** Company layer patterns not being surfaced in `analyze_al_code` tool
+- Improved layer resolution for organization-specific coding standards
+- Enhanced code analysis to properly detect custom patterns from company layers
+
+### 📦 Content Updates
+
+**Embedded Knowledge Submodule**
+
+- Updated to latest bc-code-intelligence content
+- Includes latest specialist knowledge and topic updates
+
 ## [1.7.5] - 2026-03-02
 
 ### 🐛 Bug Fixes
