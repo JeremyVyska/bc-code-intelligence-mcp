@@ -43,6 +43,37 @@ import {
   ConfigLayerLoadResult,
 } from "../types/index.js";
 
+/**
+ * Inherited env vars that launch interactive programs (editors, pagers, askpass
+ * prompts) or swap git's executables. Clone/pull here are non-interactive, so they
+ * are never needed, and simple-git refuses to run with them. VS Code injects
+ * GIT_EDITOR, GIT_PAGER and GIT_ASKPASS into MCP child processes. (#45)
+ */
+const STRIPPED_GIT_ENV_KEYS = new Set([
+  "EDITOR",
+  "VISUAL",
+  "PAGER",
+  "PREFIX",
+  "SSH_ASKPASS",
+  "GIT_EDITOR",
+  "GIT_SEQUENCE_EDITOR",
+  "GIT_PAGER",
+  "GIT_ASKPASS",
+  "GIT_EXTERNAL_DIFF",
+  "GIT_EXEC_PATH",
+  "GIT_PROXY_COMMAND",
+  "GIT_TEMPLATE_DIR",
+]);
+
+/** Env vars this layer sets itself in prepareGitEnvironment(). */
+const LAYER_GIT_ENV_KEYS = [
+  "GIT_CONFIG_COUNT",
+  "GIT_CONFIG_KEY_0",
+  "GIT_CONFIG_VALUE_0",
+  "GIT_TERMINAL_PROMPT",
+  "GIT_SSH_COMMAND",
+];
+
 export class GitKnowledgeLayer extends BaseKnowledgeLayer {
   private git: SimpleGit | null = null;
   private localPath: string;
@@ -169,6 +200,25 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
       binary: "git",
       maxConcurrentProcesses: 1,
       trimmed: true,
+      // simple-git rejects GIT_* vars passed via .env() unless they are listed here.
+      // Allow the ones we set plus the user's own GIT_* settings (SSL CA, proxy, etc.)
+      allowEnvironment: [
+        ...LAYER_GIT_ENV_KEYS,
+        ...Object.keys(process.env).filter(
+          (key) =>
+            key.toUpperCase().startsWith("GIT_") &&
+            !STRIPPED_GIT_ENV_KEYS.has(key.toUpperCase()),
+        ),
+      ],
+      unsafe: {
+        // We set GIT_CONFIG_COUNT + credential.helper for GH_CLI/TOKEN/BASIC auth
+        allowUnsafeConfigEnvCount: true,
+        allowUnsafeCredentialHelper: true,
+        // We set GIT_SSH_COMMAND for SSH_KEY auth; users may also set it themselves
+        allowUnsafeSshCommand: true,
+        // Users may point git at their own config (GIT_CONFIG_GLOBAL etc.)
+        allowUnsafeConfigPaths: true,
+      },
     };
 
     this.git = simpleGit(gitOptions);
@@ -311,7 +361,12 @@ export class GitKnowledgeLayer extends BaseKnowledgeLayer {
    * Uses inline credential helper for TOKEN/BASIC to avoid writing to disk
    */
   private async prepareGitEnvironment(): Promise<Record<string, string>> {
-    const env: Record<string, string> = { ...process.env };
+    const env: Record<string, string> = {};
+    for (const [key, value] of Object.entries(process.env)) {
+      if (value !== undefined && !STRIPPED_GIT_ENV_KEYS.has(key.toUpperCase())) {
+        env[key] = value;
+      }
+    }
 
     if (!this.auth) {
       return env;
