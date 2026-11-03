@@ -25,7 +25,7 @@
 import { access, mkdir, stat, readdir, readFile } from "fs/promises";
 import { join, resolve, dirname, basename } from "path";
 import { existsSync } from "fs";
-import simpleGit, { SimpleGit, SimpleGitOptions } from "simple-git";
+import { simpleGit, SimpleGit, SimpleGitOptions } from "simple-git";
 import * as yaml from "yaml";
 import glob from "fast-glob";
 

@@ -55,26 +55,26 @@
     "fast-glob": "^3.3.2",
     "fuse.js": "^7.0.0",
     "marked": "^11.1.1",
-    "simple-git": "^3.28.0",
+    "simple-git": "^4.0.2",
     "tslib": "^2.8.1",
     "unzipper": "^0.12.3",
     "wink-bm25-text-search": "^3.0.0",
     "wink-eng-lite-web-model": "^1.0.0",
     "wink-nlp": "^2.0.0",
     "yaml": "^2.3.4",
-    "zod": "^3.25.76"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/node": "^20.19.14",
     "@typescript-eslint/eslint-plugin": "^7.18.0",
     "@typescript-eslint/parser": "^7.18.0",
-    "@vitest/coverage-v8": "^3.2.4",
+    "@vitest/coverage-v8": "^4.1.12",
     "eslint": "^8.57.1",
     "prettier": "^3.1.1",
     "rimraf": "^6.1.2",
     "tsx": "^4.7.0",
     "typescript": "^5.3.3",
-    "vitest": "^3.2.4"
+    "vitest": "^4.1.12"
   },
   "engines": {
     "node": ">=20.0.0"

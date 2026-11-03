@@ -147,7 +147,7 @@ export const AtomicTopicFrontmatterSchema = z
       .optional()
       .describe("Minimum relevance score (0.0-1.0) to surface this topic"),
   })
-  .passthrough();
+  .loose();
 
 export type AtomicTopicFrontmatter = z.infer<
   typeof AtomicTopicFrontmatterSchema
@@ -184,7 +184,7 @@ export const DomainInfoSchema = z.object({
   topic_count: z.number(),
   subdirectories: z.array(z.string()),
   key_topics: z.array(z.string()),
-  difficulty_levels: z.record(z.number()),
+  difficulty_levels: z.record(z.string(), z.number()),
   tags: z.array(z.string()),
   sample_files: z.number().optional(),
 });

@@ -2,7 +2,7 @@
  * Handler for diagnose_git_layer tool
  */
 import { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
-import simpleGit from 'simple-git';
+import { simpleGit } from 'simple-git';
 import { join } from 'path';
 
 export function createDiagnoseGitLayerHandler() {

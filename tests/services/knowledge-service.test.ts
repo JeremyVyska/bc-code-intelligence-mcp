@@ -69,7 +69,7 @@ describe('KnowledgeService', () => {
     };
 
     // Mock the MultiContentLayerService constructor
-    (MultiContentLayerService as any).mockImplementation(() => mockLayerService);
+    (MultiContentLayerService as any).mockImplementation(function () { return mockLayerService; });
 
     mockConfig = {
       knowledge_base_path: '/test/embedded-knowledge',
