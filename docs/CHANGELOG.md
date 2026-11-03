@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.7] - 2026-11-03
+
+### 🐛 Bug Fixes
+
+**Git layers: work with simple-git environment guards**
+
+- **FIXED** Issue #45: Company/team git layers failing to clone or pull, especially under VS Code ("Use of GIT_EDITOR / GIT_CONFIG_COUNT is not permitted...")
+- Interactive env vars (editor, pager, askpass) injected by VS Code are no longer passed to git
+- Token, GitHub CLI and basic auth credential helpers are explicitly permitted
+
+**CLI flags**
+
+- **FIXED** Issue #41: `--version` and `--health-check` crashed with ENOENT instead of reporting
+- `--health-check` verifies package version, Node.js >= 20 and embedded knowledge presence
+- Unknown flags now print usage instead of crashing
+
+### 🔒 Security
+
+- Updated dependencies to resolve npm audit advisories (5 critical, 18 high)
+- zod 3 → 4, simple-git 3 → 4, MCP SDK 1.25 → 1.32, vitest 3 → 4
+
+### 🧹 Maintenance
+
+- Removed accidentally committed `.bckb-cache` gitlink; `.bckb-cache/` is now ignored
+
 ## [1.7.6] - 2026-03-05
 
 ### 🐛 Bug Fixes
