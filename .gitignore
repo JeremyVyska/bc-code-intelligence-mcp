@@ -53,3 +53,5 @@ test-value/
 
 # Claude local settings
 .claude/settings.local.json
+
+.bckb-cache/
