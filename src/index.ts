@@ -1407,8 +1407,58 @@ ${enhancedResult.routingOptions.map((option) => `- ${option.replace("🎯 Start 
   }
 }
 
+/**
+ * Handle informational flags (--version, --health-check) before starting the
+ * stdio server. Returns an exit code if a flag was handled, otherwise null. (#41)
+ */
+function handleCliFlags(arg: string | undefined): number | null {
+  if (!arg?.startsWith("-")) return null;
+
+  const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
+  let version = "unknown";
+  try {
+    version = JSON.parse(readFileSync(join(packageRoot, "package.json"), "utf8")).version;
+  } catch {
+    // fall through with "unknown"
+  }
+
+  switch (arg) {
+    case "--version":
+    case "-v":
+      console.log(version);
+      return 0;
+
+    case "--health-check": {
+      const nodeMajor = parseInt(process.versions.node.split(".")[0], 10);
+      const embeddedPath = join(packageRoot, "embedded-knowledge");
+      const checks = [
+        { name: `bc-code-intelligence-mcp ${version}`, ok: version !== "unknown" },
+        { name: `Node.js ${process.version} (requires >= 20)`, ok: nodeMajor >= 20 },
+        { name: `Embedded knowledge: ${embeddedPath}`, ok: existsSync(join(embeddedPath, "specialists")) },
+      ];
+      for (const check of checks) {
+        console.log(`${check.ok ? "✅" : "❌"} ${check.name}`);
+      }
+      const healthy = checks.every((c) => c.ok);
+      console.log(healthy ? "Installation looks healthy." : "Installation has problems (see above).");
+      return healthy ? 0 : 1;
+    }
+
+    default:
+      console.error(`Unknown option: ${arg}`);
+      console.error("Usage: bc-code-intelligence-mcp [workspace-path] | --version | --health-check");
+      console.error("For command-line specialist access, use the bc-code-intel CLI.");
+      return 1;
+  }
+}
+
 // Start the server
 async function main() {
+  const flagExitCode = handleCliFlags(process.argv[2]);
+  if (flagExitCode !== null) {
+    process.exit(flagExitCode);
+  }
+
   try {
     // Ultra-early platform diagnostics (before any server initialization)
     console.error("=== Pre-Initialization Platform Check ===");
